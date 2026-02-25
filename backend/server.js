@@ -39,7 +39,7 @@ const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 // --- Middleware ---
 app.use(cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
 app.use(express.json());
@@ -107,6 +107,7 @@ function callPython(data) {
 
 // --- Auth Routes ---
 app.post('/login', async (req, res) => {
+    console.log(`[DEBUG] Login Route Hit: ${req.method} ${req.url}`);
     try {
         const { username, password } = req.body;
         console.log(`[Login Attempt] User: ${username}`);
@@ -288,8 +289,7 @@ app.get('/attendance/marked-periods', authenticateToken, async (req, res) => {
         const teacher_id = req.user.id || 1;
 
         // Use local date instead of UTC to match Python's dt.now()
-        const d = new Date();
-        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const localDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
         const result = await callPython({
             action: "get_marked_periods",

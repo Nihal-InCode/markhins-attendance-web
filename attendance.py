@@ -2,9 +2,14 @@
 import sqlite3
 from datetime import datetime as dt
 import datetime
-import sys, json, os, re, shutil
 import io
 import html
+import datetime
+
+def get_ist_now():
+    """Returns the current datetime in IST (UTC + 5:30) regardless of server timezone."""
+    # Use UTC then add 5:30 for India
+    return dt.utcnow() + datetime.timedelta(hours=5, minutes=30)
 
 def escape_html(text):
     if not isinstance(text, str):
@@ -3096,7 +3101,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
         subcmd = parts[1].lower() if len(parts) > 1 else "my"
         
         # Get current weekday (0=Monday, 6=Sunday)
-        weekday = dt.now().weekday()
+        weekday = get_ist_now().weekday()
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         today_name = days[weekday]
         
@@ -3796,7 +3801,7 @@ if __name__ == "__main__":
                     result = {"success": True, "data": batch_data}
 
                 elif action == "get_weekly_report":
-                    end_date = dt.now()
+                    end_date = get_ist_now()
                     start_date = end_date - datetime.timedelta(days=7)
                     start_str = start_date.strftime("%Y-%m-%d")
                     end_str = end_date.strftime("%Y-%m-%d")
@@ -3838,7 +3843,7 @@ if __name__ == "__main__":
                     else:
                         p_label = period
                         
-                    weekday = dt.now().weekday() 
+                    weekday = get_ist_now().weekday() 
                     
                     c.execute("""
                         SELECT tt.subject, t.name 
@@ -4020,7 +4025,7 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacher_id", 1)
                     records = data.get("records", [])
 
-                    date = dt.now().strftime("%Y-%m-%d")
+                    date = get_ist_now().strftime("%Y-%m-%d")
 
                     if not period_raw.startswith("P"):
                         p_label = f"P{period_raw}"
@@ -4041,12 +4046,12 @@ if __name__ == "__main__":
                             "error": "Attendance already marked for this period."
                         }
                     else:
-                        weekday = dt.now().weekday()
+                        weekday = get_ist_now().weekday()
                         c.execute("SELECT subject FROM timetable WHERE class=? AND weekday=? AND period_label=? LIMIT 1", (class_id, weekday, p_label))
                         row = c.fetchone()
                         subject_id = row[0] if row else "General"
 
-                        now_ts = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                        now_ts = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
 
                         for rec in records:
                             student_id = rec.get("studentId")
@@ -4174,7 +4179,7 @@ if __name__ == "__main__":
                         if c.fetchone()[0] > 0:
                             result = {"success": False, "error": "Unauthorized: A newer attendance has been marked."}
                         else:
-                            now_ts = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                            now_ts = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         for rec in records:
                             student_id = rec.get("studentId")
                             status_map = {"present": "P", "absent": "A", "sick": "S", "leave": "L"}
@@ -4219,8 +4224,8 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacher_id", 1)
                     period_val = data.get("period", "Extra")
                     records = data.get("records", [])  # [{studentId, rollNo, status}]
-                    date = data.get("date", dt.now().strftime("%Y-%m-%d"))
-                    now_ts = dt.now().strftime("%H:%M")
+                    date = data.get("date", get_ist_now().strftime("%Y-%m-%d"))
+                    now_ts = get_ist_now().strftime("%H:%M")
 
                     # Resolve teacher name for extra_classes.teacher column
                     c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))

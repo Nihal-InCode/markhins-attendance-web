@@ -133,7 +133,7 @@ export default function DashboardPage() {
   async function fetchMarked() {
     if (selectedClass && activeTab === 'attendance') {
       try {
-        const res = await getMarkedPeriods(selectedClass);
+        const res = await getMarkedPeriods(selectedClass, selectedDate);
         setMarkedPeriods(res?.marked_periods || []);
       } catch (err) {
         console.error("Failed to fetch marked periods", err);
