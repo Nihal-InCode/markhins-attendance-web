@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!BASE_URL) {
+    console.error("API base URL is not defined (NEXT_PUBLIC_API_URL is missing)");
+}
 
 /**
  * Generic API request handler with error handling and debug logging.
@@ -17,11 +21,11 @@ export async function apiRequest(endpoint, options = {}) {
 
     // Debug Logging
     if (process.env.NODE_ENV !== 'production') {
-        console.log(`[API Request] ${options.method || 'GET'} ${API_URL}${endpoint}`);
+        console.log(`[API Request] ${options.method || 'GET'} ${BASE_URL}${endpoint}`);
     }
 
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${BASE_URL}${endpoint}`, {
             ...options,
             headers,
         });

@@ -39,7 +39,8 @@ const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 // --- Middleware ---
 app.use(cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT"]
+    methods: ["GET", "POST", "PUT"],
+    credentials: true
 }));
 app.use(express.json());
 
