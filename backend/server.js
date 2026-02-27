@@ -104,6 +104,11 @@ function callPython(data) {
     });
 }
 
+// --- Health Check ---
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
+
 // --- Auth Routes ---
 app.post('/login', async (req, res) => {
     console.log(`[DEBUG] Login Route Hit: ${req.method} ${req.url}`);
