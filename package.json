@@ -1,0 +1,21 @@
+{
+    "name": "markhins-attendance",
+    "version": "1.0.0",
+    "description": "Integrated Attendance System (Web API + Telegram Bot)",
+    "main": "index.cjs",
+    "type": "commonjs",
+    "scripts": {
+        "start": "node backend/server.js & node index.cjs",
+        "api": "node backend/server.js",
+        "bot": "node index.cjs",
+        "dev": "node --watch backend/server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "jsonwebtoken": "^9.0.2",
+        "node-telegram-bot-api": "^0.66.0",
+        "xlsx": "^0.18.5"
+    }
+}
