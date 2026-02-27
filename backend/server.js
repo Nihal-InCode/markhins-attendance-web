@@ -29,7 +29,6 @@ function getLocalIp() {
 
 
 // --- Configuration ---
-const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
@@ -449,13 +448,8 @@ app.post('/attendance/extra', authenticateToken, async (req, res) => {
 
 
 // --- Server Startup ---
+const PORT = process.env.PORT || 8080;
+
 app.listen(PORT, '0.0.0.0', () => {
-    const localIp = getLocalIp();
-    console.log(`-------------------------------------------`);
-    console.log(`🚀 API Server EXTENDED - Port ${PORT}`);
-    console.log(`🔗 Local Address: http://localhost:${PORT}`);
-    console.log(`📡 Network: http://${localIp}:${PORT}`);
-    console.log(`✅ Listening on all interfaces (0.0.0.0)`);
-    console.log(`📡 Integrated with: attendance.py`);
-    console.log(`-------------------------------------------`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

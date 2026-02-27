@@ -24,7 +24,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 PERSISTENT_DB_PATH = "/app/attendance.db"
 LOCAL_DB_NAME = "attendance.db"
 
-# Detect environment and set DB_NAME
+# Detector for Render/Railway/Local
 if os.path.exists("/app"):
     # We are on Railway
     DB_NAME = PERSISTENT_DB_PATH
@@ -34,9 +34,41 @@ if os.path.exists("/app"):
             print("Database initialized from local copy.")
         except Exception as e:
             print(f"Migration warning: {e}")
+elif os.environ.get('RENDER'):
+    # We are on Render
+    # Check if a persistent disk is mounted at /data
+    if os.path.exists("/data"):
+        DB_NAME = "/data/attendance.db"
+    else:
+        DB_NAME = LOCAL_DB_NAME
 else:
     # We are running locally (Windows/Mac)
     DB_NAME = LOCAL_DB_NAME
+
+print("==============================")
+print("Using DB file:", DB_NAME)
+print("DB exists:", os.path.exists(DB_NAME))
+print("Current working dir:", os.getcwd())
+
+# Add probe for data count
+if os.path.exists(DB_NAME):
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        # Check if tables exist before counting
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='students'")
+        if c.fetchone():
+            c.execute("SELECT COUNT(*) FROM students")
+            print("Total students in DB:", c.fetchone()[0])
+            c.execute("SELECT COUNT(*) FROM attendance")
+            print("Total attendance records:", c.fetchone()[0])
+            c.execute("SELECT COUNT(*) FROM period_attendance")
+            print("Total period_attendance records:", c.fetchone()[0])
+        conn.close()
+    except Exception as e:
+        print("Probe error:", e)
+print("==============================")
+
 
 
 # ================================
