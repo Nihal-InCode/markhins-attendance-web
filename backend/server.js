@@ -68,6 +68,7 @@ const authenticateToken = (req, res, next) => {
  */
 function callPython(data) {
     return new Promise((resolve, reject) => {
+        let settled = false;
         console.log(`[API -> Python] Action: ${data.action}`);
 
         const py = spawn(PYTHON_CMD, [PY_SCRIPT], {
@@ -75,28 +76,58 @@ function callPython(data) {
             env: { ...process.env, PYTHONIOENCODING: "utf-8" }
         });
 
+        // 10s Timeout Protection
+        const timeout = setTimeout(() => {
+            if (!settled) {
+                settled = true;
+                py.kill();
+                console.error(`[Python Timeout] Action ${data.action} timed out after 10s`);
+                reject(new Error("Python script execution timed out"));
+            }
+        }, 10000);
+
         let output = "";
         let errorOutput = "";
 
         py.stdout.on("data", (chunk) => { output += chunk.toString(); });
         py.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
 
+        py.on("error", (err) => {
+            if (!settled) {
+                settled = true;
+                clearTimeout(timeout);
+                console.error(`[Python Spawn Error]:`, err);
+                reject(err);
+            }
+        });
+
         py.on("close", (code) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+
             if (code !== 0) {
                 console.error(`[Python Exit ${code}] Error: ${errorOutput}`);
-                return reject(new Error(errorOutput || "Python script execution failed"));
+                return reject(new Error(errorOutput || `Python script failed with code ${code}`));
             }
 
             try {
                 const trimmedOutput = output.trim();
-                console.log(`[Python Output]:`, trimmedOutput);
-                const result = JSON.parse(trimmedOutput);
-                console.log(`[Python Result Success]:`, result.success);
+                // Ensure we only parse the last line if there's multiple (due to print debugs)
+                const lines = trimmedOutput.split('\n');
+                const lastLine = lines[lines.length - 1];
+
+                const result = JSON.parse(lastLine);
                 resolve(result);
             } catch (e) {
-                console.error(`[Parse Error] Raw Output: "${output}"`);
-                reject(new Error("Failed to parse Python JSON output"));
+                console.error(`[Parse Error] Full Output: "${output}"`);
+                console.error(`[Parse Error] Error detail:`, e.message);
+                reject(new Error("Failed to parse Python JSON output. Check server logs for details."));
             }
+        });
+
+        py.stdin.on("error", (err) => {
+            console.error(`[Stdin Error]:`, err);
         });
 
         py.stdin.write(JSON.stringify(data));
