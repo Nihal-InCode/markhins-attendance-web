@@ -20,30 +20,15 @@ def escape_html(text):
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # === Database Path Configuration ===
-# Production path for Railway (Linux)
-PERSISTENT_DB_PATH = "/app/attendance.db"
-LOCAL_DB_NAME = "attendance.db"
+DB_NAME = os.environ.get("WEB_DB_PATH", "/data/web_attendance.db")
 
-# Detector for Render/Railway/Local
-if os.path.exists("/app"):
-    # We are on Railway
-    DB_NAME = PERSISTENT_DB_PATH
-    if not os.path.exists(PERSISTENT_DB_PATH) and os.path.exists(LOCAL_DB_NAME):
-        try:
-            shutil.copy2(LOCAL_DB_NAME, PERSISTENT_DB_PATH)
-            print("Database initialized from local copy.")
-        except Exception as e:
-            print(f"Migration warning: {e}")
-elif os.environ.get('RENDER'):
-    # We are on Render
-    # Check if a persistent disk is mounted at /data
-    if os.path.exists("/data"):
-        DB_NAME = "/data/attendance.db"
-    else:
-        DB_NAME = LOCAL_DB_NAME
-else:
-    # We are running locally (Windows/Mac)
-    DB_NAME = LOCAL_DB_NAME
+# Ensure the directory for the database exists
+db_dir = os.path.dirname(DB_NAME)
+if db_dir and not os.path.exists(db_dir):
+    try:
+        os.makedirs(db_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create database directory {db_dir}: {e}")
 
 print("==============================")
 print("Using DB file:", DB_NAME)
@@ -235,6 +220,16 @@ def run_migrations():
         # Ensure 'created_at' exists in attendance
         try:
             c.execute("ALTER TABLE attendance ADD COLUMN created_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        # === SESSION SYSTEM MIGRATION ===
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN active_session_token TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN last_login TEXT")
         except sqlite3.OperationalError:
             pass
 
@@ -3537,6 +3532,15 @@ if __name__ == "__main__":
                             elif tcto and str(tcto) not in ("None", "", "DEVELOPER"):
                                 role = "Class Teacher"
                             
+                        # Generate and store session token for single active session
+                        import secrets
+                        session_id = secrets.token_hex(16)
+                        now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        c.execute("UPDATE teachers SET active_session_token=?, last_login=? WHERE id=?", 
+                                (session_id, now_str, tid))
+                        conn.commit()
+
                         result = {
                             "success": True,
                             "user": {
@@ -3544,43 +3548,11 @@ if __name__ == "__main__":
                                 "name": tname,
                                 "role": role,
                                 "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal") else None,
-                                "subject": tsubj
+                                "subject": tsubj,
+                                "sessionId": session_id
                             }
                         }
-                    # ── HARDCODED ADMIN BYPASS (login by phone number without username) ──
-                    # Principal = JAFAR NURANI (DB id=3), VP = JUNAID NURANI (DB id=1)
-                    elif password == "8086353583": # Principal - JAFAR NURANI
-                        c.execute("SELECT id, name, class_teacher_of, subject FROM teachers WHERE id=3")
-                        row = c.fetchone()
-                        if row:
-                            result = {
-                                "success": True,
-                                "user": {
-                                    "id": row[0],
-                                    "name": row[1],
-                                    "role": "Principal",
-                                    "class_teacher_of": None,
-                                    "subject": row[3]
-                                }
-                            }
-                        else:
-                            result = {"success": False, "error": "Principal record not found in DB"}
-                    elif password == "9747343262": # Vice Principal - JUNAID NURANI
-                        c.execute("SELECT id, name, class_teacher_of, subject FROM teachers WHERE id=1")
-                        row = c.fetchone()
-                        if row:
-                            result = {
-                                "success": True,
-                                "user": {
-                                    "id": row[0],
-                                    "name": row[1],
-                                    "role": "Vice Principal",
-                                    "class_teacher_of": str(row[2]) if row[2] else "BS3",
-                                    "subject": row[3]
-                                }
-                            }
-                        else:
-                            result = {"success": False, "error": "Vice Principal record not found in DB"}
+                    # ── HARDCODED ADMIN BYPASS REMOVED (Handled in server.js via Env Vars) ──
                     else:
                         result = {"success": False, "error": "Invalid username or password"}
 
@@ -4413,6 +4385,55 @@ if __name__ == "__main__":
                                 "error": None if success else reply,
                                 "notifications": notifications
                             }
+
+                elif action == "get_admin_sessions":
+                    c.execute("SELECT id, name, class_teacher_of, last_login, active_session_token FROM teachers ORDER BY name")
+                    rows = c.fetchall()
+                    sessions = []
+                    for r in rows:
+                        sessions.append({
+                            "id": r[0],
+                            "name": r[1],
+                            "class": r[2],
+                            "last_login": r[3],
+                            "session_active": bool(r[4])
+                        })
+                    result = {"success": True, "sessions": sessions}
+
+                elif action == "revoke_session":
+                    target_tid = data.get("teacher_id")
+                    c.execute("UPDATE teachers SET active_session_token=NULL WHERE id=?", (target_tid,))
+                    conn.commit()
+                    result = {"success": True, "message": "Session revoked successfully"}
+
+                elif action == "get_system_info":
+                    c.execute("SELECT COUNT(*) FROM students")
+                    student_count = c.fetchone()[0]
+                    c.execute("SELECT COUNT(*) FROM teachers")
+                    teacher_count = c.fetchone()[0]
+                    c.execute("SELECT COUNT(DISTINCT date || '-' || period || '-' || class) FROM period_attendance")
+                    total_classes = c.fetchone()[0]
+                    
+                    result = {
+                        "success": True,
+                        "data": {
+                            "dbPath": DB_NAME,
+                            "totalStudents": student_count,
+                            "totalTeachers": teacher_count,
+                            "totalClasses": total_classes,
+                            "currentTime": get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                    }
+
+                elif action == "verify_session":
+                    tid = data.get("teacher_id")
+                    session_id = data.get("sessionId")
+                    c.execute("SELECT active_session_token FROM teachers WHERE id=?", (tid,))
+                    row = c.fetchone()
+                    if row and row[0] == session_id:
+                        result = {"success": True}
+                    else:
+                        result = {"success": False, "error": "Session invalidated"}
 
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}

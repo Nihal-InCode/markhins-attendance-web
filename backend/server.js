@@ -4,6 +4,8 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs').promises;
+const multer = require('multer');
 
 const os = require('os');
 
@@ -32,6 +34,14 @@ function getLocalIp() {
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
+const upload = multer({ dest: 'uploads/' });
+const WEB_DB_PATH = process.env.WEB_DB_PATH || '/data/web_attendance.db';
+
+// Ensure uploads directory exists
+const fsSync = require('fs');
+if (!fsSync.existsSync('uploads/')) {
+    fsSync.mkdirSync('uploads/', { recursive: true });
+}
 
 // ── Feature 3: Edited Attendance system now uses DB state directly ──
 
@@ -56,8 +66,30 @@ const authenticateToken = (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, async (err, user) => {
         if (err) return res.status(403).json({ message: 'Invalid or expired token.' });
+
+        // --- SINGLE ACTIVE SESSION CHECK ---
+        // Skip for system admin (they don't have a DB record)
+        if (user.id !== 'system-admin' && user.role !== 'admin') {
+            try {
+                // Verify session with Python helper
+                const result = await callPython({
+                    action: "verify_session",
+                    teacher_id: user.id,
+                    sessionId: user.sessionId
+                });
+
+                if (!result.success) {
+                    console.warn(`[Auth] Session invalidated for ${user.name} (ID: ${user.id})`);
+                    return res.status(401).json({ message: 'Session expired or logged in from another device.' });
+                }
+            } catch (error) {
+                console.error('[Auth] Session verification error:', error.message);
+                // Fail-safe: allow if script fails but log it
+            }
+        }
+
         req.user = user;
         next();
     });
@@ -142,16 +174,30 @@ app.get('/health', (req, res) => {
 
 // --- Auth Routes ---
 app.post('/login', async (req, res) => {
-    console.log(`[DEBUG] Login Route Hit: ${req.method} ${req.url}`);
     try {
         const { username, password } = req.body;
-        console.log(`[Login Attempt] User: ${username}`);
 
+        // ── SYSTEM ADMIN CHECK (Railway Env Vars) ──
+        const sysAdminUser = process.env.WEB_ADMIN_USERNAME;
+        const sysAdminPass = process.env.WEB_ADMIN_PASSWORD;
+
+        if (sysAdminUser && sysAdminPass && username === sysAdminUser && password === sysAdminPass) {
+            const adminUser = {
+                id: "system-admin",
+                name: "System Administrator",
+                role: "admin",
+                sessionId: require('crypto').randomBytes(16).toString('hex')
+            };
+            const token = jwt.sign(adminUser, JWT_SECRET, { expiresIn: '7d' });
+            console.log(`[Login] System Admin Access Granted`);
+            return res.json({ success: true, user: adminUser, token });
+        }
+
+        // ── Normal Teacher Login ──
+        console.log(`[Login Attempt] User: ${username}`);
         const result = await callPython({ action: "login", username, password });
-        console.log(`[Login Result] Success: ${result.success}`);
 
         if (result.success) {
-            // Token includes id, name, and role for frontend permission checks
             const token = jwt.sign(result.user, JWT_SECRET, { expiresIn: '7d' });
             res.json({ ...result, token });
         } else {
@@ -476,6 +522,106 @@ app.post('/attendance/extra', authenticateToken, async (req, res) => {
             ...req.body,
             teacher_id: req.user.id || 1
         });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Upload and replace Database
+app.post('/admin/upload-db', authenticateToken, upload.single('database'), async (req, res) => {
+    try {
+        // Access Control: Admin only
+        if (req.user.role !== 'admin') {
+            if (req.file) await fs.unlink(req.file.path).catch(() => { });
+            return res.status(403).json({ success: false, message: 'Access denied. Only System Admins can upload database.' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+
+        if (!req.file.originalname.endsWith('.db')) {
+            await fs.unlink(req.file.path).catch(() => { });
+            return res.status(400).json({ success: false, message: 'Invalid file type. Only .db files are allowed.' });
+        }
+
+        // Ensure target directory exists
+        const targetDir = path.dirname(WEB_DB_PATH);
+        try {
+            const fsSync = require('fs');
+            if (!fsSync.existsSync(targetDir)) {
+                fsSync.mkdirSync(targetDir, { recursive: true });
+            }
+        } catch (dirErr) {
+            console.error('[Upload] Dir creation warning:', dirErr.message);
+        }
+
+        // Atomic replacement (move temp file to target path)
+        await fs.rename(req.file.path, WEB_DB_PATH);
+
+        console.log(`[Admin] Database uploaded and replaced by ${req.user.name}`);
+        res.json({ success: true, message: 'Database replaced successfully.' });
+    } catch (error) {
+        console.error(`[Admin Upload Error]:`, error.message);
+        if (req.file) await fs.unlink(req.file.path).catch(() => { });
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Download Database
+app.get('/admin/download-db', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
+
+        const fsSync = require('fs');
+        if (!fsSync.existsSync(WEB_DB_PATH)) {
+            return res.status(404).json({ success: false, message: 'Database file not found.' });
+        }
+
+        res.download(WEB_DB_PATH, 'attendance_export.db');
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Get All Sessions
+app.get('/admin/sessions', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_admin_sessions" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Revoke Session
+app.post('/admin/revoke-session', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { teacherId } = req.body;
+        const result = await callPython({ action: "revoke_session", teacher_id: teacherId });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: System Info
+app.get('/admin/system-info', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_system_info" });
+
+        // Add server uptime
+        if (result.success) {
+            const uptimeSeconds = Math.floor(process.uptime());
+            result.data.serverUptime = `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m ${uptimeSeconds % 60}s`;
+        }
+
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
