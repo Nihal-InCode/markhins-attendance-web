@@ -530,42 +530,79 @@ app.post('/attendance/extra', authenticateToken, async (req, res) => {
 
 // Admin Route: Upload and replace Database
 app.post('/admin/upload-db', authenticateToken, upload.single('database'), async (req, res) => {
+    console.log(`[Admin Upload] Route start: ${new Date().toISOString()}`);
     try {
         // Access Control: Admin only
         if (req.user.role !== 'admin') {
-            if (req.file) await fs.unlink(req.file.path).catch(() => { });
+            console.warn('[Admin Upload] Permission Denied: Not an admin');
+            if (req.file) {
+                console.log('[Admin Upload] Unlinking file after permission denied');
+                await fs.unlink(req.file.path).catch(() => { });
+            }
             return res.status(403).json({ success: false, message: 'Access denied. Only System Admins can upload database.' });
         }
 
+        console.log('[Admin Upload] Auth check passed');
+        console.log('[Admin Upload] After file upload middleware. req.file:', req.file ? {
+            path: req.file.path,
+            originalname: req.file.originalname,
+            size: req.file.size
+        } : 'undefined');
+
         if (!req.file) {
+            console.warn('[Admin Upload] Error: No file uploaded');
             return res.status(400).json({ success: false, message: 'No file uploaded.' });
         }
 
         if (!req.file.originalname.endsWith('.db')) {
+            console.warn('[Admin Upload] Error: Invalid file type');
             await fs.unlink(req.file.path).catch(() => { });
             return res.status(400).json({ success: false, message: 'Invalid file type. Only .db files are allowed.' });
         }
 
         // Ensure target directory exists
         const targetDir = path.dirname(WEB_DB_PATH);
+        console.log(`[Admin Upload] Target directory: ${targetDir}`);
         try {
             const fsSync = require('fs');
             if (!fsSync.existsSync(targetDir)) {
+                console.log(`[Admin Upload] Creating target directory...`);
                 fsSync.mkdirSync(targetDir, { recursive: true });
             }
         } catch (dirErr) {
-            console.error('[Upload] Dir creation warning:', dirErr.message);
+            console.error('[Admin Upload] Dir creation warning:', dirErr.message);
         }
 
+        console.log('[Admin Upload] Before writing DB (performing atomic replacement)...');
         // Atomic replacement (move temp file to target path)
-        await fs.rename(req.file.path, WEB_DB_PATH);
+        try {
+            await fs.rename(req.file.path, WEB_DB_PATH);
+        } catch (renameErr) {
+            console.warn('[Admin Upload] Rename failed, probable cross-device mount. Falling back to copy-then-unlink.', renameErr.message);
+            // Fallback for EXDEV or other move issues
+            await fs.copyFile(req.file.path, WEB_DB_PATH);
+            await fs.unlink(req.file.path).catch(() => { });
+        }
 
-        console.log(`[Admin] Database uploaded and replaced by ${req.user.name}`);
-        res.json({ success: true, message: 'Database replaced successfully.' });
+        console.log('[Admin Upload] After writing DB (replacement successful)');
+        console.log(`[Admin Upload] Success: Database uploaded and replaced by ${req.user.name}`);
+
+        // No Python call needed here as DB is now in place for future Python worker calls
+        console.log('[Admin Upload] Before sending response');
+        return res.json({ success: true, message: 'Database replaced successfully.' });
+
     } catch (error) {
-        console.error(`[Admin Upload Error]:`, error.message);
-        if (req.file) await fs.unlink(req.file.path).catch(() => { });
-        res.status(500).json({ success: false, message: error.message });
+        console.error(`[Admin Upload Error]:`, error);
+        if (req.file) {
+            try {
+                await fs.unlink(req.file.path);
+                console.log('[Admin Upload] Cleaned up temp file after error');
+            } catch (unlinkErr) { /* ignore cleanup errors */ }
+        }
+        // Always ensure a response is sent
+        if (!res.headersSent) {
+            return res.status(500).json({ success: false, message: error.message || 'Internal server error during DB upload' });
+        }
     }
 });
 

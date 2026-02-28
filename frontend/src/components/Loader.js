@@ -10,22 +10,24 @@ export default function Loader({
     isFadingOut = false
 }) {
 
+    const triggeredSuccess = React.useRef(false);
+
     useEffect(() => {
-        // When loader unmounts (or just before), check success actions
-        return () => {
+        // Trigger success effects when we start fading out (minimum time has passed & action finished)
+        if (isFadingOut && !triggeredSuccess.current) {
+            triggeredSuccess.current = true;
+
             if (playSuccessSound) {
                 try {
                     const audio = new Audio("/success.mp3");
-                    audio.play().catch(e => console.warn("Sound play blocked or file missing:", e));
-                } catch (err) {
-                    console.warn("Audio Context Error:", err);
-                }
+                    audio.play().catch(e => console.warn("Success sound blocked:", e));
+                } catch (err) { }
             }
             if (vibrate && "vibrate" in navigator) {
                 navigator.vibrate(100);
             }
-        };
-    }, [playSuccessSound, vibrate]);
+        }
+    }, [isFadingOut, playSuccessSound, vibrate]);
 
     return (
         <div className={`loader-container ${isFadingOut ? 'fade-out' : ''}`}>

@@ -34,6 +34,10 @@ export default function LoginTransitionPage() {
         };
         window.addEventListener("popstate", onPopState);
 
+        // Play success sound
+        const audio = new Audio("/success.mp3");
+        audio.play().catch(e => console.warn("Login sound play blocked or file missing:", e));
+
         // Animate in
         const enterTimer = setTimeout(() => setPhase("show"), 50);
 

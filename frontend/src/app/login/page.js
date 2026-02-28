@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { login as loginApi } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -9,11 +10,13 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
+    const { showLoader, hideLoader } = useLoading();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         setLoading(true);
+        showLoader("Verifying credentials...");
 
         try {
             const response = await loginApi(username, password);
@@ -26,6 +29,7 @@ export default function LoginPage() {
             setError(err.message || "Login failed. Please check your credentials.");
         } finally {
             setLoading(false);
+            hideLoader();
         }
     };
 
