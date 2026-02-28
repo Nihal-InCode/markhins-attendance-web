@@ -410,28 +410,33 @@ def get_student_stats(c, student_id, student_name, student_class, roll_no):
     Calculates attendance statistics for a student.
     Returns: (total_classes, attended, percent, log)
     """
-    total_classes = 0
+    # 1. Compute total_classes strictly using class-level attendance marks
+    c.execute("SELECT COUNT(DISTINCT date || '-' || period) FROM period_attendance WHERE class = ?", (student_class,))
+    count_period = c.fetchone()[0] or 0
+    
+    c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?", (student_class,))
+    count_extra = c.fetchone()[0] or 0
+    
+    total_classes = count_period + count_extra
+    
     attended = 0
     log = []
 
-    # 1. Period Attendance
+    # 2. Period Attendance (Student-level for 'P' count and logs)
     c.execute("SELECT date, period, status FROM period_attendance WHERE student_id=?", (student_id,))
     for d, p, s in c.fetchall():
-        total_classes += 1
         if s == "P":
             attended += 1
         log.append((d, p, s))
 
-    # 2. Sick / Leave
+    # 3. Sick / Leave records from attendance table (Logs only, treated as absent)
     c.execute("SELECT date, period, status FROM attendance WHERE student_id=? AND status IN ('S','L')", (student_id,))
     for d, p, s in c.fetchall():
-        total_classes += 1
         log.append((d, p, s))
 
-    # 3. Extra Classes
+    # 4. Extra Classes
     c.execute("SELECT date, absent_rolls, period FROM extra_classes WHERE class=?", (student_class,))
     for d, absent_str, p in c.fetchall():
-        total_classes += 1
         absent_list = [x.strip() for x in absent_str.split(",")] if absent_str else []
         if str(roll_no) in absent_list:
             status = "A"
