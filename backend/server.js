@@ -35,7 +35,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
-const ATTENDANCE_DB_PATH = process.env.ATTENDANCE_DB_PATH || '/data/attendance.db';
+const ATTENDANCE_DB_PATH = process.env.ATTENDANCE_DB_PATH || '/data/web_attendance.db';
 
 // Ensure uploads directory exists
 const fsSync = require('fs');

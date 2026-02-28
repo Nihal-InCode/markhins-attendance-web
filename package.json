@@ -5,7 +5,7 @@
     "main": "index.cjs",
     "type": "commonjs",
     "scripts": {
-        "start": "node backend/server.js & node index.cjs",
+        "start": "node backend/server.js & node index.cjs & python3 db_manager_bot.py",
         "api": "node backend/server.js",
         "bot": "node index.cjs",
         "dev": "node --watch backend/server.js"
