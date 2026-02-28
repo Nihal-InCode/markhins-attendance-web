@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function SettingsPage() {
     const { user, token } = useAuth();
@@ -12,6 +13,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [msg, setMsg] = useState("");
+    const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
         if (!user || user.role !== 'admin') {
@@ -23,6 +25,7 @@ export default function SettingsPage() {
 
     async function fetchData() {
         setLoading(true);
+        showLoader("Fetching system settings...");
         try {
             const [sessRes, infoRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
@@ -34,17 +37,21 @@ export default function SettingsPage() {
             console.error(err);
         } finally {
             setLoading(false);
+            hideLoader();
         }
     }
 
     async function handleRevoke(teacherId) {
         if (!confirm("Are you sure you want to log out this teacher?")) return;
+        showLoader("Revoking session...");
         try {
             await apiRequest("/admin/revoke-session", "POST", { teacherId });
             fetchData();
             setMsg("Session revoked successfully.");
         } catch (err) {
             alert(err.message);
+        } finally {
+            hideLoader();
         }
     }
 
@@ -53,7 +60,7 @@ export default function SettingsPage() {
         if (!file) return;
         if (!confirm("This will REPLACE the web database. Are you sure?")) return;
 
-        setUploading(true);
+        showLoader("Uploading system database...", { showProgress: true, progress: 45 });
         const formData = new FormData();
         formData.append("database", file);
 
@@ -74,6 +81,7 @@ export default function SettingsPage() {
             alert(err.message);
         } finally {
             setUploading(false);
+            hideLoader();
         }
     }
 
@@ -95,7 +103,7 @@ export default function SettingsPage() {
             });
     }
 
-    if (loading) return <div className="p-10 text-center">Loading Settings...</div>;
+    if (loading) return null;
 
     return (
         <div className="min-h-screen bg-gray-50 p-6 font-sans">

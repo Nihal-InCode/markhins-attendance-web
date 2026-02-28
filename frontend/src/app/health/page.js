@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { markHealthStatus, getClasses, getStudents, getSickList, getLeaveList } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 const HEALTH_ACTIONS = [
     { id: 'sick', label: 'Mark Sick', emoji: '💊', color: 'bg-orange-500', desc: 'Unwell' },
@@ -33,6 +34,7 @@ export default function HealthPage() {
 
     const { user } = useAuth();
     const router = useRouter();
+    const { showLoader, hideLoader } = useLoading();
 
     // Role-based logic
     const isPrincipal = user?.role === 'Principal' || user?.role === 'Vice Principal';
@@ -48,11 +50,14 @@ export default function HealthPage() {
         }
 
         async function fetchClasses() {
+            showLoader("Loading classes...");
             try {
                 const data = await getClasses();
                 setClasses(data);
             } catch (err) {
                 setError("Failed to load classes.");
+            } finally {
+                hideLoader();
             }
         }
         fetchClasses();
@@ -65,6 +70,7 @@ export default function HealthPage() {
             return;
         }
         setStudentsLoading(true);
+        showLoader("Loading students...");
         try {
             const data = await getStudents(selectedClass);
             setStudents(data);
@@ -72,6 +78,7 @@ export default function HealthPage() {
             setError("Failed to load students.");
         } finally {
             setStudentsLoading(false);
+            hideLoader();
         }
     };
 
@@ -109,6 +116,7 @@ export default function HealthPage() {
         if (selectedStudents.length === 0 || !selectedAction) return;
 
         setLoading(true);
+        showLoader("Updating status...", { vibrate: true, playSuccessSound: true });
         setError(null);
         setShowConfirm(false);
 
@@ -135,11 +143,13 @@ export default function HealthPage() {
             setError(err.message || "Network error. Please check if server is running.");
         } finally {
             setLoading(false);
+            hideLoader();
         }
     };
 
     const handleViewHealthList = async (type) => {
         setHealthListLoading(true);
+        showLoader(`Fetching ${type} list...`);
         setViewingHealthList(type);
         setHealthListData(null);
         try {
@@ -155,6 +165,7 @@ export default function HealthPage() {
             setViewingHealthList(null);
         } finally {
             setHealthListLoading(false);
+            hideLoader();
         }
     };
 
@@ -300,9 +311,7 @@ export default function HealthPage() {
                             ref={studentListRef}
                             className="max-h-64 overflow-y-auto pr-2 space-y-2 grid grid-cols-1 gap-2 custom-scrollbar"
                         >
-                            {studentsLoading ? (
-                                <div className="p-8 text-center text-gray-300 font-bold animate-pulse">Loading list...</div>
-                            ) : filteredStudents.length > 0 ? (
+                            {studentsLoading ? null : filteredStudents.length > 0 ? (
                                 filteredStudents.map(student => {
                                     const isSelected = selectedStudents.some(s => s.id === student.id);
                                     const isSick = student.health_status === 'S';
@@ -516,12 +525,7 @@ export default function HealthPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
-                            {healthListLoading ? (
-                                <div className="p-12 text-center">
-                                    <div className="animate-spin h-10 w-10 border-4 border-red-100 border-t-red-500 rounded-full mx-auto" />
-                                    <p className="text-xs font-black text-gray-300 uppercase tracking-widest mt-4">Fetching Records...</p>
-                                </div>
-                            ) : healthListData?.health_list?.length > 0 ? (
+                            {healthListLoading ? null : healthListData?.health_list?.length > 0 ? (
                                 healthListData.health_list.map(group => (
                                     <div key={group.class} className="space-y-3">
                                         <div className="flex items-center gap-3 px-2">

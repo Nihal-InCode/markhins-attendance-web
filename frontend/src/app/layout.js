@@ -17,6 +17,8 @@ export const metadata = {
   description: "MARKHINS HUB — Teacher Attendance System",
 };
 
+import { LoadingProvider } from "@/context/LoadingContext";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
@@ -24,9 +26,11 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 min-h-screen`}
       >
         <AuthProvider>
-          <main className="max-w-md mx-auto min-h-screen">
-            {children}
-          </main>
+          <LoadingProvider>
+            <main className="max-w-md mx-auto min-h-screen">
+              {children}
+            </main>
+          </LoadingProvider>
         </AuthProvider>
       </body>
     </html>

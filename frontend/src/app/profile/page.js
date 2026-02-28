@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getMyProfile } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState(null);
@@ -10,9 +11,11 @@ export default function ProfilePage() {
     const [error, setError] = useState("");
     const { user } = useAuth();
     const router = useRouter();
+    const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
         async function fetchProfile() {
+            showLoader("Loading profile...");
             try {
                 const data = await getMyProfile();
                 setProfile(data);
@@ -20,18 +23,13 @@ export default function ProfilePage() {
                 setError("Failed to load profile data.");
             } finally {
                 setLoading(false);
+                hideLoader();
             }
         }
         fetchProfile();
     }, []);
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50/50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
-    }
+    if (loading) return null;
 
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {

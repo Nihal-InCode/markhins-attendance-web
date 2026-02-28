@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getClasses, getStudents, getExtraSubjects, markExtraAttendance } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 // ──────────────────────────────────────────
 // STATUS CONFIG
@@ -32,6 +33,7 @@ const statusConfig = {
 // ──────────────────────────────────────────
 export default function ExtraAttendancePage() {
     const router = useRouter();
+    const { showLoader, hideLoader } = useLoading();
 
     // Setup state
     const [step, setStep] = useState("setup"); // "setup" | "marking" | "success"
@@ -60,6 +62,7 @@ export default function ExtraAttendancePage() {
     // Load classes & subjects on mount
     useEffect(() => {
         async function load() {
+            showLoader("Loading setup data...");
             try {
                 const [clsData, subData] = await Promise.all([
                     getClasses(),
@@ -71,6 +74,7 @@ export default function ExtraAttendancePage() {
                 setSetupError("Failed to load setup data: " + err.message);
             } finally {
                 setLoadingSetup(false);
+                hideLoader();
             }
         }
         load();
@@ -88,6 +92,7 @@ export default function ExtraAttendancePage() {
         if (!effectiveSubject) return setSetupError("Please select or enter a subject.");
         setSetupError("");
         setLoadingStudents(true);
+        showLoader("Loading students...");
 
         try {
             const data = await getStudents(selectedClass);
@@ -102,6 +107,7 @@ export default function ExtraAttendancePage() {
             setSetupError("Failed to load students: " + err.message);
         } finally {
             setLoadingStudents(false);
+            hideLoader();
         }
     };
 
@@ -116,6 +122,7 @@ export default function ExtraAttendancePage() {
     const handleSubmit = async () => {
         if (submitting) return;
         setSubmitting(true);
+        showLoader("Submitting attendance...", { vibrate: true, playSuccessSound: true });
         setSubmitError("");
 
         try {
@@ -143,6 +150,7 @@ export default function ExtraAttendancePage() {
             setSubmitError("Error: " + err.message);
         } finally {
             setSubmitting(false);
+            hideLoader();
         }
     };
 
@@ -215,11 +223,7 @@ export default function ExtraAttendancePage() {
                         </div>
                     </div>
 
-                    {loadingSetup ? (
-                        <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-amber-500 border-t-transparent" />
-                        </div>
-                    ) : (
+                    {loadingSetup ? null : (
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-7 space-y-7">
                             {/* Class */}
                             <div className="space-y-3">
@@ -291,8 +295,8 @@ export default function ExtraAttendancePage() {
                                                 key={p}
                                                 onClick={() => setSelectedPeriod(p)}
                                                 className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border ${selectedPeriod === p
-                                                        ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100"
-                                                        : "bg-gray-50 text-gray-500 border-gray-100 hover:border-amber-200"
+                                                    ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100"
+                                                    : "bg-gray-50 text-gray-500 border-gray-100 hover:border-amber-200"
                                                     }`}
                                             >
                                                 {p}
@@ -421,8 +425,8 @@ export default function ExtraAttendancePage() {
                             onClick={handleSubmit}
                             disabled={submitting}
                             className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${submitting
-                                    ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed"
-                                    : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-100"
+                                ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed"
+                                : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-100"
                                 }`}
                         >
                             {submitting ? "Saving…" : "⚡ Submit Extra Class"}

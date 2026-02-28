@@ -15,6 +15,7 @@ import {
   getLastAttendance,
   getMarkedPeriods
 } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 
 export default function DashboardPage() {
@@ -55,6 +56,7 @@ export default function DashboardPage() {
 
 
   const { logout, user } = useAuth();
+  const { showLoader, hideLoader } = useLoading();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -88,6 +90,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
+      showLoader("Loading dashboard...");
       try {
         const classesRes = await getClasses();
         setClasses(classesRes);
@@ -95,6 +98,7 @@ export default function DashboardPage() {
         setError("Failed to load classes.");
       } finally {
         setLoading(false);
+        hideLoader();
       }
     }
     fetchData();
@@ -159,6 +163,7 @@ export default function DashboardPage() {
 
   const handleResolvePeriod = async (cls, prd) => {
     setResolving(true);
+    // showLoader("Resolving timetable..."); // Optional, might be too frequent
     setResolvedSubject(null);
     try {
       const res = await resolvePeriod(cls, prd);
@@ -167,6 +172,7 @@ export default function DashboardPage() {
       setResolvedSubject({ error: err.message || "No subject scheduled." });
     } finally {
       setResolving(false);
+      // hideLoader();
     }
   };
 
@@ -201,6 +207,7 @@ export default function DashboardPage() {
 
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
+    showLoader("Loading timetable...");
     setTimetableError("");
     try {
       const data = await getFullTimetable(day);
@@ -209,11 +216,13 @@ export default function DashboardPage() {
       setTimetableError("Failed to load timetable. Is the backend running?");
     } finally {
       setLoadingFeature(false);
+      hideLoader();
     }
   };
 
   const fetchDailyReport = async (date) => {
     setLoadingFeature(true);
+    // showLoader("Loading daily report...");
     try {
       const data = await getDailyReport(date);
       setDailyReportData(data);
@@ -221,12 +230,14 @@ export default function DashboardPage() {
       setReportError("Failed to load daily report.");
     } finally {
       setLoadingFeature(false);
+      // hideLoader();
     }
   };
 
   const handleStudentSearch = async () => {
     if (!searchRollNo) return;
     setLoadingFeature(true);
+    showLoader("Searching student...");
     try {
       const data = await getStudentHistory(searchRollNo);
       setStudentHistory(data);
@@ -234,6 +245,7 @@ export default function DashboardPage() {
       alert("Student not found or error loading history.");
     } finally {
       setLoadingFeature(false);
+      hideLoader();
     }
   };
 
@@ -311,11 +323,7 @@ export default function DashboardPage() {
     router.push("/attendance");
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen font-sans">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    </div>
-  );
+  if (loading) return null;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/50 font-sans text-gray-900">
@@ -488,7 +496,7 @@ export default function DashboardPage() {
                 <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${resolvedSubject?.error ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
                   {resolving ? (
                     <div className="flex items-center space-x-3 text-blue-400">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                      <div className="animate-pulse rounded-full h-4 w-4 bg-blue-400"></div>
                       <span className="text-sm font-bold uppercase tracking-widest">Resolving Timetable...</span>
                     </div>
                   ) : resolvedSubject ? (
@@ -657,7 +665,9 @@ export default function DashboardPage() {
             </div>
 
             {loadingFeature ? (
-              <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>
+              <div className="flex justify-center p-20">
+                <div className="text-blue-600 font-bold uppercase tracking-widest text-xs animate-pulse">Loading Content...</div>
+              </div>
             ) : Array.isArray(fullTimetable) && fullTimetable.length > 0 ? (
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-2xl overflow-hidden">
                 <div className="overflow-x-auto no-scrollbar">

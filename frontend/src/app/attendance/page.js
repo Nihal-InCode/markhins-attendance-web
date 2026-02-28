@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getStudents, markAttendance, editLastAttendance } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 
 // ─────────────────────────────────────────────
@@ -107,6 +108,7 @@ export default function AttendancePage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [showConfirm, setShowConfirm] = useState(false);
+    const { showLoader, hideLoader } = useLoading();
     const router = useRouter();
 
     useEffect(() => {
@@ -118,6 +120,7 @@ export default function AttendancePage() {
     }, [router]);
 
     async function fetchStudents(classId, editParams = null) {
+        showLoader("Loading students...");
         try {
             const data = await getStudents(classId);
             setStudents(data);
@@ -160,6 +163,7 @@ export default function AttendancePage() {
             setError("Failed to load students. Please try again.");
         } finally {
             setLoading(false);
+            hideLoader();
         }
     }
 
@@ -177,6 +181,7 @@ export default function AttendancePage() {
 
     const handleSubmit = async () => {
         setSubmitting(true);
+        showLoader(params?.isEdit ? "Updating records..." : "Submitting attendance...", { vibrate: true, playSuccessSound: true });
         setError("");
         try {
             const records = students.map((s) => ({
@@ -217,6 +222,7 @@ export default function AttendancePage() {
             setError("Error: " + err.message);
         } finally {
             setSubmitting(false);
+            hideLoader();
         }
     };
 
@@ -233,11 +239,7 @@ export default function AttendancePage() {
     });
 
 
-    if (loading) return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-    );
+    if (loading) return null;
 
     return (
         <div className="min-h-screen bg-gray-50/50 pb-24 font-sans">

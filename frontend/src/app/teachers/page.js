@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getTeachersList } from "@/lib/api";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function TeachersPage() {
     const [teachers, setTeachers] = useState([]);
@@ -11,9 +12,11 @@ export default function TeachersPage() {
     const [search, setSearch] = useState("");
     const { user } = useAuth();
     const router = useRouter();
+    const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
         async function fetchTeachers() {
+            showLoader("Loading faculty list...");
             try {
                 const data = await getTeachersList();
                 setTeachers(data);
@@ -21,6 +24,7 @@ export default function TeachersPage() {
                 setError("Failed to load teachers list.");
             } finally {
                 setLoading(false);
+                hideLoader();
             }
         }
         fetchTeachers();
@@ -41,13 +45,7 @@ export default function TeachersPage() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50/50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
-    }
+    if (loading) return null;
 
     return (
         <div className="min-h-screen bg-gray-50/50 flex flex-col items-center py-10 px-6 font-sans">
