@@ -62,7 +62,7 @@ export default function SettingsPage() {
 
         showLoader("Uploading system database...", { showProgress: true, progress: 45 });
         const formData = new FormData();
-        formData.append("database", file);
+        formData.append("file", file);
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/upload-db`, {

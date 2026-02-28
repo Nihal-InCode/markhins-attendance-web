@@ -35,7 +35,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
-const WEB_DB_PATH = process.env.WEB_DB_PATH || '/data/web_attendance.db';
+const ATTENDANCE_DB_PATH = process.env.ATTENDANCE_DB_PATH || '/data/attendance.db';
 
 // Ensure uploads directory exists
 const fsSync = require('fs');
@@ -529,7 +529,7 @@ app.post('/attendance/extra', authenticateToken, async (req, res) => {
 });
 
 // Admin Route: Upload and replace Database
-app.post('/admin/upload-db', authenticateToken, upload.single('database'), async (req, res) => {
+app.post('/admin/upload-db', authenticateToken, upload.single('file'), async (req, res) => {
     console.log(`[Admin Upload] Route start: ${new Date().toISOString()}`);
     try {
         // Access Control: Admin only
@@ -561,7 +561,7 @@ app.post('/admin/upload-db', authenticateToken, upload.single('database'), async
         }
 
         // Ensure target directory exists
-        const targetDir = path.dirname(WEB_DB_PATH);
+        const targetDir = path.dirname(ATTENDANCE_DB_PATH);
         console.log(`[Admin Upload] Target directory: ${targetDir}`);
         try {
             const fsSync = require('fs');
@@ -576,11 +576,11 @@ app.post('/admin/upload-db', authenticateToken, upload.single('database'), async
         console.log('[Admin Upload] Before writing DB (performing atomic replacement)...');
         // Atomic replacement (move temp file to target path)
         try {
-            await fs.rename(req.file.path, WEB_DB_PATH);
+            await fs.rename(req.file.path, ATTENDANCE_DB_PATH);
         } catch (renameErr) {
             console.warn('[Admin Upload] Rename failed, probable cross-device mount. Falling back to copy-then-unlink.', renameErr.message);
             // Fallback for EXDEV or other move issues
-            await fs.copyFile(req.file.path, WEB_DB_PATH);
+            await fs.copyFile(req.file.path, ATTENDANCE_DB_PATH);
             await fs.unlink(req.file.path).catch(() => { });
         }
 
@@ -589,7 +589,7 @@ app.post('/admin/upload-db', authenticateToken, upload.single('database'), async
 
         // No Python call needed here as DB is now in place for future Python worker calls
         console.log('[Admin Upload] Before sending response');
-        return res.json({ success: true, message: 'Database replaced successfully.' });
+        return res.json({ success: true, message: 'Database updated successfully' });
 
     } catch (error) {
         console.error(`[Admin Upload Error]:`, error);
@@ -614,11 +614,11 @@ app.get('/admin/download-db', authenticateToken, async (req, res) => {
         }
 
         const fsSync = require('fs');
-        if (!fsSync.existsSync(WEB_DB_PATH)) {
+        if (!fsSync.existsSync(ATTENDANCE_DB_PATH)) {
             return res.status(404).json({ success: false, message: 'Database file not found.' });
         }
 
-        res.download(WEB_DB_PATH, 'attendance_export.db');
+        res.download(ATTENDANCE_DB_PATH, 'attendance_export.db');
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

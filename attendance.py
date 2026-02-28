@@ -20,7 +20,7 @@ def escape_html(text):
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # === Database Path Configuration ===
-DB_NAME = os.environ.get("WEB_DB_PATH", "/data/web_attendance.db")
+DB_NAME = os.environ.get("ATTENDANCE_DB_PATH", "/data/attendance.db")
 
 # Ensure the directory for the database exists
 db_dir = os.path.dirname(DB_NAME)
