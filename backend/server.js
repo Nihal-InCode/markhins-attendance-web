@@ -181,7 +181,7 @@ app.post('/login', async (req, res) => {
         const sysAdminUser = process.env.WEB_ADMIN_USERNAME;
         const sysAdminPass = process.env.WEB_ADMIN_PASSWORD;
 
-        if (sysAdminUser && sysAdminPass && username === sysAdminUser && password === sysAdminPass) {
+        if (sysAdminUser && sysAdminPass && username.toLowerCase() === sysAdminUser.toLowerCase() && password === sysAdminPass) {
             const adminUser = {
                 id: "system-admin",
                 name: "System Administrator",

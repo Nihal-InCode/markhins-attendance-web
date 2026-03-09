@@ -3507,11 +3507,11 @@ if __name__ == "__main__":
 
             try:
                 if action == "login":
-                    username = data.get("username")
+                    username = data.get("username", "").lower().strip()
                     password = str(data.get("password", ""))  # phone number entered by user
 
                     # Query teacher by username
-                    c.execute("SELECT id, name, phone, class_teacher_of, subject FROM teachers WHERE username=?", (username,))
+                    c.execute("SELECT id, name, phone, class_teacher_of, subject FROM teachers WHERE LOWER(username)=?", (username,))
                     teacher = c.fetchone()
                     
                     if teacher and str(teacher[2]).strip() == password.strip():
