@@ -19,6 +19,7 @@ export default function HealthPage() {
     const [selectedClass, setSelectedClass] = useState("");
     const [selectedStudents, setSelectedStudents] = useState([]); // Array of student objects
     const [searchQuery, setSearchQuery] = useState("");
+    const [filterTab, setFilterTab] = useState("all");
     const [selectedAction, setSelectedAction] = useState(null);
 
     const [loading, setLoading] = useState(false);
@@ -95,15 +96,22 @@ export default function HealthPage() {
         fetchStudents();
     }, [selectedClass]);
 
-    // Filter students by search
+    // Filter students by search and tab
     const filteredStudents = useMemo(() => {
-        if (!searchQuery) return students;
-        const q = searchQuery.toLowerCase();
-        return students.filter(s =>
-            s.name.toLowerCase().includes(q) ||
-            s.rollNo.toString().includes(q)
-        );
-    }, [students, searchQuery]);
+        let list = students;
+
+        if (filterTab === 'sick') list = list.filter(s => s.health_status === 'S');
+        if (filterTab === 'leave') list = list.filter(s => s.health_status === 'L');
+
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(s =>
+                s.name.toLowerCase().includes(q) ||
+                s.rollNo.toString().includes(q)
+            );
+        }
+        return list;
+    }, [students, searchQuery, filterTab]);
 
     const toggleStudent = (student) => {
         setSelectedStudents(prev => {
@@ -119,7 +127,7 @@ export default function HealthPage() {
         // ── CROSS-MARKING VALIDATION ──
         let validationError = null;
         for (const student of selectedStudents) {
-            const status = student.healthStatus; // 'S', 'L', or null
+            const status = student.health_status;
 
             if (selectedAction.id === 'cure' && status === 'L') {
                 validationError = `Student ${student.name} is on LEAVE, not SICK. Use 'Mark Return' instead.`;
@@ -267,22 +275,24 @@ export default function HealthPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <button
                                     onClick={() => handleViewHealthList('sick')}
-                                    className="p-6 bg-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
+                                    className="relative p-6 bg-gradient-to-br from-orange-50 to-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group"
                                 >
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-2xl group-hover:scale-110 transition-transform w-fit">💊</span>
+                                    <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">💊</div>
+                                    <div className="relative flex flex-col items-start gap-1 z-10">
+                                        <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-500 flex items-center justify-center text-xl mb-2 shadow-sm">💊</div>
                                         <span className="font-black text-sm text-gray-800">Sick List</span>
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-orange-400">View Active</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-widest text-orange-500">View Active</span>
                                     </div>
                                 </button>
                                 <button
                                     onClick={() => handleViewHealthList('leave')}
-                                    className="p-6 bg-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
+                                    className="relative p-6 bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group"
                                 >
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-2xl group-hover:scale-110 transition-transform w-fit">🏠</span>
+                                    <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">🏠</div>
+                                    <div className="relative flex flex-col items-start gap-1 z-10">
+                                        <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-2 shadow-sm">🏠</div>
                                         <span className="font-black text-sm text-gray-800">Leave List</span>
-                                        <span className="text-[8px] font-black uppercase tracking-widest text-purple-400">Planned absence</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-widest text-purple-500">Planned Absence</span>
                                     </div>
                                 </button>
                             </div>
@@ -323,37 +333,43 @@ export default function HealthPage() {
                         <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
                             <div className="flex justify-between items-end px-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                    Step 2: Select Students ({selectedStudents.length})
+                                    Step 2: Select Students
                                 </label>
-                                {selectedStudents.length > 0 && (
-                                    <button
-                                        onClick={() => setSelectedStudents([])}
-                                        className="text-[10px] font-black text-red-500 uppercase tracking-widest"
-                                    >
-                                        Clear All
-                                    </button>
-                                )}
                             </div>
 
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    placeholder="Search students..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full p-6 pl-14 bg-white border border-gray-100 rounded-[2.5rem] text-lg font-bold text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all"
-                                />
-                                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
+                            <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-md pt-2 pb-3 -mx-2 px-2 space-y-3">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search students..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full p-4 pl-12 bg-white border border-gray-100 rounded-[2rem] text-sm font-bold text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all placeholder:text-gray-300"
+                                    />
+                                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                {/* Filter Tabs */}
+                                <div className="flex gap-1 p-1 bg-white border border-gray-100 rounded-full shadow-sm">
+                                    {['all', 'sick', 'leave'].map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setFilterTab(tab)}
+                                            className={`flex-1 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${filterTab === tab ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            {tab === 'all' ? `All (${students.length})` :
+                                                tab === 'sick' ? `Sick (${students.filter(s => s.health_status === 'S').length})` :
+                                                    `Leave (${students.filter(s => s.health_status === 'L').length})`}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            <div
-                                ref={studentListRef}
-                                className="max-h-[50vh] overflow-y-auto pr-2 space-y-2 grid grid-cols-1 gap-2 custom-scrollbar p-1"
-                            >
+                            <div className="space-y-2 grid grid-cols-1 gap-2 p-1 relative z-10 pb-40">
                                 {studentsLoading ? null : filteredStudents.length > 0 ? (
                                     filteredStudents.map(student => {
                                         const isSelected = selectedStudents.some(s => s.id === student.id);
@@ -361,13 +377,9 @@ export default function HealthPage() {
                                         const isLeave = student.health_status === 'L';
 
                                         let bgClass = 'bg-white border-gray-50 hover:border-gray-200';
-                                        if (isSelected) {
-                                            bgClass = 'bg-red-50 border-red-200 scale-[0.98] shadow-sm ring-2 ring-red-100/50';
-                                        } else if (isSick) {
-                                            bgClass = 'bg-red-50/50 border-red-100 shadow-sm'; // Soft red for sick
-                                        } else if (isLeave) {
-                                            bgClass = 'bg-orange-50/50 border-orange-100 shadow-sm'; // Soft yellow/orange for leave
-                                        }
+                                        if (isSelected) bgClass = 'bg-red-50 border-red-200 scale-[0.98] shadow-sm ring-2 ring-red-100';
+                                        else if (isSick) bgClass = 'bg-red-50/50 border-red-100 shadow-sm';
+                                        else if (isLeave) bgClass = 'bg-orange-50/50 border-orange-100 shadow-sm';
 
                                         return (
                                             <button
@@ -376,22 +388,18 @@ export default function HealthPage() {
                                                 onClick={() => toggleStudent(student)}
                                                 className={`flex items-center gap-4 p-4 rounded-3xl border transition-all text-left group ${bgClass}`}
                                             >
-                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs transition-all ${isSelected ? 'bg-red-500 text-white shadow-lg shadow-red-100' :
+                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs transition-colors ${isSelected ? 'bg-red-500 text-white shadow-lg' :
                                                     isSick ? 'bg-red-100 text-red-600' :
                                                         isLeave ? 'bg-orange-100 text-orange-600' :
-                                                            'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                                                            'bg-gray-100 text-gray-500'
                                                     }`}>
                                                     {student.rollNo}
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-bold text-sm text-gray-800">{student.name}</p>
-                                                        {isSick && (
-                                                            <span className="px-2 py-0.5 bg-red-100 text-[8px] font-black text-red-600 rounded-lg uppercase tracking-widest animate-pulse">Sick</span>
-                                                        )}
-                                                        {isLeave && (
-                                                            <span className="px-2 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-lg uppercase tracking-widest animate-pulse">On Leave</span>
-                                                        )}
+                                                        {isSick && <span className="px-2 py-0.5 bg-red-100 text-[8px] font-black text-red-600 rounded-lg uppercase tracking-widest animate-pulse">Sick</span>}
+                                                        {isLeave && <span className="px-2 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-lg uppercase tracking-widest animate-pulse">On Leave</span>}
                                                     </div>
                                                     <p className="text-[10px] text-gray-400 uppercase font-black">Roll {student.rollNo}</p>
                                                 </div>
@@ -412,61 +420,65 @@ export default function HealthPage() {
                         </section>
                     )}
 
-                    {/* 3. SELECT ACTION */}
-                    {selectedStudents.length > 0 && (
-                        <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                                Step 3: Choose Action
-                            </label>
-                            <div className="grid grid-cols-2 gap-4">
-                                {HEALTH_ACTIONS.map((action) => (
-                                    <button
-                                        key={action.id}
-                                        onClick={() => setSelectedAction(action)}
-                                        className={`p-6 rounded-[2.5rem] border transition-all text-left flex flex-col gap-3 ${selectedAction?.id === action.id
-                                            ? `bg-white border-2 border-red-500 shadow-xl shadow-red-100 scale-[1.02]`
-                                            : 'bg-white border-gray-100 shadow-sm hover:border-gray-200 active:scale-95'
-                                            }`}
-                                    >
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${selectedAction?.id === action.id ? action.color : 'bg-gray-50'
-                                            } transition-colors`}>
-                                            <span className={selectedAction?.id === action.id ? "text-white" : ""}>{action.emoji}</span>
-                                        </div>
-                                        <div>
-                                            <p className={`font-black text-sm ${selectedAction?.id === action.id ? 'text-gray-900' : 'text-gray-800'}`}>
-                                                {action.label}
-                                            </p>
-                                            <p className="text-[8px] font-black uppercase tracking-widest text-gray-300 mt-1">
-                                                {action.desc}
-                                            </p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
                 </div>
             </main>
 
-            {/* FIXED BOTTOM SUBMIT SECTION */}
-            {(selectedStudents.length > 0 && selectedAction) && (
-                <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-40">
-                    <div className="max-w-md mx-auto">
-                        <button
-                            onClick={() => {
-                                if (selectedStudents.length === 0 || !selectedAction || loading) return;
-                                setTimeout(() => setShowConfirm(true), 1300);
-                            }}
-                            disabled={selectedStudents.length === 0 || !selectedAction || loading}
-                            className={`btn-submit-premium group w-full ${selectedStudents.length === 0 || !selectedAction || loading ? 'opacity-30 grayscale' : ''}`}
-                        >
-                            <span className="txt">Apply {selectedAction.label}</span>
-                            <span className="txt2">Preparing Confirmation...</span>
-                            <div className="loader-container">
-                                <div className="loader"></div>
-                            </div>
-                        </button>
+            {/* FLOATING ACTION BOTTOM BAR */}
+            {selectedStudents.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)] z-40 rounded-t-[2.5rem] animate-in slide-in-from-bottom-full duration-300">
+                    <div className="max-w-md mx-auto p-5 pb-8 space-y-4">
+                        <div className="flex justify-between items-center px-2">
+                            <h3 className="font-black text-gray-800 text-lg flex items-center">
+                                <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-[11px] mr-2 shadow-sm">{selectedStudents.length}</span>
+                                Selected
+                            </h3>
+                            <button onClick={() => setSelectedStudents([])} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors">
+                                Clear Selection
+                            </button>
+                        </div>
+
+                        {/* Selected Chips */}
+                        <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 no-scrollbar px-2 -mx-2">
+                            {selectedStudents.map(s => (
+                                <div key={s.id} className="flex-none bg-white border border-gray-200 shadow-sm text-gray-700 pl-4 pr-1 py-1.5 rounded-full text-xs font-bold flex items-center gap-2">
+                                    {s.name}
+                                    <button onClick={(e) => { e.stopPropagation(); toggleStudent(s); }} className="w-6 h-6 rounded-full bg-gray-50 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-gray-400 transition-colors">
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Quick Actions Grid */}
+                        <div className="grid grid-cols-4 gap-2 bg-gray-50/50 p-2 rounded-[2rem] border border-gray-100">
+                            {HEALTH_ACTIONS.map(action => {
+                                const isTargeted = (action.id === 'cure' && selectedStudents.some(s => s.health_status === 'S')) ||
+                                    (action.id === 'return' && selectedStudents.some(s => s.health_status === 'L')) ||
+                                    (action.id === 'sick' && selectedStudents.every(s => !s.health_status)) ||
+                                    (action.id === 'leave' && selectedStudents.every(s => !s.health_status));
+
+                                return (
+                                    <button
+                                        key={action.id}
+                                        onClick={() => {
+                                            setSelectedAction(action);
+                                            setTimeout(() => setShowConfirm(true), 100);
+                                        }}
+                                        className="relative flex flex-col items-center justify-center gap-2 p-3 rounded-[1.5rem] hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all active:scale-95 group"
+                                    >
+                                        {isTargeted && (
+                                            <div className="absolute top-2 right-3 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping z-10" />
+                                        )}
+                                        <div className={`w-12 h-12 rounded-[1.25rem] flex items-center justify-center text-2xl shadow-sm group-hover:shadow-md transition-shadow ${action.color} text-white`}>
+                                            {action.emoji}
+                                        </div>
+                                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-wide leading-tight text-center">
+                                            {action.label.replace('Mark ', '')}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
@@ -486,31 +498,21 @@ export default function HealthPage() {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex flex-col items-center gap-6 mt-12 pb-4 scale-90">
-                            <button onClick={handleSubmit} disabled={loading} className="button group/ubtn">
-                                <div className="bg"></div>
-                                <div className="wrap">
-                                    <div className="outline"></div>
-                                    <div className="content">
-                                        <div className="char">
-                                            <span data-label="تأكيد" className="text-3xl" style={{ "--i": 1 }}>تأكيد</span>
-                                        </div>
-                                        <div className="icon">
-                                            <div></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <svg viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="path">
-                                    <path d="M213 18C213 18 206 6 186.5 6C167 6 33.5 6 33.5 6C14 6 7 18 7 18C7 18 7 31 7 40C7 49 7 62 7 62C7 62 14 74 33.5 74C53 74 186.5 74 186.5 74C206 74 213 62 213 62C213 62 213 49 213 40C213 31 213 18 213 18Z" stroke="white" strokeWidth="3"></path>
-                                </svg>
-                                <svg viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="splash">
-                                    <path d="M100.5 6C100.5 6 81.5 6 62 6C42.5 6 23.5 6 23.5 6C10.5 6 7 18 7 18C7 18 7 31 7 40" stroke="white" strokeWidth="3"></path>
-                                    <path d="M7 62C7 62 10.5 74 23.5 74C36.5 74 100.5 74 100.5 74" stroke="white" strokeWidth="3"></path>
-                                </svg>
+                        <div className="flex flex-col items-center gap-4 mt-8 pb-4">
+                            <button
+                                onClick={handleSubmit}
+                                disabled={loading}
+                                className={`w-full py-5 rounded-[2rem] text-white font-black text-sm uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 ${selectedAction.color} hover:brightness-110`}
+                            >
+                                {loading ? 'Processing...' : 'Confirm Action'}
                             </button>
 
-                            <button onClick={() => setShowConfirm(false)} className="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors">
-                                Wait, Go Back
+                            <button
+                                onClick={() => setShowConfirm(false)}
+                                disabled={loading}
+                                className="w-full py-4 rounded-[2rem] bg-gray-50 text-gray-500 font-bold text-xs uppercase tracking-widest hover:bg-gray-100 transition-colors"
+                            >
+                                Cancel
                             </button>
                         </div>
                     </div>
@@ -621,303 +623,6 @@ export default function HealthPage() {
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #eee; border-radius: 10px; }
                 .animate-bounce-short { animation: bounce-short 1s infinite ease-in-out; }
-
-                /* Premium Uiverse Button Styles */
-                .button {
-                    --white: #ffe7ff;
-                    --purple-100: #f4b1fd;
-                    --purple-200: #d190ff;
-                    --purple-300: #c389f2;
-                    --purple-400: #8e26e2;
-                    --purple-500: #5e2b83;
-                    --radius: 24px;
-                    border-radius: var(--radius);
-                    outline: none;
-                    cursor: pointer;
-                    font-size: 23px;
-                    background: transparent;
-                    letter-spacing: -1px;
-                    border: 0;
-                    position: relative;
-                    width: 200px;
-                    height: 70px;
-                    transform: rotate(353deg) skewX(4deg);
-                    transition: all 0.3s ease;
-                }
-
-                .bg {
-                    position: absolute;
-                    inset: 0;
-                    border-radius: inherit;
-                    filter: blur(1px);
-                }
-                .bg::before,
-                .bg::after {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    border-radius: calc(var(--radius) * 1.1);
-                    background: var(--purple-500);
-                }
-                .bg::before {
-                    filter: blur(5px);
-                    transition: all 0.3s ease;
-                    box-shadow:
-                        -7px 6px 0 0 rgb(115 75 155 / 40%),
-                        -14px 12px 0 0 rgb(115 75 155 / 30%),
-                        -21px 18px 4px 0 rgb(115 75 155 / 25%),
-                        -28px 24px 8px 0 rgb(115 75 155 / 15%),
-                        -35px 30px 12px 0 rgb(115 75 155 / 12%),
-                        -42px 36px 16px 0 rgb(115 75 155 / 8%),
-                        -56px 42px 20px 0 rgb(115 75 155 / 5%);
-                }
-
-                .wrap {
-                    border-radius: inherit;
-                    overflow: hidden;
-                    height: 100%;
-                    transform: translate(6px, -6px);
-                    padding: 3px;
-                    background: linear-gradient(
-                        to bottom,
-                        var(--purple-100) 0%,
-                        var(--purple-400) 100%
-                    );
-                    position: relative;
-                    transition: all 0.3s ease;
-                }
-
-                .outline {
-                    position: absolute;
-                    overflow: hidden;
-                    inset: 0;
-                    opacity: 0;
-                    outline: none;
-                    border-radius: inherit;
-                    transition: all 0.4s ease;
-                }
-                .outline::before {
-                    content: "";
-                    position: absolute;
-                    inset: 2px;
-                    width: 120px;
-                    height: 300px;
-                    margin: auto;
-                    background: linear-gradient(
-                        to right,
-                        transparent 0%,
-                        white 50%,
-                        transparent 100%
-                    );
-                    animation: spin 3s linear infinite;
-                    animation-play-state: paused;
-                }
-
-                .content {
-                    pointer-events: none;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1;
-                    position: relative;
-                    height: 100%;
-                    gap: 12px;
-                    border-radius: calc(var(--radius) * 0.85);
-                    font-weight: 800;
-                    transition: all 0.3s ease;
-                    background: linear-gradient(
-                        to bottom,
-                        var(--purple-300) 0%,
-                        var(--purple-400) 100%
-                    );
-                    box-shadow:
-                        inset -2px 12px 11px -5px var(--purple-200),
-                        inset 1px -3px 11px 0px rgb(0 0 0 / 35%);
-                }
-
-                .char {
-                    transition: all 0.3s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .char span {
-                    display: block;
-                    color: transparent;
-                    position: relative;
-                }
-                .char span::before,
-                .char span::after {
-                    content: attr(data-label);
-                    position: absolute;
-                    color: var(--white);
-                    text-shadow: -1px 1px 2px var(--purple-500);
-                    left: 0;
-                    right: 0;
-                    text-align: center;
-                }
-                .char span::before {
-                    opacity: 0;
-                }
-                .char {
-                    position: relative;
-                    margin-left: 10px;
-                }
-
-                .icon {
-                    animation: resetArrow 0.8s cubic-bezier(0.7, -0.5, 0.3, 1.2) forwards;
-                    z-index: 10;
-                }
-                .icon div {
-                    position: relative;
-                    width: 20px;
-                    height: 3px;
-                    border-radius: 1px;
-                    background-color: var(--white);
-                    box-shadow: -2px 2px 5px var(--purple-400);
-                    transform: scale(0.9);
-                    background: linear-gradient(to bottom, var(--white), var(--purple-100));
-                    animation: swingArrow 1s ease-in-out infinite;
-                    animation-play-state: paused;
-                }
-                .icon div::before,
-                .icon div::after {
-                    content: "";
-                    position: absolute;
-                    right: 0;
-                    height: 3px;
-                    width: 12px;
-                    border-radius: 1px;
-                    background-color: var(--white);
-                    transform-origin: center right;
-                    transition: all 0.3s ease;
-                }
-                .icon div::before { transform: rotate(44deg); top: 1px; }
-                .icon div::after { bottom: 1px; transform: rotate(316deg); }
-
-                .path {
-                    position: absolute;
-                    inset: 0;
-                    z-index: 12;
-                    stroke-dasharray: 150 480;
-                    stroke-dashoffset: 150;
-                    pointer-events: none;
-                }
-
-                .splash {
-                    position: absolute;
-                    inset: 0;
-                    pointer-events: none;
-                    stroke-dasharray: 60 60;
-                    stroke-dashoffset: 60;
-                    transform: translate(-17%, -31%);
-                    stroke: var(--purple-300);
-                }
-
-                .button:hover .wrap { transform: translate(8px, -8px); }
-                .button:hover .outline { opacity: 1; }
-                .button:hover .outline::before { animation-play-state: running; }
-                .button:active .wrap { transform: translate(3px, -3px); }
-
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                @keyframes swingArrow { 50% { transform: translateX(5px) scale(0.9); } }
-                @keyframes resetArrow { 0% { transform: translateX(-128px); } 100% { transform: translateX(0); } }
-                @keyframes charAppear {
-                    0% { transform: translateY(50%); opacity: 0; filter: blur(20px); }
-                    100% { transform: translateY(0); opacity: 1; filter: blur(0); }
-                }
-
-                /* KINGFRESS Style Button - Submit Attendance */
-                .btn-submit-premium {
-                    background-color: transparent;
-                    width: 100%;
-                    max-width: 18rem;
-                    height: 4.5rem;
-                    border: 3px solid #1abc9c;
-                    border-radius: 2.25rem;
-                    font-weight: 900;
-                    text-transform: uppercase;
-                    color: #1abc9c;
-                    padding: 2px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    position: relative;
-                    overflow: hidden;
-                    cursor: pointer;
-                    transition: all .4s ease-in-out;
-                    outline: none;
-                }
-
-                .btn-submit-premium .txt {
-                    transition: .4s ease-in-out;
-                    position: absolute;
-                    font-size: 1.1rem;
-                    letter-spacing: 0.05em;
-                }
-
-                .btn-submit-premium .txt2 {
-                    transform: translateY(2rem) scale(0);
-                    color: white;
-                    position: absolute;
-                    font-size: 0.9rem;
-                    font-weight: 900;
-                }
-
-                .btn-submit-premium .loader-container {
-                    height: 100%;
-                    width: 100%;
-                    background-color: transparent;
-                    border-radius: inherit;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: -1;
-                    overflow: hidden;
-                }
-
-                .btn-submit-premium .loader-container .loader {
-                    height: 100%;
-                    width: 100%;
-                    background-color: #1abc9c;
-                    border-radius: inherit;
-                    transform: translateX(-20rem);
-                }
-
-                .btn-submit-premium:focus {
-                    transition: .4s ease-in-out .4s;
-                    animation: scaling 1.5s ease-in-out 0s 1 both;
-                    border-color: #1abc9c;
-                }
-
-                .btn-submit-premium:focus .txt {
-                    position: absolute;
-                    transform: translateY(-5rem);
-                    transition: .4s ease-in-out;
-                }
-
-                .btn-submit-premium:focus .txt2 {
-                    transform: translateY(0) scale(1);
-                    transition: .3s ease-in-out 1.2s;
-                }
-
-                .btn-submit-premium:focus .loader {
-                    display: block;
-                    transform: translate(0);
-                    transition: .8s cubic-bezier(0,.4,1,.28) .4s;
-                    animation: loading;
-                }
-
-                @keyframes scaling {
-                    20% { height: 2rem; }
-                    80% { height: 2rem; }
-                    100% { height: 4.5rem; }
-                }
-
-                @keyframes loading {
-                    0% { transform: translateX(-20rem); }
-                    100% { transform: translateX(0); }
-                }
             `}</style>
         </div>
     );
