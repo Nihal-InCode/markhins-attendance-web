@@ -2,17 +2,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { getMyProfile } from "@/lib/api";
+import { getMyProfile, updateCredentials } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
     const { user } = useAuth();
     const router = useRouter();
     const { showLoader, hideLoader } = useLoading();
+    const [showModal, setShowModal] = useState(false);
+    const [formData, setFormData] = useState({ username: "", password: "" });
+    const [successMsg, setSuccessMsg] = useState("");
 
     useEffect(() => {
         async function fetchProfile() {
@@ -20,6 +23,7 @@ export default function ProfilePage() {
             try {
                 const data = await getMyProfile();
                 setProfile(data);
+                setFormData({ username: data.username || "", password: "" });
             } catch (err) {
                 setError("Failed to load profile data.");
             } finally {
@@ -29,6 +33,37 @@ export default function ProfilePage() {
         }
         fetchProfile();
     }, []);
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        setSuccessMsg("");
+        setError("");
+
+        if (!formData.username || !formData.password) {
+            setError("Both fields are required.");
+            return;
+        }
+
+        showLoader("Updating credentials...");
+        try {
+            const res = await updateCredentials(formData);
+            if (res.success) {
+                setSuccessMsg("Credentials updated! Use your new password next time.");
+                playSound('uploadSuccess');
+                setShowModal(false);
+                // Refresh profile to show new username
+                const data = await getMyProfile();
+                setProfile(data);
+            } else {
+                throw new Error(res.error || "Update failed");
+            }
+        } catch (err) {
+            setError(err.message);
+            playSound('error');
+        } finally {
+            hideLoader();
+        }
+    };
 
     if (loading) return <PencilLoader />;
 
@@ -129,14 +164,86 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <button
-                    onClick={() => router.push("/")}
-                    className="w-full py-5 rounded-3xl bg-gray-900 text-white font-black uppercase tracking-widest text-sm shadow-xl hover:bg-black transition-all active:scale-[0.98]"
-                >
-                    Back to Dashboard
-                </button>
+                {successMsg && (
+                    <div className="p-4 bg-green-100 text-green-700 rounded-2xl font-bold text-center text-sm anim-fade-in shadow-sm border border-green-200">
+                        {successMsg}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="p-4 bg-red-100 text-red-700 rounded-2xl font-bold text-center text-sm anim-fade-in shadow-sm border border-red-200">
+                        {error}
+                    </div>
+                )}
+
+                <div className="space-y-4 pt-4">
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="w-full py-5 rounded-[2rem] bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                        <span>🔑</span> Change Login Account
+                    </button>
+
+                    <button
+                        onClick={() => router.push("/")}
+                        className="w-full py-5 rounded-[2rem] bg-gray-900 text-white font-black uppercase tracking-widest text-xs shadow-xl hover:bg-black transition-all active:scale-[0.98]"
+                    >
+                        Back to Dashboard
+                    </button>
+                </div>
 
             </div>
+
+            {/* Change Credentials Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Update Account</h2>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Set new username & password</p>
+
+                        <form onSubmit={handleUpdate} className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">New Username</label>
+                                <input
+                                    type="text"
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    className="w-full bg-gray-50 border border-gray-100 p-4 rounded-3xl font-bold text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                                    placeholder="Username"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">New Password</label>
+                                <input
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    className="w-full bg-gray-50 border border-gray-100 p-4 rounded-3xl font-bold text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                                    placeholder="Enter new password"
+                                />
+                                <p className="text-[9px] font-bold text-amber-500 px-1 italic">* Password is your new login key.</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="py-4 rounded-3xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="py-4 rounded-3xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

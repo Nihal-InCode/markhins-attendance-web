@@ -349,6 +349,21 @@ app.get('/teachers', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/profile/update-credentials', authenticateToken, async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const result = await callPython({
+            action: "update_credentials",
+            teacher_id: req.user.id,
+            username,
+            password
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/mark-attendance', authenticateToken, async (req, res) => {
     try {
         const teacher_id = req.user.id || 1;

@@ -485,8 +485,8 @@ export default function DashboardPage() {
                           <>
                             {/* Horizontal Rectangle Seal */}
                             <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-end pb-1.5 pointer-events-none">
-                              <div className="bg-red-500/10 border border-red-200/50 backdrop-blur-[2px] px-1.5 py-0.5 rounded-md transform rotate-[-4deg] shadow-sm">
-                                <span className="text-[5px] font-black text-red-600 uppercase tracking-widest whitespace-nowrap block max-w-[50px] overflow-hidden text-ellipsis">
+                              <div className="bg-emerald-500/10 border border-emerald-200/50 backdrop-blur-[2px] px-1.5 py-0.5 rounded-md transform rotate-[-4deg] shadow-sm">
+                                <span className="text-[5px] font-black text-emerald-600 uppercase tracking-widest whitespace-nowrap block max-w-[50px] overflow-hidden text-ellipsis">
                                   {teacherName}
                                 </span>
                               </div>

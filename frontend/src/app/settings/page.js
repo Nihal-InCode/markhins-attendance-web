@@ -15,6 +15,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [msg, setMsg] = useState("");
+    const [error, setError] = useState("");
     const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
@@ -27,16 +28,21 @@ export default function SettingsPage() {
 
     async function fetchData() {
         setLoading(true);
+        setMsg("");
+        setError("");
         showLoader("Fetching system settings...");
         try {
             const [sessRes, infoRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info")
             ]);
+
+            // apiRequest already unwraps .data if it exists
             setSessions(sessRes.sessions || []);
-            setSystemInfo(infoRes.data || null);
+            setSystemInfo(infoRes || null);
         } catch (err) {
             console.error(err);
+            setError("Failed to load admin data: " + err.message);
         } finally {
             setLoading(false);
             hideLoader();
@@ -47,11 +53,14 @@ export default function SettingsPage() {
         if (!confirm("Are you sure you want to log out this teacher?")) return;
         showLoader("Revoking session...");
         try {
-            await apiRequest("/admin/revoke-session", "POST", { teacherId });
+            await apiRequest("/admin/revoke-session", {
+                method: "POST",
+                body: JSON.stringify({ teacherId })
+            });
             fetchData();
             setMsg("Session revoked successfully.");
         } catch (err) {
-            alert(err.message);
+            setError(err.message);
         } finally {
             hideLoader();
         }
@@ -62,6 +71,8 @@ export default function SettingsPage() {
         if (!file) return;
         if (!confirm("This will REPLACE the web database. Are you sure?")) return;
 
+        setUploading(true);
+        setError("");
         showLoader("Uploading system database...", { showProgress: true, progress: 45 });
         const formData = new FormData();
         formData.append("file", file);
@@ -83,7 +94,7 @@ export default function SettingsPage() {
             }
         } catch (err) {
             playSound('error');
-            alert(err.message);
+            setError("Upload Error: " + err.message);
         } finally {
             setUploading(false);
             hideLoader();
@@ -119,7 +130,8 @@ export default function SettingsPage() {
                     <button onClick={() => router.push("/")} className="text-blue-600 font-bold">← Back to Dashboard</button>
                 </div>
 
-                {msg && <div className="p-4 bg-green-100 text-green-700 rounded-2xl font-bold">{msg}</div>}
+                {msg && <div className="p-4 bg-green-100 text-green-700 rounded-2xl font-bold anim-fade-in">{msg}</div>}
+                {error && <div className="p-4 bg-red-100 text-red-700 rounded-2xl font-bold anim-fade-in">{error}</div>}
 
                 {/* System Info */}
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
@@ -180,9 +192,11 @@ export default function SettingsPage() {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Teacher</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</th>
                                     <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Login (IST)</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Last Login (IST)</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
                                     <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                                 </tr>
                             </thead>
@@ -190,9 +204,11 @@ export default function SettingsPage() {
                                 {sessions.map(s => (
                                     <tr key={s.id}>
                                         <td className="px-8 py-5 font-bold text-gray-800">{s.name}</td>
+                                        <td className="px-8 py-5 text-blue-600 font-mono text-xs font-bold bg-blue-50/30">{s.username}</td>
+                                        <td className="px-8 py-5 text-indigo-600 font-mono text-xs font-bold bg-indigo-50/20">{s.password}</td>
                                         <td className="px-8 py-5 text-gray-500 font-medium">{s.class || "-"}</td>
-                                        <td className="px-8 py-5 text-gray-400 text-sm">{s.last_login || "Never"}</td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-8 py-5 text-gray-400 text-sm text-center">{s.last_login || "Never"}</td>
+                                        <td className="px-8 py-5 text-center">
                                             {s.session_active ? (
                                                 <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">Active</span>
                                             ) : (

@@ -4392,7 +4392,7 @@ if __name__ == "__main__":
                             }
 
                 elif action == "get_admin_sessions":
-                    c.execute("SELECT id, name, class_teacher_of, last_login, active_session_token FROM teachers ORDER BY name")
+                    c.execute("SELECT id, name, class_teacher_of, last_login, active_session_token, username, phone FROM teachers ORDER BY name")
                     rows = c.fetchall()
                     sessions = []
                     for r in rows:
@@ -4401,9 +4401,28 @@ if __name__ == "__main__":
                             "name": r[1],
                             "class": r[2],
                             "last_login": r[3],
-                            "session_active": bool(r[4])
+                            "session_active": bool(r[4]),
+                            "username": r[5],
+                            "password": r[6]
                         })
                     result = {"success": True, "sessions": sessions}
+
+                elif action == "update_credentials":
+                    target_tid = data.get("teacher_id")
+                    new_username = str(data.get("username", "")).lower().strip()
+                    new_password = str(data.get("password", "")).strip()
+
+                    if not new_username or not new_password:
+                        result = {"success": False, "error": "Username and password cannot be empty."}
+                    else:
+                        # Check if duplicate username
+                        c.execute("SELECT id FROM teachers WHERE LOWER(username)=? AND id != ?", (new_username, target_tid))
+                        if c.fetchone():
+                            result = {"success": False, "error": "Username already taken."}
+                        else:
+                            c.execute("UPDATE teachers SET username=?, phone=? WHERE id=?", (new_username, new_password, target_tid))
+                            conn.commit()
+                            result = {"success": True, "message": "Credentials updated successfully."}
 
                 elif action == "revoke_session":
                     target_tid = data.get("teacher_id")

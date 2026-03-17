@@ -158,4 +158,8 @@ export const getSickList = () => apiRequest('/health/sick-list');
 export const getLeaveList = () => apiRequest('/health/leave-list');
 
 export const getMyProfile = () => apiRequest('/profile/me');
+export const updateCredentials = (data) => apiRequest('/profile/update-credentials', {
+    method: 'POST',
+    body: JSON.stringify(data)
+});
 export const getTeachersList = () => apiRequest('/teachers');
