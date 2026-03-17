@@ -183,7 +183,7 @@ export default function AttendancePage() {
 
     const handleSubmit = async () => {
         setSubmitting(true);
-        showLoader(params?.isEdit ? "Updating records..." : "Submitting attendance...", { vibrate: true, playSuccessSound: true });
+        showLoader(params?.isEdit ? "Updating records..." : "Submitting attendance...", { vibrate: true });
         setError("");
         try {
             const records = students.map((s) => ({

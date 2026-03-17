@@ -18,7 +18,6 @@ export const metadata = {
 };
 
 import { LoadingProvider } from "@/context/LoadingContext";
-import VolumeToggle from "@/components/VolumeToggle";
 
 export default function RootLayout({ children }) {
   return (
@@ -31,7 +30,6 @@ export default function RootLayout({ children }) {
             <main className="max-w-md mx-auto min-h-screen">
               {children}
             </main>
-            <VolumeToggle />
           </LoadingProvider>
         </AuthProvider>
       </body>

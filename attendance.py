@@ -4144,9 +4144,9 @@ if __name__ == "__main__":
                     date = data.get("date")
 
                     c.execute("""
-                        SELECT DISTINCT pa.period, t.name 
+                        SELECT DISTINCT pa.period, COALESCE(t.name, 'Admin') as name
                         FROM period_attendance pa
-                        JOIN teachers t ON pa.teacher_id = t.id
+                        LEFT JOIN teachers t ON pa.teacher_id = t.id
                         WHERE pa.class=? AND pa.date=?
                     """, (class_id, date))
                     rows = c.fetchall()

@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
+import VolumeToggle from "@/components/VolumeToggle";
 
 
 export default function DashboardPage() {
@@ -361,6 +362,7 @@ export default function DashboardPage() {
                 </svg>
               </button>
             )}
+            <VolumeToggle />
             <button
               onClick={() => router.push("/profile")}
               className="p-2 text-white/70 hover:text-white transition-all bg-white/10 rounded-xl"
@@ -481,18 +483,13 @@ export default function DashboardPage() {
                         <span className="relative z-10">{p.replace('P', '')}</span>
                         {isMarked && (
                           <>
-                            {/* Circular Seal Overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.18] pointer-events-none overflow-hidden p-0.5">
-                              <svg viewBox="0 0 100 100" className="w-full h-full animate-[spin_12s_linear_infinite]">
-                                <defs>
-                                  <path id={`path-${p}`} d="M 50, 50 m -38, 0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" />
-                                </defs>
-                                <text fontSize="11" fontWeight="900" fill="currentColor" letterSpacing="1">
-                                  <textPath xlinkHref={`#path-${p}`} startOffset="0%">
-                                    {`${teacherName.toUpperCase()} • `.repeat(3)}
-                                  </textPath>
-                                </text>
-                              </svg>
+                            {/* Horizontal Rectangle Seal */}
+                            <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-end pb-1.5 pointer-events-none">
+                              <div className="bg-red-500/10 border border-red-200/50 backdrop-blur-[2px] px-1.5 py-0.5 rounded-md transform rotate-[-4deg] shadow-sm">
+                                <span className="text-[5px] font-black text-red-600 uppercase tracking-widest whitespace-nowrap block max-w-[50px] overflow-hidden text-ellipsis">
+                                  {teacherName}
+                                </span>
+                              </div>
                             </div>
                             <span className="text-[6px] font-black uppercase tracking-tighter opacity-40 relative z-10">
                               Marked
