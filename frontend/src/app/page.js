@@ -16,6 +16,7 @@ import {
   getMarkedPeriods
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import PencilLoader from "@/components/PencilLoader";
 
 
 export default function DashboardPage() {
@@ -323,7 +324,7 @@ export default function DashboardPage() {
     router.push("/attendance");
   };
 
-  if (loading) return null;
+  if (loading) return <PencilLoader />;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/50 font-sans text-gray-900">

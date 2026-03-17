@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getStudents, markAttendance, editLastAttendance } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import { playSound } from '@/lib/sound';
+import PencilLoader from "@/components/PencilLoader";
 
 
 // ─────────────────────────────────────────────
@@ -196,8 +198,10 @@ export default function AttendancePage() {
                     date: params.date,
                 });
                 if (result.success) {
+                    playSound('attendanceSuccess');
                     setShowConfirm(true);
                 } else {
+                    playSound('attendanceError');
                     setError(result.error || 'Failed to update attendance.');
                 }
             } else {
@@ -213,8 +217,10 @@ export default function AttendancePage() {
                 }
 
                 if (result.success) {
+                    playSound('attendanceSuccess');
                     setShowConfirm(true);
                 } else {
+                    playSound('attendanceError');
                     setError(result.error || result.message || 'Failed to mark attendance.');
                 }
             }
@@ -239,7 +245,7 @@ export default function AttendancePage() {
     });
 
 
-    if (loading) return null;
+    if (loading) return <PencilLoader />;
 
     return (
         <div className="min-h-screen bg-gray-50/50 pb-24 font-sans">

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { login as loginApi } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import { playSound } from '@/lib/sound';
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -21,11 +22,14 @@ export default function LoginPage() {
         try {
             const response = await loginApi(username, password);
             if (response.token) {
+                playSound('loginSuccess');
                 login(response.token, response.user);
             } else {
+                playSound('loginError');
                 setError(response.error || response.message || "Invalid response from server");
             }
         } catch (err) {
+            playSound('loginError');
             setError(err.message || "Login failed. Please check your credentials.");
         } finally {
             setLoading(false);

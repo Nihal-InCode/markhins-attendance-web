@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getMyProfile } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import PencilLoader from "@/components/PencilLoader";
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState(null);
@@ -29,7 +30,7 @@ export default function ProfilePage() {
         fetchProfile();
     }, []);
 
-    if (loading) return null;
+    if (loading) return <PencilLoader />;
 
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {

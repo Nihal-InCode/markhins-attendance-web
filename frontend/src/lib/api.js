@@ -4,6 +4,8 @@ if (!BASE_URL) {
     console.error("API base URL is not defined (NEXT_PUBLIC_API_URL is missing)");
 }
 
+import { playSound } from '@/lib/sound';
+
 /**
  * Generic API request handler with error handling and debug logging.
  */
@@ -57,6 +59,7 @@ export async function apiRequest(endpoint, options = {}) {
         return data.data !== undefined ? data.data : data;
     } catch (error) {
         // Handle Network Errors
+        playSound('error');
         if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
             console.error(`[API Network Error] ${endpoint}: Could not connect to backend.`);
             throw new Error('Network error. Please check your internet or if the backend is running.');

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getClasses, getStudents, getExtraSubjects, markExtraAttendance } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import PencilLoader from "@/components/PencilLoader";
 
 // ──────────────────────────────────────────
 // STATUS CONFIG
@@ -223,7 +224,7 @@ export default function ExtraAttendancePage() {
                         </div>
                     </div>
 
-                    {loadingSetup ? null : (
+                    {loadingSetup ? <PencilLoader /> : (
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-7 space-y-7">
                             {/* Class */}
                             <div className="space-y-3">

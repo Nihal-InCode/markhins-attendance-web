@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import { playSound } from '@/lib/sound';
+import PencilLoader from "@/components/PencilLoader";
 
 export default function SettingsPage() {
     const { user, token } = useAuth();
@@ -72,12 +74,15 @@ export default function SettingsPage() {
             });
             const data = await res.json();
             if (data.success) {
+                playSound('uploadSuccess');
                 setMsg("Database uploaded successfully!");
                 fetchData();
             } else {
+                playSound('error');
                 throw new Error(data.message || "Upload failed");
             }
         } catch (err) {
+            playSound('error');
             alert(err.message);
         } finally {
             setUploading(false);
@@ -100,10 +105,11 @@ export default function SettingsPage() {
                 document.body.appendChild(link);
                 link.click();
                 link.parentNode.removeChild(link);
+                playSound('downloadSuccess');
             });
     }
 
-    if (loading) return null;
+    if (loading) return <PencilLoader />;
 
     return (
         <div className="min-h-screen bg-gray-50 p-6 font-sans">

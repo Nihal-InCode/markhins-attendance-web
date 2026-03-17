@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import Loader from '@/components/Loader';
+import PencilLoader from '@/components/PencilLoader';
 
 const LoadingContext = createContext();
 
@@ -20,8 +20,8 @@ export function LoadingProvider({ children }) {
     }, []);
 
     const hideLoader = useCallback(() => {
-        const MIN_TIME = 400; // Step 5: Minimum Display Time
-        const FADE_OUT_DELAY = 300; // New: Delay for fade-out animation
+        const MIN_TIME = 500; // Requirement: Minimum Display Time
+        const FADE_OUT_DELAY = 300; // Delay for fade-out animation
         const elapsed = Date.now() - (startTime || Date.now());
         const remaining = Math.max(0, MIN_TIME - elapsed);
 
@@ -30,24 +30,16 @@ export function LoadingProvider({ children }) {
             setTimeout(() => {
                 setLoading(false);
                 setFading(false); // Reset fading state after animation
-                // Success sound/vibration logic if requested (handled in component or here)
-                if (options.playSuccessSound || options.vibrate) {
-                    // We'll pass a 'success' prop to Loader for a brief moment or trigger here
-                }
             }, FADE_OUT_DELAY); // Wait for fade-out animation to complete
         }, remaining);
-    }, [startTime, options]);
+    }, [startTime]);
 
     return (
         <LoadingContext.Provider value={{ showLoader, hideLoader }}>
             {children}
             {loading && (
-                <Loader
+                <PencilLoader
                     text={loadingText}
-                    showProgress={options.showProgress}
-                    progress={options.progress}
-                    playSuccessSound={options.playSuccessSound}
-                    vibrate={options.vibrate}
                     isFadingOut={fading}
                 />
             )}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getTeachersList } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
+import PencilLoader from "@/components/PencilLoader";
 
 export default function TeachersPage() {
     const [teachers, setTeachers] = useState([]);
@@ -45,7 +46,7 @@ export default function TeachersPage() {
         }
     };
 
-    if (loading) return null;
+    if (loading) return <PencilLoader />;
 
     return (
         <div className="min-h-screen bg-gray-50/50 flex flex-col items-center py-10 px-6 font-sans">

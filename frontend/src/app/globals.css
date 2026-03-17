@@ -345,3 +345,186 @@ button {
     transform: scale(1);
   }
 }
+
+/* ── PENCIL LOADER ── */
+.pencil {
+  display: block;
+  width: 120px;
+  height: 120px;
+  margin: auto;
+  color: #2563eb;
+}
+
+.pencil__body1,
+.pencil__body2,
+.pencil__body3,
+.pencil__eraser,
+.pencil__eraser-skew,
+.pencil__point,
+.pencil__rotate,
+.pencil__stroke {
+  animation-duration: 3s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.pencil__rotate {
+  animation-name: pencilRotate;
+}
+
+.pencil__body1 {
+  animation-name: pencilBody1;
+}
+
+.pencil__body2 {
+  animation-name: pencilBody2;
+}
+
+.pencil__body3 {
+  animation-name: pencilBody3;
+}
+
+.pencil__eraser {
+  animation-name: pencilEraser;
+}
+
+.pencil__eraser-skew {
+  animation-name: pencilEraserSkew;
+}
+
+.pencil__point {
+  animation-name: pencilPoint;
+}
+
+.pencil__stroke {
+  animation-name: pencilStroke;
+}
+
+@keyframes pencilRotate {
+  from {
+    transform: translate(100px, 100px) rotate(0);
+  }
+
+  to {
+    transform: translate(100px, 100px) rotate(720deg);
+  }
+}
+
+@keyframes pencilBody1 {
+
+  from,
+  to {
+    stroke-dashoffset: 402.12;
+    transform: rotate(-90deg);
+  }
+
+  50% {
+    stroke-dashoffset: 201.06;
+    transform: rotate(-225deg);
+  }
+}
+
+@keyframes pencilBody2 {
+
+  from,
+  to {
+    stroke-dashoffset: 351.86;
+    transform: rotate(-90deg);
+  }
+
+  50% {
+    stroke-dashoffset: 175.93;
+    transform: rotate(-225deg);
+  }
+}
+
+@keyframes pencilBody3 {
+
+  from,
+  to {
+    stroke-dashoffset: 289.03;
+    transform: rotate(-90deg);
+  }
+
+  50% {
+    stroke-dashoffset: 144.52;
+    transform: rotate(-225deg);
+  }
+}
+
+@keyframes pencilEraser {
+
+  from,
+  to {
+    transform: rotate(-45deg) translate(49px, 0);
+  }
+
+  50% {
+    transform: rotate(0deg) translate(49px, 0);
+  }
+}
+
+@keyframes pencilEraserSkew {
+
+  from,
+  32.5%,
+  67.5%,
+  to {
+    transform: skewX(0);
+  }
+
+  35%,
+  65% {
+    transform: skewX(-4deg);
+  }
+
+  37.5%,
+  62.5% {
+    transform: skewX(8deg);
+  }
+
+  40%,
+  45%,
+  50%,
+  55%,
+  60% {
+    transform: skewX(-15deg);
+  }
+
+  42.5%,
+  47.5%,
+  52.5%,
+  57.5% {
+    transform: skewX(15deg);
+  }
+}
+
+@keyframes pencilPoint {
+
+  from,
+  to {
+    transform: rotate(-90deg) translate(49px, 0);
+  }
+
+  50% {
+    transform: rotate(-225deg) translate(49px, 0);
+  }
+}
+
+@keyframes pencilStroke {
+  from {
+    stroke-dashoffset: 439.82;
+    transform: rotate(-113deg);
+  }
+
+  50% {
+    stroke-dashoffset: 220;
+    transform: rotate(-113deg);
+  }
+
+  75%,
+  to {
+    stroke-dashoffset: 439.82;
+    transform: rotate(112deg);
+  }
+}
