@@ -155,7 +155,7 @@ export default function HealthPage() {
         }
 
         setLoading(true);
-        showLoader("Updating status...", { vibrate: true, playSuccessSound: true });
+        showLoader("Updating status...", { vibrate: true });
         setError(null);
         setShowConfirm(false);
 
@@ -164,6 +164,7 @@ export default function HealthPage() {
             const result = await markHealthStatus(selectedAction.id, rollNos, selectedClass);
 
             if (result.success) {
+                playSound('attendanceSuccess');
                 setLastResult({
                     action: selectedAction,
                     students: selectedStudents,
@@ -227,7 +228,7 @@ export default function HealthPage() {
     }, [selectedAction, filteredStudents]);
 
     return (
-        <div className="min-h-screen bg-gray-50/50 pb-12 font-sans overflow-x-hidden">
+        <div className="h-screen bg-gray-50/50 flex flex-col font-sans overflow-hidden">
             {/* Header */}
             <header className="bg-white border-b border-gray-100 px-6 py-6 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-md mx-auto flex justify-between items-center">
@@ -246,222 +247,229 @@ export default function HealthPage() {
                 </div>
             </header>
 
-            <main className="max-w-md mx-auto px-6 py-8 space-y-8 animate-in fade-in duration-500">
-                {error && (
-                    <div className="p-5 rounded-[2rem] border bg-red-50 text-red-600 border-red-100 animate-in slide-in-from-top-2">
-                        <div className="flex gap-3 items-center">
-                            <span className="text-xl">⚠️</span>
-                            <p className="text-sm font-bold">{error}</p>
-                        </div>
-                    </div>
-                )}
-
-                {/* CAMPUS HEALTH OVERVIEW (ANALYTICS) - Only for Principal/CT */}
-                {(isPrincipal || isClassTeacher) && (
-                    <section className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                            Campus Health Overview
-                        </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={() => handleViewHealthList('sick')}
-                                className="p-6 bg-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
-                            >
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-2xl group-hover:scale-110 transition-transform w-fit">💊</span>
-                                    <span className="font-black text-sm text-gray-800">Sick List</span>
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-orange-400">View Active</span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => handleViewHealthList('leave')}
-                                className="p-6 bg-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
-                            >
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-2xl group-hover:scale-110 transition-transform w-fit">🏠</span>
-                                    <span className="font-black text-sm text-gray-800">Leave List</span>
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-purple-400">Planned absence</span>
-                                </div>
-                            </button>
-                        </div>
-                    </section>
-                )}
-
-                {/* 1. SELECT CLASS */}
-                {(isPrincipal || !isClassTeacher) ? (
-                    <section className="space-y-3">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                            Step 1: Select Class {isPrincipal && "(Admin View)"}
-                        </label>
-                        <select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className="w-full p-6 bg-white border border-gray-100 rounded-[2.5rem] text-lg font-black text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all"
-                        >
-                            <option value="">Select a class...</option>
-                            {classes.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </section>
-                ) : (
-                    <section className="space-y-3">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                            Managing Class
-                        </label>
-                        <div className="w-full p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex items-center justify-between">
-                            <span className="text-xl font-black text-red-600">{selectedClass}</span>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-red-400">Class Teacher</span>
-                        </div>
-                    </section>
-                )}
-
-                {/* 2. SELECT STUDENTS */}
-                {selectedClass && (
-                    <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                        <div className="flex justify-between items-end px-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                Step 2: Select Students ({selectedStudents.length})
-                            </label>
-                            {selectedStudents.length > 0 && (
-                                <button
-                                    onClick={() => setSelectedStudents([])}
-                                    className="text-[10px] font-black text-red-500 uppercase tracking-widest"
-                                >
-                                    Clear All
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="Search students..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full p-6 pl-14 bg-white border border-gray-100 rounded-[2.5rem] text-lg font-bold text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all"
-                            />
-                            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
+            <main className="flex-1 overflow-y-auto px-6 py-8 space-y-8 animate-in fade-in duration-500 custom-scrollbar pb-32">
+                <div className="max-w-md mx-auto space-y-8">
+                    {error && (
+                        <div className="p-5 rounded-[2rem] border bg-red-50 text-red-600 border-red-100 animate-in slide-in-from-top-2">
+                            <div className="flex gap-3 items-center">
+                                <span className="text-xl">⚠️</span>
+                                <p className="text-sm font-bold">{error}</p>
                             </div>
                         </div>
+                    )}
 
-                        <div
-                            ref={studentListRef}
-                            className="max-h-64 overflow-y-auto pr-2 space-y-2 grid grid-cols-1 gap-2 custom-scrollbar"
-                        >
-                            {studentsLoading ? null : filteredStudents.length > 0 ? (
-                                filteredStudents.map(student => {
-                                    const isSelected = selectedStudents.some(s => s.id === student.id);
-                                    const isSick = student.health_status === 'S';
-                                    const isLeave = student.health_status === 'L';
-
-                                    let bgClass = 'bg-white border-gray-50 hover:border-gray-200';
-                                    if (isSelected) {
-                                        bgClass = 'bg-red-50 border-red-200 scale-[0.98] shadow-sm ring-2 ring-red-100/50';
-                                    } else if (isSick) {
-                                        bgClass = 'bg-red-50/50 border-red-100 shadow-sm'; // Soft red for sick
-                                    } else if (isLeave) {
-                                        bgClass = 'bg-orange-50/50 border-orange-100 shadow-sm'; // Soft yellow/orange for leave
-                                    }
-
-                                    return (
-                                        <button
-                                            key={student.id}
-                                            id={`student-card-${student.id}`}
-                                            onClick={() => toggleStudent(student)}
-                                            className={`flex items-center gap-4 p-4 rounded-3xl border transition-all text-left group ${bgClass}`}
-                                        >
-                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs transition-all ${isSelected ? 'bg-red-500 text-white shadow-lg shadow-red-100' :
-                                                isSick ? 'bg-red-100 text-red-600' :
-                                                    isLeave ? 'bg-orange-100 text-orange-600' :
-                                                        'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-                                                }`}>
-                                                {student.rollNo}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-bold text-sm text-gray-800">{student.name}</p>
-                                                    {isSick && (
-                                                        <span className="px-2 py-0.5 bg-red-100 text-[8px] font-black text-red-600 rounded-lg uppercase tracking-widest animate-pulse">Sick</span>
-                                                    )}
-                                                    {isLeave && (
-                                                        <span className="px-2 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-lg uppercase tracking-widest animate-pulse">On Leave</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-[10px] text-gray-400 uppercase font-black">Roll {student.rollNo}</p>
-                                            </div>
-                                            {isSelected && (
-                                                <div className="text-red-500 mr-2 animate-in zoom-in duration-200">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })
-                            ) : (
-                                <div className="p-8 text-center text-gray-400 font-bold">No results.</div>
-                            )}
-                        </div>
-                    </section>
-                )}
-
-                {/* 3. SELECT ACTION */}
-                {selectedStudents.length > 0 && (
-                    <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                            Step 3: Choose Action
-                        </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            {HEALTH_ACTIONS.map((action) => (
+                    {/* CAMPUS HEALTH OVERVIEW (ANALYTICS) - Only for Principal/CT */}
+                    {(isPrincipal || isClassTeacher) && (
+                        <section className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
+                                Campus Health Overview
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
                                 <button
-                                    key={action.id}
-                                    onClick={() => setSelectedAction(action)}
-                                    className={`p-6 rounded-[2.5rem] border transition-all text-left flex flex-col gap-3 ${selectedAction?.id === action.id
-                                        ? `bg-white border-2 border-red-500 shadow-xl shadow-red-100 scale-[1.02]`
-                                        : 'bg-white border-gray-100 shadow-sm hover:border-gray-200 active:scale-95'
-                                        }`}
+                                    onClick={() => handleViewHealthList('sick')}
+                                    className="p-6 bg-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
                                 >
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${selectedAction?.id === action.id ? action.color : 'bg-gray-50'
-                                        } transition-colors`}>
-                                        <span className={selectedAction?.id === action.id ? "text-white" : ""}>{action.emoji}</span>
-                                    </div>
-                                    <div>
-                                        <p className={`font-black text-sm ${selectedAction?.id === action.id ? 'text-gray-900' : 'text-gray-800'}`}>
-                                            {action.label}
-                                        </p>
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-gray-300 mt-1">
-                                            {action.desc}
-                                        </p>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-2xl group-hover:scale-110 transition-transform w-fit">💊</span>
+                                        <span className="font-black text-sm text-gray-800">Sick List</span>
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-orange-400">View Active</span>
                                     </div>
                                 </button>
-                            ))}
-                        </div>
-                    </section>
-                )}
+                                <button
+                                    onClick={() => handleViewHealthList('leave')}
+                                    className="p-6 bg-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 group"
+                                >
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-2xl group-hover:scale-110 transition-transform w-fit">🏠</span>
+                                        <span className="font-black text-sm text-gray-800">Leave List</span>
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-purple-400">Planned absence</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </section>
+                    )}
 
-                {/* 4. SUBMIT */}
-                <div className="pt-4 flex justify-center">
-                    <button
-                        onClick={() => {
-                            if (selectedStudents.length === 0 || !selectedAction || loading) return;
-                            setTimeout(() => setShowConfirm(true), 1300);
-                        }}
-                        disabled={selectedStudents.length === 0 || !selectedAction || loading}
-                        className={`btn-submit-premium group ${selectedStudents.length === 0 || !selectedAction || loading ? 'opacity-30 grayscale' : ''}`}
-                    >
-                        <span className="txt">Apply Status</span>
-                        <span className="txt2">Preparing Confirmation...</span>
-                        <div className="loader-container">
-                            <div className="loader"></div>
-                        </div>
-                    </button>
+                    {/* 1. SELECT CLASS */}
+                    {(isPrincipal || !isClassTeacher) ? (
+                        <section className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
+                                Step 1: Select Class {isPrincipal && "(Admin View)"}
+                            </label>
+                            <select
+                                value={selectedClass}
+                                onChange={(e) => setSelectedClass(e.target.value)}
+                                className="w-full p-6 bg-white border border-gray-100 rounded-[2.5rem] text-lg font-black text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                            >
+                                <option value="">Select a class...</option>
+                                {classes.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </section>
+                    ) : (
+                        <section className="space-y-3">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
+                                Managing Class
+                            </label>
+                            <div className="w-full p-6 bg-red-50 border border-red-100 rounded-[2.5rem] flex items-center justify-between">
+                                <span className="text-xl font-black text-red-600">{selectedClass}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-red-400">Class Teacher</span>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* 2. SELECT STUDENTS */}
+                    {selectedClass && (
+                        <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+                            <div className="flex justify-between items-end px-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                    Step 2: Select Students ({selectedStudents.length})
+                                </label>
+                                {selectedStudents.length > 0 && (
+                                    <button
+                                        onClick={() => setSelectedStudents([])}
+                                        className="text-[10px] font-black text-red-500 uppercase tracking-widest"
+                                    >
+                                        Clear All
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search students..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full p-6 pl-14 bg-white border border-gray-100 rounded-[2.5rem] text-lg font-bold text-gray-800 shadow-sm focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                                />
+                                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div
+                                ref={studentListRef}
+                                className="max-h-[50vh] overflow-y-auto pr-2 space-y-2 grid grid-cols-1 gap-2 custom-scrollbar p-1"
+                            >
+                                {studentsLoading ? null : filteredStudents.length > 0 ? (
+                                    filteredStudents.map(student => {
+                                        const isSelected = selectedStudents.some(s => s.id === student.id);
+                                        const isSick = student.health_status === 'S';
+                                        const isLeave = student.health_status === 'L';
+
+                                        let bgClass = 'bg-white border-gray-50 hover:border-gray-200';
+                                        if (isSelected) {
+                                            bgClass = 'bg-red-50 border-red-200 scale-[0.98] shadow-sm ring-2 ring-red-100/50';
+                                        } else if (isSick) {
+                                            bgClass = 'bg-red-50/50 border-red-100 shadow-sm'; // Soft red for sick
+                                        } else if (isLeave) {
+                                            bgClass = 'bg-orange-50/50 border-orange-100 shadow-sm'; // Soft yellow/orange for leave
+                                        }
+
+                                        return (
+                                            <button
+                                                key={student.id}
+                                                id={`student-card-${student.id}`}
+                                                onClick={() => toggleStudent(student)}
+                                                className={`flex items-center gap-4 p-4 rounded-3xl border transition-all text-left group ${bgClass}`}
+                                            >
+                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs transition-all ${isSelected ? 'bg-red-500 text-white shadow-lg shadow-red-100' :
+                                                    isSick ? 'bg-red-100 text-red-600' :
+                                                        isLeave ? 'bg-orange-100 text-orange-600' :
+                                                            'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                                                    }`}>
+                                                    {student.rollNo}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-sm text-gray-800">{student.name}</p>
+                                                        {isSick && (
+                                                            <span className="px-2 py-0.5 bg-red-100 text-[8px] font-black text-red-600 rounded-lg uppercase tracking-widest animate-pulse">Sick</span>
+                                                        )}
+                                                        {isLeave && (
+                                                            <span className="px-2 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-lg uppercase tracking-widest animate-pulse">On Leave</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-400 uppercase font-black">Roll {student.rollNo}</p>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="text-red-500 mr-2 animate-in zoom-in duration-200">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="p-8 text-center text-gray-400 font-bold">No results.</div>
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* 3. SELECT ACTION */}
+                    {selectedStudents.length > 0 && (
+                        <section className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
+                                Step 3: Choose Action
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                {HEALTH_ACTIONS.map((action) => (
+                                    <button
+                                        key={action.id}
+                                        onClick={() => setSelectedAction(action)}
+                                        className={`p-6 rounded-[2.5rem] border transition-all text-left flex flex-col gap-3 ${selectedAction?.id === action.id
+                                            ? `bg-white border-2 border-red-500 shadow-xl shadow-red-100 scale-[1.02]`
+                                            : 'bg-white border-gray-100 shadow-sm hover:border-gray-200 active:scale-95'
+                                            }`}
+                                    >
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${selectedAction?.id === action.id ? action.color : 'bg-gray-50'
+                                            } transition-colors`}>
+                                            <span className={selectedAction?.id === action.id ? "text-white" : ""}>{action.emoji}</span>
+                                        </div>
+                                        <div>
+                                            <p className={`font-black text-sm ${selectedAction?.id === action.id ? 'text-gray-900' : 'text-gray-800'}`}>
+                                                {action.label}
+                                            </p>
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-gray-300 mt-1">
+                                                {action.desc}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
                 </div>
             </main>
+
+            {/* FIXED BOTTOM SUBMIT SECTION */}
+            {(selectedStudents.length > 0 && selectedAction) && (
+                <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent z-40">
+                    <div className="max-w-md mx-auto">
+                        <button
+                            onClick={() => {
+                                if (selectedStudents.length === 0 || !selectedAction || loading) return;
+                                setTimeout(() => setShowConfirm(true), 1300);
+                            }}
+                            disabled={selectedStudents.length === 0 || !selectedAction || loading}
+                            className={`btn-submit-premium group w-full ${selectedStudents.length === 0 || !selectedAction || loading ? 'opacity-30 grayscale' : ''}`}
+                        >
+                            <span className="txt">Apply {selectedAction.label}</span>
+                            <span className="txt2">Preparing Confirmation...</span>
+                            <div className="loader-container">
+                                <div className="loader"></div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* CONFIRMATION MODAL */}
             {showConfirm && (

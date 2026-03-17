@@ -37,11 +37,11 @@ export function LoadingProvider({ children }) {
                     playSound('attendanceSuccess'); // Default success sound
                 }
                 if (options.vibrate && typeof navigator !== 'undefined' && navigator.vibrate) {
-                    navigator.vibrate(50);
+                    navigator.vibrate(100);
                 }
             }, FADE_OUT_DELAY); // Wait for fade-out animation to complete
         }, remaining);
-    }, [startTime]);
+    }, [startTime, options]);
 
     return (
         <LoadingContext.Provider value={{ showLoader, hideLoader }}>

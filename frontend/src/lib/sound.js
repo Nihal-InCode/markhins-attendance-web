@@ -33,7 +33,13 @@ export function playSound(type) {
         });
 
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate(50);
+            if (type.toLowerCase().includes('success')) {
+                navigator.vibrate([100, 50, 100]); // Noticeable double pulse
+            } else if (type.toLowerCase().includes('error')) {
+                navigator.vibrate([300]); // Single sharp heavy pulse
+            } else {
+                navigator.vibrate(100); // Standard pulse
+            }
         }
 
     } catch (err) {
