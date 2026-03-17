@@ -212,6 +212,7 @@ export default function AttendancePage() {
                 });
 
                 if (result.duplicate) {
+                    playSound('attendanceError');
                     setError(`⚠️ Attendance already marked. Use Edit on Home screen.`);
                     return;
                 }

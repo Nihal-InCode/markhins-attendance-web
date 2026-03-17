@@ -54,6 +54,7 @@ export default function DashboardPage() {
   // Last attendance edit card
   const [lastAttendance, setLastAttendance] = useState(null);
   const [markedPeriods, setMarkedPeriods] = useState([]);
+  const [markedDetails, setMarkedDetails] = useState([]);
 
 
   const { logout, user } = useAuth();
@@ -140,11 +141,13 @@ export default function DashboardPage() {
       try {
         const res = await getMarkedPeriods(selectedClass, selectedDate);
         setMarkedPeriods(res?.marked_periods || []);
+        setMarkedDetails(res?.marked_details || []);
       } catch (err) {
         console.error("Failed to fetch marked periods", err);
       }
     } else if (!selectedClass) {
       setMarkedPeriods([]);
+      setMarkedDetails([]);
     }
   }
 
@@ -460,23 +463,41 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-4 gap-2">
                   {periods.map((p) => {
                     const isMarked = markedPeriods.includes(p);
+                    const markData = markedDetails.find(d => d.period === p);
+                    const teacherName = markData?.teacher || "Marked";
+
                     return (
                       <button
                         key={p}
                         onClick={() => !isMarked && setSelectedPeriod(p)}
                         disabled={isMarked}
-                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-hidden flex flex-col items-center justify-center gap-0.5 ${selectedPeriod === p
+                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-hidden flex flex-col items-center justify-center gap-1 ${selectedPeriod === p
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : isMarked
-                            ? 'bg-red-50 text-red-400 border border-red-100 cursor-not-allowed'
+                            ? 'bg-red-50 text-red-500 border border-red-100 cursor-not-allowed opacity-90'
                             : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
                           }`}
                       >
-                        <span>{p.replace('P', '')}</span>
+                        <span className="relative z-10">{p.replace('P', '')}</span>
                         {isMarked && (
-                          <span className="text-[7px] font-black uppercase tracking-tighter opacity-60">
-                            Marked
-                          </span>
+                          <>
+                            {/* Circular Seal Overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.18] pointer-events-none overflow-hidden p-0.5">
+                              <svg viewBox="0 0 100 100" className="w-full h-full animate-[spin_12s_linear_infinite]">
+                                <defs>
+                                  <path id={`path-${p}`} d="M 50, 50 m -38, 0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" />
+                                </defs>
+                                <text fontSize="11" fontWeight="900" fill="currentColor" letterSpacing="1">
+                                  <textPath xlinkHref={`#path-${p}`} startOffset="0%">
+                                    {`${teacherName.toUpperCase()} • `.repeat(3)}
+                                  </textPath>
+                                </text>
+                              </svg>
+                            </div>
+                            <span className="text-[6px] font-black uppercase tracking-tighter opacity-40 relative z-10">
+                              Marked
+                            </span>
+                          </>
                         )}
                       </button>
                     );

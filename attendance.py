@@ -4139,21 +4139,26 @@ if __name__ == "__main__":
                         result = {"success": True, "data": None}
 
                 elif action == "get_marked_periods":
-                    # --- NEW: Pre-check marked periods for UI assistance ---
+                    # --- NEW: Pre-check marked periods with teacher details for Seal UI ---
                     class_id = data.get("class")
                     date = data.get("date")
 
                     c.execute("""
-                        SELECT DISTINCT period FROM period_attendance
-                        WHERE class=? AND date=?
+                        SELECT DISTINCT pa.period, t.name 
+                        FROM period_attendance pa
+                        JOIN teachers t ON pa.teacher_id = t.id
+                        WHERE pa.class=? AND pa.date=?
                     """, (class_id, date))
                     rows = c.fetchall()
+                    
+                    marked_results = [{"period": r[0], "teacher": r[1]} for r in rows]
                     marked_periods = [r[0] for r in rows]
                     
                     result = {
                         "success": True,
                         "data": {
-                            "marked_periods": marked_periods
+                            "marked_periods": marked_periods,
+                            "marked_details": marked_results
                         }
                     }
 

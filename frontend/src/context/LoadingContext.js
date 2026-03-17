@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { playSound } from '@/lib/sound';
 import PencilLoader from '@/components/PencilLoader';
 
 const LoadingContext = createContext();
@@ -30,6 +31,14 @@ export function LoadingProvider({ children }) {
             setTimeout(() => {
                 setLoading(false);
                 setFading(false); // Reset fading state after animation
+
+                // Play success sound/vibration if requested in options
+                if (options.playSuccessSound) {
+                    playSound('attendanceSuccess'); // Default success sound
+                }
+                if (options.vibrate && typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
             }, FADE_OUT_DELAY); // Wait for fade-out animation to complete
         }, remaining);
     }, [startTime]);

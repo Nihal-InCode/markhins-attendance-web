@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { markHealthStatus, getClasses, getStudents, getSickList, getLeaveList } from "@/lib/api";
+import { playSound } from "@/lib/sound";
 import { useLoading } from "@/context/LoadingContext";
 
 const HEALTH_ACTIONS = [
@@ -115,6 +116,44 @@ export default function HealthPage() {
     const handleSubmit = async () => {
         if (selectedStudents.length === 0 || !selectedAction) return;
 
+        // ── CROSS-MARKING VALIDATION ──
+        let validationError = null;
+        for (const student of selectedStudents) {
+            const status = student.healthStatus; // 'S', 'L', or null
+
+            if (selectedAction.id === 'cure' && status === 'L') {
+                validationError = `Student ${student.name} is on LEAVE, not SICK. Use 'Mark Return' instead.`;
+                break;
+            }
+            if (selectedAction.id === 'return' && status === 'S') {
+                validationError = `Student ${student.name} is SICK, not on LEAVE. Use 'Mark Cure' instead.`;
+                break;
+            }
+            if (selectedAction.id === 'cure' && !status) {
+                validationError = `Student ${student.name} is not marked as Sick. Cannot perform 'Cure'.`;
+                break;
+            }
+            if (selectedAction.id === 'return' && !status) {
+                validationError = `Student ${student.name} is not marked as on Leave. Cannot perform 'Return'.`;
+                break;
+            }
+            // Block marking sick if already leave, etc.
+            if (selectedAction.id === 'sick' && status === 'L') {
+                validationError = `${student.name} is already marked as Leave. Clear Leave status first.`;
+                break;
+            }
+            if (selectedAction.id === 'leave' && status === 'S') {
+                validationError = `${student.name} is already marked as Sick. Clear Sick status first.`;
+                break;
+            }
+        }
+
+        if (validationError) {
+            playSound('error');
+            setError(validationError);
+            return;
+        }
+
         setLoading(true);
         showLoader("Updating status...", { vibrate: true, playSuccessSound: true });
         setError(null);
@@ -136,10 +175,12 @@ export default function HealthPage() {
                 setSelectedAction(null);
                 fetchStudents(); // Refresh student statuses immediately
             } else {
+                playSound('error');
                 const errorMsg = result.error || result.reply || result.message || "Failed to update status.";
                 setError(errorMsg);
             }
         } catch (err) {
+            playSound('error');
             setError(err.message || "Network error. Please check if server is running.");
         } finally {
             setLoading(false);
