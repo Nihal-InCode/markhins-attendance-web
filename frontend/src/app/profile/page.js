@@ -16,6 +16,7 @@ export default function ProfilePage() {
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ username: "", password: "" });
     const [successMsg, setSuccessMsg] = useState("");
+    const [error, setError] = useState("");
 
     useEffect(() => {
         async function fetchProfile() {
