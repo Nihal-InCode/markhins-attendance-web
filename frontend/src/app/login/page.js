@@ -74,19 +74,15 @@ export default function LoginPage() {
                         <div>
                             <div className="flex justify-between items-center mb-2 px-1">
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</label>
-                                <span className="text-[9px] font-bold text-blue-400 bg-blue-50 px-2 py-0.5 rounded-full">Mobile Number</span>
                             </div>
                             <input
                                 type="password"
                                 required
                                 className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 focus:bg-white outline-none transition-all font-bold text-gray-700 placeholder:text-gray-200"
-                                placeholder="Registered Mobile"
+                                placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
-                            <p className="mt-3 text-[9px] font-bold text-gray-400 text-center uppercase tracking-wider">
-                                Password is your registered mobile number
-                            </p>
                         </div>
                     </div>
 
