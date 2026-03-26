@@ -189,6 +189,13 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+
         # 2. MIGRATIONS & SCHEMA UPDATES
         
         # Ensure 'absent_rolls' and 'period' exist in extra_classes
@@ -4448,6 +4455,23 @@ if __name__ == "__main__":
                             "currentTime": get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                     }
+
+                elif action == "get_admin_config":
+                    c.execute("SELECT value FROM system_settings WHERE key='admin_password'")
+                    row = c.fetchone()
+                    result = {
+                        "success": True,
+                        "admin_password": row[0] if row else None
+                    }
+
+                elif action == "update_admin_password":
+                    new_password = data.get("password")
+                    if not new_password:
+                        result = {"success": False, "message": "Password cannot be empty"}
+                    else:
+                        c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('admin_password', ?)", (new_password,))
+                        conn.commit()
+                        result = {"success": True, "message": "Admin password updated successfully"}
 
                 elif action == "verify_session":
                     tid = data.get("teacher_id")

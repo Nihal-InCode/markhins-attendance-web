@@ -177,11 +177,21 @@ app.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // ── SYSTEM ADMIN CHECK (Railway Env Vars) ──
-        const sysAdminUser = process.env.WEB_ADMIN_USERNAME;
-        const sysAdminPass = process.env.WEB_ADMIN_PASSWORD;
+        // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
+        const sysAdminUser = process.env.WEB_ADMIN_USERNAME || "admin";
+        let sysAdminPass = process.env.WEB_ADMIN_PASSWORD;
 
-        if (sysAdminUser && sysAdminPass && username.toLowerCase() === sysAdminUser.toLowerCase() && password === sysAdminPass) {
+        // Check if there is a password set in the database
+        try {
+            const configResult = await callPython({ action: "get_admin_config" });
+            if (configResult.success && configResult.admin_password) {
+                sysAdminPass = configResult.admin_password;
+            }
+        } catch (dbErr) {
+            console.error('[Login] Failed to fetch admin config from DB:', dbErr.message);
+        }
+
+        if (sysAdminPass && username.toLowerCase() === sysAdminUser.toLowerCase() && password === sysAdminPass) {
             const adminUser = {
                 id: "system-admin",
                 name: "System Administrator",
@@ -674,6 +684,19 @@ app.get('/admin/system-info', authenticateToken, async (req, res) => {
             result.data.serverUptime = `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m ${uptimeSeconds % 60}s`;
         }
 
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/update-password', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { password } = req.body;
+        if (!password) return res.status(400).json({ success: false, message: 'Password is required' });
+
+        const result = await callPython({ action: "update_admin_password", password });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

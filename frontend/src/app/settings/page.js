@@ -16,6 +16,9 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false);
     const [msg, setMsg] = useState("");
     const [error, setError] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [updatingPassword, setUpdatingPassword] = useState(false);
     const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
@@ -120,6 +123,43 @@ export default function SettingsPage() {
             });
     }
 
+    async function handlePasswordChange(e) {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setError("Passwords do not match.");
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError("Password must be at least 6 characters.");
+            return;
+        }
+
+        setUpdatingPassword(true);
+        setError("");
+        showLoader("Updating admin password...");
+
+        try {
+            const res = await apiRequest("/admin/update-password", {
+                method: "POST",
+                body: JSON.stringify({ password: newPassword })
+            });
+
+            if (res.success) {
+                playSound('success');
+                setMsg("Admin password updated successfully! Please note this down securely.");
+                setNewPassword("");
+                setConfirmPassword("");
+            } else {
+                throw new Error(res.message || "Failed to update password");
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setUpdatingPassword(false);
+            hideLoader();
+        }
+    }
+
     if (loading) return <PencilLoader />;
 
     return (
@@ -180,6 +220,45 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+                </section>
+
+                {/* System Security */}
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>🔐</span> System Security</h2>
+                    <p className="text-xs text-gray-400 mb-6 font-bold uppercase tracking-wider">Change System Administrative Password</p>
+                    <form onSubmit={handlePasswordChange} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">New Password</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-6 py-4 rounded-2xl border border-gray-50 bg-gray-50/50 outline-none focus:ring-4 focus:ring-blue-100/50 focus:bg-white font-bold transition-all text-sm"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Confirm Password</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full px-6 py-4 rounded-2xl border border-gray-50 bg-gray-50/50 outline-none focus:ring-4 focus:ring-blue-100/50 focus:bg-white font-bold transition-all text-sm"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={updatingPassword}
+                            className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50"
+                        >
+                            Update Security Password
+                        </button>
+                    </form>
                 </section>
 
                 {/* Teacher Sessions */}

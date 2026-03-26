@@ -91,7 +91,7 @@ export default function LoginPage() {
                         disabled={loading}
                         className="w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-blue-100 text-sm font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-50 transition-all active:scale-95"
                     >
-                        {loading ? "Verifying..." : "Login to Console"}
+                        {loading ? "Verifying..." : "Sign In"}
                     </button>
                 </form>
             </div>
