@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -43,12 +43,19 @@ export default function SettingsPage() {
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [timetableEditor, setTimetableEditor] = useState({ classId: "", period: "", teacherId: "", subject: "" });
     const { showLoader, hideLoader } = useLoading();
+    const showLoaderRef = useRef(showLoader);
+    const hideLoaderRef = useRef(hideLoader);
+
+    useEffect(() => {
+        showLoaderRef.current = showLoader;
+        hideLoaderRef.current = hideLoader;
+    }, [showLoader, hideLoader]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         setMsg("");
         setError("");
-        showLoader("Fetching system settings...");
+        showLoaderRef.current("Fetching system settings...");
         try {
             const [sessRes, infoRes, teacherRes, timetableRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
@@ -67,9 +74,9 @@ export default function SettingsPage() {
             setError("Failed to load admin data: " + err.message);
         } finally {
             setLoading(false);
-            hideLoader();
+            hideLoaderRef.current();
         }
-    }, [hideLoader, selectedWeekday, showLoader]);
+    }, [selectedWeekday]);
 
     useEffect(() => {
         if (!user || user.role !== 'admin') {
