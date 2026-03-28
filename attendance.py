@@ -4457,6 +4457,191 @@ if __name__ == "__main__":
                         })
                     result = {"success": True, "sessions": sessions}
 
+                elif action == "get_admin_teachers":
+                    c.execute("""
+                        SELECT id, name, username, phone, class_teacher_of, subject, active_session_token
+                        FROM teachers
+                        ORDER BY name COLLATE NOCASE, username COLLATE NOCASE
+                    """)
+                    rows = c.fetchall()
+                    teachers = []
+                    for r in rows:
+                        tid, name, username, phone, class_teacher_of, subject, active_session_token = r
+                        teachers.append({
+                            "id": tid,
+                            "name": name,
+                            "username": username,
+                            "hasPassword": bool(str(phone or "").strip()),
+                            "passwordStatus": "Has password" if str(phone or "").strip() else "Using default",
+                            "classTeacherOf": class_teacher_of,
+                            "subject": subject,
+                            "sessionActive": bool(active_session_token)
+                        })
+                    result = {"success": True, "data": teachers}
+
+                elif action == "create_teacher":
+                    name = str(data.get("name") or "").strip()
+                    username = str(data.get("username") or "").strip().lower()
+                    password = str(data.get("password") or "").strip()
+
+                    if not name:
+                        result = {"success": False, "message": "Teacher name is required."}
+                    elif not username:
+                        result = {"success": False, "message": "Username is required."}
+                    else:
+                        c.execute("SELECT id FROM teachers WHERE LOWER(username)=?", (username,))
+                        if c.fetchone():
+                            result = {"success": False, "message": "Username already exists."}
+                        else:
+                            c.execute("""
+                                INSERT INTO teachers (name, username, phone, class_teacher_of, subject)
+                                VALUES (?, ?, ?, '', 'General')
+                            """, (name, username, password))
+                            conn.commit()
+                            result = {"success": True, "message": "Teacher created successfully."}
+
+                elif action == "update_teacher":
+                    teacher_id = data.get("teacherId")
+                    name = str(data.get("name") or "").strip()
+                    username = str(data.get("username") or "").strip().lower()
+                    password = data.get("password")
+
+                    if not teacher_id:
+                        result = {"success": False, "message": "Teacher ID is required."}
+                    elif not name:
+                        result = {"success": False, "message": "Teacher name is required."}
+                    elif not username:
+                        result = {"success": False, "message": "Username is required."}
+                    else:
+                        c.execute("SELECT id FROM teachers WHERE id=?", (teacher_id,))
+                        if not c.fetchone():
+                            result = {"success": False, "message": "Teacher not found."}
+                        else:
+                            c.execute("SELECT id FROM teachers WHERE LOWER(username)=? AND id != ?", (username, teacher_id))
+                            if c.fetchone():
+                                result = {"success": False, "message": "Username already exists."}
+                            else:
+                                if password is not None and str(password).strip() != "":
+                                    c.execute("UPDATE teachers SET name=?, username=?, phone=? WHERE id=?", (name, username, str(password).strip(), teacher_id))
+                                else:
+                                    c.execute("UPDATE teachers SET name=?, username=? WHERE id=?", (name, username, teacher_id))
+                                conn.commit()
+                                result = {"success": True, "message": "Teacher updated successfully."}
+
+                elif action == "delete_teacher":
+                    teacher_id = data.get("teacherId")
+
+                    if not teacher_id:
+                        result = {"success": False, "message": "Teacher ID is required."}
+                    else:
+                        c.execute("SELECT id FROM teachers WHERE id=?", (teacher_id,))
+                        if not c.fetchone():
+                            result = {"success": False, "message": "Teacher not found."}
+                        else:
+                            c.execute("DELETE FROM teacher_subjects WHERE teacher_id=?", (teacher_id,))
+                            c.execute("UPDATE timetable SET teacher_id=NULL WHERE teacher_id=?", (teacher_id,))
+                            c.execute("DELETE FROM teachers WHERE id=?", (teacher_id,))
+                            conn.commit()
+                            result = {"success": True, "message": "Teacher deleted successfully."}
+
+                elif action == "get_admin_timetable":
+                    weekday = int(data.get("weekday", 0))
+
+                    c.execute("""
+                        SELECT DISTINCT class FROM (
+                            SELECT class FROM students WHERE class IS NOT NULL AND class != ''
+                            UNION
+                            SELECT class FROM timetable WHERE class IS NOT NULL AND class != ''
+                        )
+                        ORDER BY class
+                    """)
+                    classes = [r[0] for r in c.fetchall()]
+
+                    timetable_rows = []
+                    for cls in classes:
+                        periods_dict = {}
+                        for p in ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]:
+                            c.execute("""
+                                SELECT tt.subject, tt.teacher_id, t.name
+                                FROM timetable tt
+                                LEFT JOIN teachers t ON tt.teacher_id = t.id
+                                WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
+                            """, (cls, weekday, p))
+                            row = c.fetchone()
+                            periods_dict[p] = {
+                                "subject": row[0] if row else "",
+                                "teacherId": row[1] if row else None,
+                                "teacher": row[2] if row else "",
+                            }
+                        timetable_rows.append({"class": cls, "periods": periods_dict})
+
+                    result = {"success": True, "data": timetable_rows}
+
+                elif action == "get_teacher_subject_options":
+                    teacher_id = data.get("teacherId")
+
+                    c.execute("""
+                        SELECT DISTINCT subject FROM (
+                            SELECT subject FROM teacher_subjects WHERE teacher_id=? AND subject IS NOT NULL AND TRIM(subject) != ''
+                            UNION
+                            SELECT subject FROM timetable WHERE teacher_id=? AND subject IS NOT NULL AND TRIM(subject) != ''
+                            UNION
+                            SELECT subject FROM teachers WHERE id=? AND subject IS NOT NULL AND TRIM(subject) != '' AND subject != 'General'
+                        )
+                        ORDER BY subject COLLATE NOCASE
+                    """, (teacher_id, teacher_id, teacher_id))
+                    subjects = [r[0] for r in c.fetchall()]
+                    result = {"success": True, "data": subjects}
+
+                elif action == "update_timetable_period":
+                    class_id = str(data.get("classId") or "").strip()
+                    weekday = data.get("weekday")
+                    period_label = str(data.get("period") or "").strip().upper()
+                    teacher_id = data.get("teacherId")
+                    subject = str(data.get("subject") or "").strip()
+
+                    if not class_id:
+                        result = {"success": False, "message": "Class is required."}
+                    elif weekday is None or weekday == "":
+                        result = {"success": False, "message": "Weekday is required."}
+                    elif not period_label:
+                        result = {"success": False, "message": "Period is required."}
+                    elif not teacher_id or not subject:
+                        c.execute("DELETE FROM timetable WHERE class=? AND weekday=? AND period_label=?", (class_id, int(weekday), period_label))
+                        conn.commit()
+                        result = {"success": True, "message": "Timetable entry cleared."}
+                    else:
+                        c.execute("""
+                            SELECT 1
+                            FROM (
+                                SELECT subject FROM teacher_subjects WHERE teacher_id=?
+                                UNION
+                                SELECT subject FROM timetable WHERE teacher_id=?
+                                UNION
+                                SELECT subject FROM teachers WHERE id=?
+                            )
+                            WHERE TRIM(COALESCE(subject, '')) != '' AND subject=?
+                            LIMIT 1
+                        """, (teacher_id, teacher_id, teacher_id, subject))
+                        if not c.fetchone():
+                            result = {"success": False, "message": "Selected subject is not assigned to this teacher."}
+                        else:
+                            c.execute("SELECT id FROM timetable WHERE class=? AND weekday=? AND period_label=? LIMIT 1", (class_id, int(weekday), period_label))
+                            existing = c.fetchone()
+                            if existing:
+                                c.execute("""
+                                    UPDATE timetable
+                                    SET subject=?, teacher_id=?
+                                    WHERE id=?
+                                """, (subject, teacher_id, existing[0]))
+                            else:
+                                c.execute("""
+                                    INSERT INTO timetable (class, weekday, period_label, subject, teacher_id)
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (class_id, int(weekday), period_label, subject, teacher_id))
+                            conn.commit()
+                            result = {"success": True, "message": "Timetable updated successfully."}
+
                 elif action == "update_credentials":
                     target_tid = data.get("teacher_id")
                     new_username = str(data.get("username", "")).lower().strip()

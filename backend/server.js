@@ -694,6 +694,92 @@ app.post('/admin/absentees-report', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/admin/teachers', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_admin_teachers" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/teachers', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { name, username, password } = req.body;
+        const result = await callPython({ action: "create_teacher", name, username, password });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.put('/admin/teachers/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { name, username, password } = req.body;
+        const result = await callPython({
+            action: "update_teacher",
+            teacherId: req.params.teacherId,
+            name,
+            username,
+            password
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/admin/teachers/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "delete_teacher", teacherId: req.params.teacherId });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/timetable/:weekday', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_admin_timetable", weekday: parseInt(req.params.weekday, 10) });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/teacher-subjects/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_teacher_subject_options", teacherId: req.params.teacherId });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.put('/admin/timetable/period', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { classId, weekday, period, teacherId, subject } = req.body;
+        const result = await callPython({
+            action: "update_timetable_period",
+            classId,
+            weekday,
+            period,
+            teacherId,
+            subject
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Admin Route: Get All Sessions
 app.get('/admin/sessions', authenticateToken, async (req, res) => {
     try {

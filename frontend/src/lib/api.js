@@ -163,3 +163,22 @@ export const updateCredentials = (data) => apiRequest('/profile/update-credentia
     body: JSON.stringify(data)
 });
 export const getTeachersList = () => apiRequest('/teachers');
+
+export const getAdminTeachers = () => apiRequest('/admin/teachers');
+export const createAdminTeacher = (data) => apiRequest('/admin/teachers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+});
+export const updateAdminTeacher = (teacherId, data) => apiRequest(`/admin/teachers/${teacherId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+});
+export const deleteAdminTeacher = (teacherId) => apiRequest(`/admin/teachers/${teacherId}`, {
+    method: 'DELETE',
+});
+export const getAdminTimetable = (weekday) => apiRequest(`/admin/timetable/${weekday}`);
+export const getTeacherSubjectOptions = (teacherId) => apiRequest(`/admin/teacher-subjects/${teacherId}`);
+export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/period', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+});

@@ -1,11 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { apiRequest } from "@/lib/api";
+import {
+    apiRequest,
+    createAdminTeacher,
+    deleteAdminTeacher,
+    getAdminTeachers,
+    getAdminTimetable,
+    getTeacherSubjectOptions,
+    updateAdminTeacher,
+    updateTimetablePeriod,
+} from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const PERIODS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
 
 export default function SettingsPage() {
     const { user, token } = useAuth();
@@ -19,30 +31,37 @@ export default function SettingsPage() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [updatingPassword, setUpdatingPassword] = useState(false);
+    const [teachers, setTeachers] = useState([]);
+    const [teachersBusy, setTeachersBusy] = useState(false);
+    const [teacherSearch, setTeacherSearch] = useState("");
+    const [teacherModalOpen, setTeacherModalOpen] = useState(false);
+    const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "" });
+    const [selectedWeekday, setSelectedWeekday] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1);
+    const [timetableRows, setTimetableRows] = useState([]);
+    const [editingCell, setEditingCell] = useState(null);
+    const [timetableBusy, setTimetableBusy] = useState(false);
+    const [subjectOptions, setSubjectOptions] = useState([]);
+    const [timetableEditor, setTimetableEditor] = useState({ classId: "", period: "", teacherId: "", subject: "" });
     const { showLoader, hideLoader } = useLoading();
 
-    useEffect(() => {
-        if (!user || user.role !== 'admin') {
-            router.push("/");
-            return;
-        }
-        fetchData();
-    }, [user]);
-
-    async function fetchData() {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setMsg("");
         setError("");
         showLoader("Fetching system settings...");
         try {
-            const [sessRes, infoRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
-                apiRequest("/admin/system-info")
+                apiRequest("/admin/system-info"),
+                getAdminTeachers(),
+                getAdminTimetable(selectedWeekday)
             ]);
 
             // apiRequest already unwraps .data if it exists
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
+            setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
+            setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
         } catch (err) {
             console.error(err);
             setError("Failed to load admin data: " + err.message);
@@ -50,6 +69,29 @@ export default function SettingsPage() {
             setLoading(false);
             hideLoader();
         }
+    }, [hideLoader, selectedWeekday, showLoader]);
+
+    useEffect(() => {
+        if (!user || user.role !== 'admin') {
+            router.push("/");
+            return;
+        }
+        fetchData();
+    }, [fetchData, router, user]);
+
+    async function refreshTeachers() {
+        const teacherRes = await getAdminTeachers();
+        setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
+    }
+
+    async function refreshTimetable() {
+        const timetableRes = await getAdminTimetable(selectedWeekday);
+        setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
+    }
+
+    async function refreshSessions() {
+        const sessRes = await apiRequest("/admin/sessions");
+        setSessions(sessRes.sessions || []);
     }
 
     async function handleRevoke(teacherId) {
@@ -60,7 +102,7 @@ export default function SettingsPage() {
                 method: "POST",
                 body: JSON.stringify({ teacherId })
             });
-            fetchData();
+            await refreshSessions();
             setMsg("Session revoked successfully.");
         } catch (err) {
             setError(err.message);
@@ -90,7 +132,7 @@ export default function SettingsPage() {
             if (data.success) {
                 playSound('uploadSuccess');
                 setMsg("Database uploaded successfully!");
-                fetchData();
+                await fetchData();
             } else {
                 playSound('error');
                 throw new Error(data.message || "Upload failed");
@@ -160,18 +202,158 @@ export default function SettingsPage() {
         }
     }
 
+    function openCreateTeacherModal() {
+        setTeacherForm({ id: null, name: "", username: "", password: "" });
+        setTeacherModalOpen(true);
+    }
+
+    function openEditTeacherModal(teacher) {
+        setTeacherForm({
+            id: teacher.id,
+            name: teacher.name || "",
+            username: teacher.username || "",
+            password: "",
+        });
+        setTeacherModalOpen(true);
+    }
+
+    async function submitTeacherForm(e) {
+        e.preventDefault();
+        setTeachersBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            if (teacherForm.id) {
+                await updateAdminTeacher(teacherForm.id, teacherForm);
+                setMsg("Teacher updated successfully.");
+            } else {
+                await createAdminTeacher(teacherForm);
+                setMsg("Teacher added successfully.");
+            }
+            playSound('success');
+            setTeacherModalOpen(false);
+            await Promise.all([refreshTeachers(), refreshSessions()]);
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setTeachersBusy(false);
+        }
+    }
+
+    async function handleTeacherDelete(teacher) {
+        if (!confirm(`Delete teacher "${teacher.name}"? This will remove current timetable assignments.`)) return;
+        setTeachersBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            await deleteAdminTeacher(teacher.id);
+            playSound('success');
+            setMsg("Teacher deleted successfully.");
+            await Promise.all([refreshTeachers(), refreshSessions(), refreshTimetable()]);
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setTeachersBusy(false);
+        }
+    }
+
+    async function openTimetableEditor(classId, period, cell) {
+        setEditingCell({ classId, period });
+        const teacherId = cell?.teacherId ? String(cell.teacherId) : "";
+        setTimetableEditor({
+            classId,
+            period,
+            teacherId,
+            subject: cell?.subject || "",
+        });
+        if (!teacherId) {
+            setSubjectOptions([]);
+            return;
+        }
+        try {
+            const options = await getTeacherSubjectOptions(teacherId);
+            setSubjectOptions(Array.isArray(options) ? options : []);
+        } catch (err) {
+            setSubjectOptions([]);
+            setError(err.message);
+        }
+    }
+
+    async function handleTeacherChangeForCell(teacherId) {
+        setTimetableEditor((prev) => ({ ...prev, teacherId, subject: "" }));
+        if (!teacherId) {
+            setSubjectOptions([]);
+            return;
+        }
+        try {
+            const options = await getTeacherSubjectOptions(teacherId);
+            setSubjectOptions(Array.isArray(options) ? options : []);
+        } catch (err) {
+            setSubjectOptions([]);
+            setError(err.message);
+        }
+    }
+
+    async function saveTimetableCell() {
+        if (!editingCell) return;
+        setTimetableBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            await updateTimetablePeriod({
+                classId: timetableEditor.classId,
+                weekday: selectedWeekday,
+                period: timetableEditor.period,
+                teacherId: timetableEditor.teacherId || null,
+                subject: timetableEditor.subject,
+            });
+            playSound('success');
+            setMsg("Timetable updated successfully.");
+            setEditingCell(null);
+            setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
+            setSubjectOptions([]);
+            await refreshTimetable();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setTimetableBusy(false);
+        }
+    }
+
+    const filteredTeachers = useMemo(() => {
+        const query = teacherSearch.trim().toLowerCase();
+        if (!query) return teachers;
+        return teachers.filter((teacher) =>
+            [teacher.name, teacher.username, teacher.passwordStatus, teacher.classTeacherOf]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(query))
+        );
+    }, [teacherSearch, teachers]);
+
     if (loading) return <PencilLoader />;
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 font-sans">
-            <div className="max-w-4xl mx-auto space-y-8">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-black text-gray-900">Admin Settings</h1>
-                    <button onClick={() => router.push("/")} className="text-blue-600 font-bold">← Back to Dashboard</button>
+        <div className="min-h-screen bg-gray-50 px-4 py-6 font-sans sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl space-y-8">
+                <div className="flex flex-col gap-4 rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Administration</p>
+                        <h1 className="mt-2 text-3xl font-black text-gray-900">Admin Settings</h1>
+                        <p className="mt-2 text-sm font-medium text-gray-500">Manage teacher accounts, timetable assignments and system access from one place.</p>
+                    </div>
+                    <button
+                        onClick={() => router.push("/")}
+                        className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-5 py-3 text-sm font-black text-gray-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                        Back to Dashboard
+                    </button>
                 </div>
 
-                {msg && <div className="p-4 bg-green-100 text-green-700 rounded-2xl font-bold anim-fade-in">{msg}</div>}
-                {error && <div className="p-4 bg-red-100 text-red-700 rounded-2xl font-bold anim-fade-in">{error}</div>}
+                {msg && <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-700 anim-fade-in">{msg}</div>}
+                {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700 anim-fade-in">{error}</div>}
 
                 {/* System Info */}
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
@@ -261,6 +443,209 @@ export default function SettingsPage() {
                     </form>
                 </section>
 
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900">Manage Teachers</h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Create, edit and delete teacher accounts</p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <input
+                                type="text"
+                                value={teacherSearch}
+                                onChange={(e) => setTeacherSearch(e.target.value)}
+                                placeholder="Search teachers"
+                                className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            />
+                            <button
+                                onClick={openCreateTeacherModal}
+                                className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 transition-all"
+                            >
+                                Add Teacher
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
+                        <div className="max-h-[28rem] overflow-auto">
+                            <table className="w-full min-w-[720px] text-left">
+                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Name</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {filteredTeachers.map((teacher) => (
+                                        <tr key={teacher.id}>
+                                            <td className="px-6 py-4">
+                                                <p className="font-black text-gray-800">{teacher.name}</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-1">
+                                                    {teacher.sessionActive ? "Session active" : "No active session"}
+                                                </p>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-sm font-bold text-blue-700">{teacher.username}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${teacher.hasPassword ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                                    {teacher.passwordStatus}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-semibold text-gray-500">{teacher.classTeacherOf || "-"}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => openEditTeacherModal(teacher)}
+                                                        className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-black uppercase tracking-wider text-gray-700 hover:bg-gray-50"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleTeacherDelete(teacher)}
+                                                        disabled={teachersBusy}
+                                                        className="px-3 py-2 rounded-xl border border-red-200 text-xs font-black uppercase tracking-wider text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredTeachers.length === 0 && (
+                                        <tr>
+                                            <td colSpan="5" className="px-6 py-10 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
+                                                No teachers found
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900">Editable Timetable</h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Click any period cell to edit teacher and subject</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {DAYS.map((day, idx) => (
+                                <button
+                                    key={day}
+                                    onClick={() => setSelectedWeekday(idx)}
+                                    className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all ${selectedWeekday === idx ? "bg-blue-600 text-white shadow-lg shadow-blue-100" : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"}`}
+                                >
+                                    {day.slice(0, 3)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
+                        <div className="overflow-auto">
+                            <table className="w-full min-w-[980px] text-left">
+                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
+                                        {PERIODS.map((period) => (
+                                            <th key={period} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{period}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {timetableRows.map((row) => (
+                                        <tr key={row.class}>
+                                            <td className="px-6 py-4 font-black text-gray-800">{row.class}</td>
+                                            {PERIODS.map((period) => {
+                                                const cell = row.periods?.[period] || {};
+                                                const isEditing = editingCell?.classId === row.class && editingCell?.period === period;
+                                                return (
+                                                    <td key={period} className="px-4 py-4 align-top">
+                                                        <button
+                                                            onClick={() => openTimetableEditor(row.class, period, cell)}
+                                                            className={`w-full rounded-[1.5rem] border p-4 text-left transition-all ${isEditing ? "border-blue-300 bg-blue-50" : "border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200"}`}
+                                                        >
+                                                            <p className="text-sm font-black text-gray-800">{cell.subject || "No subject assigned"}</p>
+                                                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cell.teacher || "Select teacher"}</p>
+                                                        </button>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {editingCell && (
+                        <div className="mt-6 rounded-[2rem] border border-blue-100 bg-blue-50/60 p-5">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-500">Editing Cell</p>
+                                    <h3 className="mt-2 text-xl font-black text-gray-900">{editingCell.classId} • {editingCell.period} • {DAYS[selectedWeekday]}</h3>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setEditingCell(null);
+                                        setSubjectOptions([]);
+                                        setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
+                                    }}
+                                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-xs font-black uppercase tracking-wider text-gray-500"
+                                >
+                                    Close Editor
+                                </button>
+                            </div>
+                            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
+                                <div>
+                                    <label className="block mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Teacher</label>
+                                    <select
+                                        value={timetableEditor.teacherId}
+                                        onChange={(e) => handleTeacherChangeForCell(e.target.value)}
+                                        className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    >
+                                        <option value="">Clear assignment</option>
+                                        {teachers.map((teacher) => (
+                                            <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Subject</label>
+                                    <select
+                                        value={timetableEditor.subject}
+                                        onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
+                                        disabled={!timetableEditor.teacherId}
+                                        className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                    >
+                                        <option value="">Select subject</option>
+                                        {subjectOptions.map((subject) => (
+                                            <option key={subject} value={subject}>{subject}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex gap-3 lg:justify-end">
+                                    <button
+                                        onClick={() => setTimetableEditor((prev) => ({ ...prev, teacherId: "", subject: "" }))}
+                                        className="px-4 py-4 rounded-2xl border border-gray-100 bg-white text-xs font-black uppercase tracking-wider text-gray-500"
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        onClick={saveTimetableCell}
+                                        disabled={timetableBusy}
+                                        className="px-5 py-4 rounded-2xl bg-blue-600 text-xs font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        Save Period
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </section>
+
                 {/* Teacher Sessions */}
                 <section className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-8 border-b border-gray-50">
@@ -310,6 +695,61 @@ export default function SettingsPage() {
                         </table>
                     </div>
                 </section>
+                {teacherModalOpen && (
+                    <div
+                        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) setTeacherModalOpen(false);
+                        }}
+                    >
+                        <div className="w-full max-w-lg rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-2xl">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Manage Teacher</p>
+                                    <h3 className="mt-2 text-2xl font-black text-gray-900">{teacherForm.id ? "Edit Teacher" : "Add Teacher"}</h3>
+                                </div>
+                                <button
+                                    onClick={() => setTeacherModalOpen(false)}
+                                    className="px-3 py-2 rounded-2xl bg-gray-100 text-xs font-black uppercase tracking-wider text-gray-500"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <form onSubmit={submitTeacherForm} className="mt-6 space-y-4">
+                                <input
+                                    type="text"
+                                    value={teacherForm.name}
+                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, name: e.target.value }))}
+                                    placeholder="Teacher name"
+                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    required
+                                />
+                                <input
+                                    type="text"
+                                    value={teacherForm.username}
+                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, username: e.target.value }))}
+                                    placeholder="Unique username"
+                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    required
+                                />
+                                <input
+                                    type="password"
+                                    value={teacherForm.password}
+                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, password: e.target.value }))}
+                                    placeholder={teacherForm.id ? "Leave blank to keep current password" : "Leave blank to use default login"}
+                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={teachersBusy}
+                                    className="w-full px-5 py-4 rounded-2xl bg-blue-600 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {teacherForm.id ? "Save Teacher" : "Create Teacher"}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
