@@ -683,11 +683,30 @@ app.get('/admin/batch-report/:classId', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/admin/absentees-report', authenticateToken, async (req, res) => {
+app.post('/absentees-report', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'admin' && req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') return res.status(403).send('Forbidden');
         const { classId, date, filter } = req.body;
         const result = await callPython({ action: "get_absentees_report", classId, date, filter });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/absentees-report', authenticateToken, async (req, res) => {
+    try {
+        const { classId, date, filter } = req.body;
+        const result = await callPython({ action: "get_absentees_report", classId, date, filter });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/activity-log', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_admin_activity_log", date: req.query.date });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

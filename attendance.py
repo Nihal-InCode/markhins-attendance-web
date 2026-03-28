@@ -4457,6 +4457,149 @@ if __name__ == "__main__":
                         })
                     result = {"success": True, "sessions": sessions}
 
+                elif action == "get_admin_activity_log":
+                    report_date = str(data.get("date") or get_ist_now().strftime("%Y-%m-%d")).strip()
+
+                    c.execute("""
+                        SELECT id, name, username, class_teacher_of, last_login
+                        FROM teachers
+                        WHERE TRIM(COALESCE(active_session_token, '')) != ''
+                        ORDER BY COALESCE(last_login, '') DESC, name COLLATE NOCASE
+                    """)
+                    active_rows = c.fetchall()
+                    active_users = []
+                    for tid, name, username, class_teacher_of, last_login in active_rows:
+                        role = "Subject Teacher"
+                        upper_name = str(name or "").upper()
+                        upper_cto = str(class_teacher_of or "").upper()
+                        if tid == 3:
+                            role = "Principal"
+                        elif tid == 1:
+                            role = "Vice Principal"
+                        elif "PRINCIPAL" in upper_name or "PRINCIPAL" in upper_cto:
+                            role = "Vice Principal" if ("VICE" in upper_name or "VICE" in upper_cto) else "Principal"
+                        elif class_teacher_of and str(class_teacher_of) not in ("None", "", "DEVELOPER"):
+                            role = "Class Teacher"
+
+                        active_users.append({
+                            "id": tid,
+                            "name": name,
+                            "username": username,
+                            "role": role,
+                            "classTeacherOf": class_teacher_of,
+                            "lastLogin": last_login,
+                        })
+
+                    actions = []
+
+                    def append_action(sort_key, actor, username, action_type, summary, meta=""):
+                        actions.append({
+                            "sortKey": sort_key or "",
+                            "actor": actor or "System",
+                            "username": username or "",
+                            "type": action_type,
+                            "summary": summary,
+                            "meta": meta,
+                        })
+
+                    c.execute("""
+                        SELECT name, username, last_login
+                        FROM teachers
+                        WHERE last_login LIKE ?
+                        ORDER BY last_login DESC
+                    """, (f"{report_date}%",))
+                    for name, username, last_login in c.fetchall():
+                        time_label = last_login.split(" ")[1] if last_login and " " in last_login else "Today"
+                        append_action(last_login, name, username, "Login", "Logged into the app", time_label)
+
+                    c.execute("""
+                        SELECT pa.teacher_id, t.name, t.username, pa.class, pa.period,
+                               COUNT(*),
+                               SUM(CASE WHEN pa.status='A' THEN 1 ELSE 0 END),
+                               SUM(CASE WHEN pa.status='S' THEN 1 ELSE 0 END),
+                               SUM(CASE WHEN pa.status='L' THEN 1 ELSE 0 END)
+                        FROM period_attendance pa
+                        LEFT JOIN teachers t ON pa.teacher_id = t.id
+                        WHERE pa.date = ?
+                        GROUP BY pa.teacher_id, pa.class, pa.period
+                        ORDER BY pa.period DESC, pa.class ASC
+                    """, (report_date,))
+                    for teacher_id, name, username, cls, period, total_marked, absent_count, sick_count, leave_count in c.fetchall():
+                        meta_parts = [f"{total_marked} students"]
+                        if absent_count:
+                            meta_parts.append(f"{absent_count} absent")
+                        if sick_count:
+                            meta_parts.append(f"{sick_count} sick")
+                        if leave_count:
+                            meta_parts.append(f"{leave_count} leave")
+                        append_action(
+                            f"{report_date} {period}",
+                            name,
+                            username,
+                            "Attendance",
+                            f"Marked attendance for {cls} {period}",
+                            " • ".join(meta_parts)
+                        )
+
+                    c.execute("""
+                        SELECT a.created_at, t.name, t.username, a.class, a.status, COUNT(*)
+                        FROM attendance a
+                        LEFT JOIN teachers t ON a.marked_by = t.id
+                        WHERE a.date = ? AND a.status IN ('S', 'L', 'C', 'R')
+                        GROUP BY a.created_at, a.marked_by, a.class, a.status
+                        ORDER BY COALESCE(a.created_at, '') DESC, a.id DESC
+                    """, (report_date,))
+                    status_labels = {'S': 'Marked sick', 'L': 'Marked leave', 'C': 'Marked cured', 'R': 'Marked returned'}
+                    for created_at, name, username, cls, status, count in c.fetchall():
+                        time_label = created_at.split(" ")[1] if created_at and " " in created_at else cls
+                        append_action(
+                            created_at or f"{report_date} 00:00:00",
+                            name,
+                            username,
+                            "Health",
+                            f"{status_labels.get(status, 'Updated health status')} for {cls}",
+                            f"{count} student{'s' if count != 1 else ''} • {time_label}"
+                        )
+
+                    c.execute("""
+                        SELECT created_at, teacher, class, subject, period, time
+                        FROM extra_classes
+                        WHERE date = ?
+                        ORDER BY COALESCE(created_at, '') DESC
+                    """, (report_date,))
+                    for created_at, teacher_name, cls, subject, period, time_value in c.fetchall():
+                        append_action(
+                            created_at or f"{report_date} 00:00:00",
+                            teacher_name,
+                            "",
+                            "Extra Class",
+                            f"Recorded extra class for {cls} {period or 'Extra'}",
+                            f"{subject} • {time_value or 'Today'}"
+                        )
+
+                    c.execute("""
+                        SELECT created_at, substitute_teacher, actual_teacher, class, period, subject
+                        FROM substitute_log
+                        WHERE date = ?
+                        ORDER BY COALESCE(created_at, '') DESC
+                    """, (report_date,))
+                    for created_at, substitute_teacher, actual_teacher, cls, period, subject in c.fetchall():
+                        append_action(
+                            created_at or f"{report_date} 00:00:00",
+                            substitute_teacher,
+                            "",
+                            "Substitute",
+                            f"Handled substitute class for {cls} {period}",
+                            f"{subject} • Assigned teacher: {actual_teacher}"
+                        )
+
+                    actions.sort(key=lambda row: row.get("sortKey") or "", reverse=True)
+                    for row in actions:
+                        row["time"] = row["sortKey"].split(" ")[1] if " " in row["sortKey"] else row["sortKey"]
+                        row.pop("sortKey", None)
+
+                    result = {"success": True, "data": {"activeUsers": active_users, "actions": actions[:80]}}
+
                 elif action == "get_admin_teachers":
                     c.execute("""
                         SELECT id, name, username, phone, class_teacher_of, subject, active_session_token
@@ -4624,23 +4767,26 @@ if __name__ == "__main__":
                             LIMIT 1
                         """, (teacher_id, teacher_id, teacher_id, subject))
                         if not c.fetchone():
-                            result = {"success": False, "message": "Selected subject is not assigned to this teacher."}
+                            c.execute("""
+                                INSERT INTO teacher_subjects (teacher_id, class, subject, period)
+                                VALUES (?, ?, ?, ?)
+                            """, (teacher_id, class_id, subject, period_label))
+
+                        c.execute("SELECT id FROM timetable WHERE class=? AND weekday=? AND period_label=? LIMIT 1", (class_id, int(weekday), period_label))
+                        existing = c.fetchone()
+                        if existing:
+                            c.execute("""
+                                UPDATE timetable
+                                SET subject=?, teacher_id=?
+                                WHERE id=?
+                            """, (subject, teacher_id, existing[0]))
                         else:
-                            c.execute("SELECT id FROM timetable WHERE class=? AND weekday=? AND period_label=? LIMIT 1", (class_id, int(weekday), period_label))
-                            existing = c.fetchone()
-                            if existing:
-                                c.execute("""
-                                    UPDATE timetable
-                                    SET subject=?, teacher_id=?
-                                    WHERE id=?
-                                """, (subject, teacher_id, existing[0]))
-                            else:
-                                c.execute("""
-                                    INSERT INTO timetable (class, weekday, period_label, subject, teacher_id)
-                                    VALUES (?, ?, ?, ?, ?)
-                                """, (class_id, int(weekday), period_label, subject, teacher_id))
-                            conn.commit()
-                            result = {"success": True, "message": "Timetable updated successfully."}
+                            c.execute("""
+                                INSERT INTO timetable (class, weekday, period_label, subject, teacher_id)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (class_id, int(weekday), period_label, subject, teacher_id))
+                        conn.commit()
+                        result = {"success": True, "message": "Timetable updated successfully."}
 
                 elif action == "update_credentials":
                     target_tid = data.get("teacher_id")

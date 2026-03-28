@@ -182,3 +182,4 @@ export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/peri
     method: 'PUT',
     body: JSON.stringify(data),
 });
+export const getAdminActivityLog = (date) => apiRequest(`/admin/activity-log?date=${date}`);

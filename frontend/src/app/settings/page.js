@@ -42,6 +42,7 @@ export default function SettingsPage() {
     const [timetableBusy, setTimetableBusy] = useState(false);
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [timetableEditor, setTimetableEditor] = useState({ classId: "", period: "", teacherId: "", subject: "" });
+    const [manualSubjectEntry, setManualSubjectEntry] = useState(false);
     const { showLoader, hideLoader } = useLoading();
     const showLoaderRef = useRef(showLoader);
     const hideLoaderRef = useRef(hideLoader);
@@ -267,6 +268,13 @@ export default function SettingsPage() {
     }
 
     async function openTimetableEditor(classId, period, cell) {
+        if (editingCell?.classId === classId && editingCell?.period === period) {
+            setEditingCell(null);
+            setSubjectOptions([]);
+            setManualSubjectEntry(false);
+            setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
+            return;
+        }
         setEditingCell({ classId, period });
         const teacherId = cell?.teacherId ? String(cell.teacherId) : "";
         setTimetableEditor({
@@ -275,13 +283,18 @@ export default function SettingsPage() {
             teacherId,
             subject: cell?.subject || "",
         });
+        setManualSubjectEntry(false);
         if (!teacherId) {
             setSubjectOptions([]);
             return;
         }
         try {
             const options = await getTeacherSubjectOptions(teacherId);
-            setSubjectOptions(Array.isArray(options) ? options : []);
+            const normalizedOptions = Array.isArray(options) ? options : [];
+            setSubjectOptions(normalizedOptions);
+            if (cell?.subject && !normalizedOptions.includes(cell.subject)) {
+                setManualSubjectEntry(true);
+            }
         } catch (err) {
             setSubjectOptions([]);
             setError(err.message);
@@ -290,6 +303,7 @@ export default function SettingsPage() {
 
     async function handleTeacherChangeForCell(teacherId) {
         setTimetableEditor((prev) => ({ ...prev, teacherId, subject: "" }));
+        setManualSubjectEntry(false);
         if (!teacherId) {
             setSubjectOptions([]);
             return;
@@ -321,6 +335,7 @@ export default function SettingsPage() {
             setEditingCell(null);
             setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
             setSubjectOptions([]);
+            setManualSubjectEntry(false);
             await refreshTimetable();
         } catch (err) {
             playSound('error');
@@ -570,13 +585,115 @@ export default function SettingsPage() {
                                                 const isEditing = editingCell?.classId === row.class && editingCell?.period === period;
                                                 return (
                                                     <td key={period} className="px-4 py-4 align-top">
-                                                        <button
-                                                            onClick={() => openTimetableEditor(row.class, period, cell)}
-                                                            className={`w-full rounded-[1.5rem] border p-4 text-left transition-all ${isEditing ? "border-blue-300 bg-blue-50" : "border-gray-100 bg-gray-50 hover:bg-white hover:border-blue-200"}`}
-                                                        >
-                                                            <p className="text-sm font-black text-gray-800">{cell.subject || "No subject assigned"}</p>
-                                                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cell.teacher || "Select teacher"}</p>
-                                                        </button>
+                                                        <div className={`rounded-[1.5rem] border p-3 transition-all ${isEditing ? "border-blue-300 bg-blue-50 shadow-lg shadow-blue-100/40" : "border-gray-100 bg-gray-50 hover:border-blue-200 hover:bg-white"}`}>
+                                                            <button
+                                                                onClick={() => openTimetableEditor(row.class, period, cell)}
+                                                                className="w-full text-left"
+                                                            >
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-sm font-black text-gray-800">{cell.subject || "No subject assigned"}</p>
+                                                                        <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cell.teacher || "Select teacher"}</p>
+                                                                    </div>
+                                                                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${isEditing ? "bg-blue-600 text-white" : "bg-white text-gray-400"}`}>
+                                                                        {isEditing ? "Editing" : "Edit"}
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+
+                                                            {isEditing && (
+                                                                <div className="mt-3 space-y-3 rounded-[1.25rem] border border-blue-200 bg-white p-3">
+                                                                    <div>
+                                                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Teacher</label>
+                                                                        <select
+                                                                            value={timetableEditor.teacherId}
+                                                                            onChange={(e) => handleTeacherChangeForCell(e.target.value)}
+                                                                            className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                                                        >
+                                                                            <option value="">Clear assignment</option>
+                                                                            {teachers.map((teacher) => (
+                                                                                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Subject</label>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    if (manualSubjectEntry && subjectOptions.length > 0 && !subjectOptions.includes(timetableEditor.subject)) {
+                                                                                        setTimetableEditor((prev) => ({ ...prev, subject: "" }));
+                                                                                    }
+                                                                                    setManualSubjectEntry((prev) => !prev);
+                                                                                }}
+                                                                                disabled={!timetableEditor.teacherId}
+                                                                                className="text-[10px] font-black uppercase tracking-widest text-blue-600 disabled:text-gray-300"
+                                                                            >
+                                                                                {manualSubjectEntry ? "Use list" : "Type manually"}
+                                                                            </button>
+                                                                        </div>
+
+                                                                        {manualSubjectEntry ? (
+                                                                            <>
+                                                                                <input
+                                                                                    list={`subjects-${row.class}-${period}`}
+                                                                                    value={timetableEditor.subject}
+                                                                                    onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
+                                                                                    disabled={!timetableEditor.teacherId}
+                                                                                    placeholder={timetableEditor.teacherId ? "Enter subject name" : "Select a teacher first"}
+                                                                                    className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                                                />
+                                                                                <datalist id={`subjects-${row.class}-${period}`}>
+                                                                                    {subjectOptions.map((subject) => (
+                                                                                        <option key={subject} value={subject} />
+                                                                                    ))}
+                                                                                </datalist>
+                                                                            </>
+                                                                        ) : (
+                                                                            <select
+                                                                                value={timetableEditor.subject}
+                                                                                onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
+                                                                                disabled={!timetableEditor.teacherId}
+                                                                                className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                                            >
+                                                                                <option value="">Select subject</option>
+                                                                                {subjectOptions.map((subject) => (
+                                                                                    <option key={subject} value={subject}>{subject}</option>
+                                                                                ))}
+                                                                            </select>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <div className="grid grid-cols-3 gap-2">
+                                                                        <button
+                                                                            onClick={() => setTimetableEditor((prev) => ({ ...prev, teacherId: "", subject: "" }))}
+                                                                            className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500"
+                                                                        >
+                                                                            Clear
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setEditingCell(null);
+                                                                                setSubjectOptions([]);
+                                                                                setManualSubjectEntry(false);
+                                                                                setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
+                                                                            }}
+                                                                            className="rounded-2xl border border-gray-100 bg-white px-3 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={saveTimetableCell}
+                                                                            disabled={timetableBusy}
+                                                                            className="rounded-2xl bg-blue-600 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-blue-700 disabled:opacity-50"
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 );
                                             })}
@@ -587,70 +704,6 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    {editingCell && (
-                        <div className="mt-6 rounded-[2rem] border border-blue-100 bg-blue-50/60 p-5">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-500">Editing Cell</p>
-                                    <h3 className="mt-2 text-xl font-black text-gray-900">{editingCell.classId} • {editingCell.period} • {DAYS[selectedWeekday]}</h3>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setEditingCell(null);
-                                        setSubjectOptions([]);
-                                        setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
-                                    }}
-                                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-xs font-black uppercase tracking-wider text-gray-500"
-                                >
-                                    Close Editor
-                                </button>
-                            </div>
-                            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
-                                <div>
-                                    <label className="block mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Teacher</label>
-                                    <select
-                                        value={timetableEditor.teacherId}
-                                        onChange={(e) => handleTeacherChangeForCell(e.target.value)}
-                                        className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    >
-                                        <option value="">Clear assignment</option>
-                                        {teachers.map((teacher) => (
-                                            <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Subject</label>
-                                    <select
-                                        value={timetableEditor.subject}
-                                        onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
-                                        disabled={!timetableEditor.teacherId}
-                                        className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                    >
-                                        <option value="">Select subject</option>
-                                        {subjectOptions.map((subject) => (
-                                            <option key={subject} value={subject}>{subject}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="flex gap-3 lg:justify-end">
-                                    <button
-                                        onClick={() => setTimetableEditor((prev) => ({ ...prev, teacherId: "", subject: "" }))}
-                                        className="px-4 py-4 rounded-2xl border border-gray-100 bg-white text-xs font-black uppercase tracking-wider text-gray-500"
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        onClick={saveTimetableCell}
-                                        disabled={timetableBusy}
-                                        className="px-5 py-4 rounded-2xl bg-blue-600 text-xs font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        Save Period
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </section>
 
                 {/* Teacher Sessions */}
