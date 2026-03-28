@@ -161,7 +161,7 @@ export default function DashboardPage() {
       showLoader("Loading dashboard...");
       try {
         const classesRes = await getClasses();
-        setClasses(classesRes);
+        setClasses(Array.isArray(classesRes) ? classesRes : []);
       } catch (err) {
         setError("Failed to load classes.");
       } finally {
@@ -282,7 +282,7 @@ export default function DashboardPage() {
     setTimetableError("");
     try {
       const data = await getFullTimetable(day);
-      setFullTimetable(data);
+      setFullTimetable(Array.isArray(data) ? data : []);
     } catch (err) {
       setTimetableError("Failed to load timetable. Is the backend running?");
     } finally {
@@ -296,7 +296,7 @@ export default function DashboardPage() {
     // showLoader("Loading daily report...");
     try {
       const data = await getDailyReport(date);
-      setDailyReportData(data);
+      setDailyReportData(Array.isArray(data) ? data : []);
     } catch (err) {
       setReportError("Failed to load daily report.");
     } finally {
@@ -325,7 +325,7 @@ export default function DashboardPage() {
     setLoadingFeature(true);
     try {
       const data = await getBatchReport(classId);
-      setBatchReport(data);
+      setBatchReport(Array.isArray(data) ? data : []);
     } catch (err) {
       setReportError("Failed to load batch report.");
     } finally {
@@ -337,7 +337,7 @@ export default function DashboardPage() {
     setLoadingFeature(true);
     try {
       const data = await getWeeklyReport();
-      setWeeklyReport(data);
+      setWeeklyReport(Array.isArray(data) ? data : []);
     } catch (err) {
       setReportError("Failed to load weekly report.");
     } finally {
@@ -349,7 +349,7 @@ export default function DashboardPage() {
     if (user?.role !== "admin") return;
     try {
       const data = await getAdminActivityLog(date);
-      setAdminActivityLog(data || { activeUsers: [], actions: [] });
+      setAdminActivityLog(data && typeof data === "object" ? data : { activeUsers: [], actions: [] });
     } catch (err) {
       setReportError("Failed to load admin activity log.");
     }
@@ -359,7 +359,7 @@ export default function DashboardPage() {
     setLoadingFeature(true);
     try {
       const data = await getSickLeaveOverview();
-      setSickLeaveOverview(data);
+      setSickLeaveOverview(Array.isArray(data) ? data : []);
     } catch (err) {
       setReportError("Failed to load health report.");
     } finally {
