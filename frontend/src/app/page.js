@@ -13,7 +13,8 @@ import {
   getSickLeaveOverview,
   getPeriodSummary,
   getLastAttendance,
-  getMarkedPeriods
+  getMarkedPeriods,
+  apiRequest
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -106,10 +107,12 @@ export default function DashboardPage() {
                   filter: absenteeFilter
               })
           });
-          if (res.success) setAbsenteeReport(res.data);
+          if (res.success && Array.isArray(res.data)) setAbsenteeReport(res.data);
+          else if (res.success) setAbsenteeReport([]);
           else throw new Error(res.message);
       } catch (err) {
           setReportError("Absentees report failed: " + err.message);
+          setAbsenteeReport([]);
       } finally {
           setLoadingAbsentees(false);
       }
@@ -986,7 +989,7 @@ export default function DashboardPage() {
                         <div>
                           <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
                           <div className="flex gap-1.5 mt-1">
-                            {student.codes.map(code => (
+                            {student.codes?.map(code => (
                               <span key={code} className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md ${code === 'A' ? 'bg-red-50 text-red-500 border border-red-100' : code === 'S' ? 'bg-orange-50 text-orange-500 border border-orange-100' : 'bg-purple-50 text-purple-500 border border-purple-100'}`}>
                                 {code === 'A' ? 'Absent' : code === 'S' ? 'Sick 💊' : 'Leave 🏠'}
                               </span>
