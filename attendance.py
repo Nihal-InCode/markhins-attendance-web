@@ -4508,43 +4508,63 @@ if __name__ == "__main__":
                     date = data.get("date")
                     status_filter = data.get("filter", "all") # 'A', 'S', 'L' or 'all'
                     
+                    # 1. Get all students scheduled for this class to ensure we have names/rolls
                     c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
-                    students = c.fetchall()
+                    students_map = {row[0]: {"roll": row[1], "name": row[2], "periods": 0, "codes": set()} for row in c.fetchall()}
                     
-                    results = []
-                    for sid, roll, name in students:
-                        # Check period_attendance
-                        c.execute("SELECT DISTINCT status FROM period_attendance WHERE date=? AND student_id=? AND status != 'P'", (date, sid))
-                        p_statuses = [r[0] for r in c.fetchall()]
+                    if not students_map:
+                        result = {"success": True, "data": []}
+                    else:
+                        # 2. Extract statuses from period_attendance (with period counts)
+                        # We only care about statuses that mean "not present"
+                        c.execute("""
+                            SELECT student_id, status, COUNT(*) 
+                            FROM period_attendance 
+                            WHERE date=? AND class=? AND status != 'P'
+                            GROUP BY student_id, status
+                        """, (date, class_id))
+                        for sid, status, count in c.fetchall():
+                            if sid in students_map:
+                                students_map[sid]["codes"].add(status)
+                                if status == 'A':
+                                    students_map[sid]["absent_count"] = students_map[sid].get("absent_count", 0) + count
                         
-                        # Check attendance (Health status)
-                        c.execute("SELECT status FROM attendance WHERE date=? AND student_id=? AND status IN ('S', 'L')", (date, sid))
-                        a_statuses = [r[0] for r in c.fetchall()]
-                        
-                        all_status_codes = list(set(p_statuses + a_statuses))
-                        if not all_status_codes:
-                            continue
-                            
-                        # Map codes to labels
-                        status_labels = []
-                        if 'A' in all_status_codes: status_labels.append("Absent")
-                        if 'S' in all_status_codes: status_labels.append("Sick")
-                        if 'L' in all_status_codes: status_labels.append("Leave")
-                        
-                        # Apply filter
-                        if status_filter != "all":
-                            if status_filter not in all_status_codes:
+                        # 3. Extract statuses from attendance table (Health/Leave)
+                        c.execute("""
+                            SELECT student_id, status 
+                            FROM attendance 
+                            WHERE date=? AND class=? AND status IN ('S', 'L')
+                        """, (date, class_id))
+                        for sid, status in c.fetchall():
+                            if sid in students_map:
+                                students_map[sid]["codes"].add(status)
+
+                        # 4. Compile results
+                        results = []
+                        for sid, info in students_map.items():
+                            all_codes = list(info["codes"])
+                            if not all_codes:
                                 continue
+                                
+                            # Apply filter
+                            if status_filter != "all" and status_filter not in all_codes:
+                                continue
+                            
+                            status_labels = []
+                            if 'A' in all_codes: status_labels.append(f"Absent ({info.get('absent_count', 1)} periods)" if info.get('absent_count') else "Absent")
+                            if 'S' in all_codes: status_labels.append("Sick 💊")
+                            if 'L' in all_codes: status_labels.append("Leave 🏠")
+                            
+                            results.append({
+                                "id": sid,
+                                "rollNo": info["roll"],
+                                "name": info["name"],
+                                "status": ", ".join(status_labels),
+                                "codes": all_codes,
+                                "absentCount": info.get("absent_count", 0)
+                            })
                         
-                        results.append({
-                            "id": sid,
-                            "rollNo": roll,
-                            "name": name,
-                            "status": ", ".join(status_labels),
-                            "codes": all_status_codes
-                        })
-                    
-                    result = {"success": True, "data": results}
+                        result = {"success": True, "data": results}
 
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}
