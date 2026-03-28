@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { spawn } = require('child_process');
 
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const multer = require('multer');
 
 const os = require('os');
@@ -61,7 +62,6 @@ function resolveAttendanceDbPath() {
 const ATTENDANCE_DB_PATH = resolveAttendanceDbPath();
 
 // Ensure uploads directory exists
-const fsSync = require('fs');
 if (!fsSync.existsSync('uploads/')) {
     fsSync.mkdirSync('uploads/', { recursive: true });
 }
