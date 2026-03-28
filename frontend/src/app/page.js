@@ -259,7 +259,7 @@ export default function DashboardPage() {
       fetchSickLeaveOverview();
       fetchAdminLog(selectedDate);
     }
-  }, [activeTab, selectedDate, dailyRefreshTs, fetchAdminLog]);
+  }, [activeTab, selectedDate, dailyRefreshTs, user?.role]);
 
   // Auto-refresh daily report every 30 seconds when on reports tab
   useEffect(() => {
@@ -345,7 +345,7 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchAdminLog = useCallback(async (date) => {
+  async function fetchAdminLog(date) {
     if (user?.role !== "admin") return;
     try {
       const data = await getAdminActivityLog(date);
@@ -353,7 +353,7 @@ export default function DashboardPage() {
     } catch (err) {
       setReportError("Failed to load admin activity log.");
     }
-  }, [user?.role]);
+  }
 
   const fetchSickLeaveOverview = async () => {
     setLoadingFeature(true);
