@@ -1,9 +1,10 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { spawn } = require('child_process');
-const path = require('path');
+
 const fs = require('fs').promises;
 const multer = require('multer');
 
@@ -644,6 +645,28 @@ app.get('/admin/download-db', authenticateToken, async (req, res) => {
         }
 
         res.download(ATTENDANCE_DB_PATH, 'attendance_export.db');
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Get All Sessions
+app.get('/admin/batch-report/:classId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_batch_report", classId: req.params.classId });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/absentees-report', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') return res.status(403).send('Forbidden');
+        const { classId, date, filter } = req.body;
+        const result = await callPython({ action: "get_absentees_report", classId, date, filter });
+        res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

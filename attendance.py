@@ -3520,8 +3520,28 @@ if __name__ == "__main__":
                     # Query teacher by username
                     c.execute("SELECT id, name, phone, class_teacher_of, subject FROM teachers WHERE LOWER(username)=?", (username,))
                     teacher = c.fetchone()
+                    print(f"[DEBUG] Login attempt - Username: {username}, Found in DB: {teacher is not None}")
                     
-                    if teacher and str(teacher[2]).strip() == password.strip():
+                    authenticated = False
+                    if teacher:
+                        tid, tname, tphone, tcto, tsubj = teacher
+                        stored_password = str(tphone or "").strip()
+                        entered_password = str(password).strip()
+                        print(f"[DEBUG] Stored pass: '{stored_password}', Entered pass: '{entered_password}'")
+                        
+                        if not stored_password:
+                            # User has no password set (NULL or empty string) - allow default
+                            print("[DEBUG] Using default password check")
+                            if entered_password == "staffcouncil":
+                                authenticated = True
+                        else:
+                            # User has a set password
+                            if entered_password == stored_password:
+                                authenticated = True
+                    
+                    print(f"[DEBUG] Authentication result: {authenticated}")
+
+                    if authenticated:
                         tid, tname, tphone, tcto, tsubj = teacher
                         
                         # ── Role Detection ──
@@ -4482,6 +4502,49 @@ if __name__ == "__main__":
                         result = {"success": True}
                     else:
                         result = {"success": False, "error": "Session invalidated"}
+
+                elif action == "get_absentees_report":
+                    class_id = data.get("classId")
+                    date = data.get("date")
+                    status_filter = data.get("filter", "all") # 'A', 'S', 'L' or 'all'
+                    
+                    c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
+                    students = c.fetchall()
+                    
+                    results = []
+                    for sid, roll, name in students:
+                        # Check period_attendance
+                        c.execute("SELECT DISTINCT status FROM period_attendance WHERE date=? AND student_id=? AND status != 'P'", (date, sid))
+                        p_statuses = [r[0] for r in c.fetchall()]
+                        
+                        # Check attendance (Health status)
+                        c.execute("SELECT status FROM attendance WHERE date=? AND student_id=? AND status IN ('S', 'L')", (date, sid))
+                        a_statuses = [r[0] for r in c.fetchall()]
+                        
+                        all_status_codes = list(set(p_statuses + a_statuses))
+                        if not all_status_codes:
+                            continue
+                            
+                        # Map codes to labels
+                        status_labels = []
+                        if 'A' in all_status_codes: status_labels.append("Absent")
+                        if 'S' in all_status_codes: status_labels.append("Sick")
+                        if 'L' in all_status_codes: status_labels.append("Leave")
+                        
+                        # Apply filter
+                        if status_filter != "all":
+                            if status_filter not in all_status_codes:
+                                continue
+                        
+                        results.append({
+                            "id": sid,
+                            "rollNo": roll,
+                            "name": name,
+                            "status": ", ".join(status_labels),
+                            "codes": all_status_codes
+                        })
+                    
+                    result = {"success": True, "data": results}
 
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}

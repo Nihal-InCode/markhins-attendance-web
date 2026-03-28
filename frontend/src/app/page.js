@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -33,13 +33,16 @@ export default function DashboardPage() {
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1); // 0=Mon...
-  const [dailyReportData, setDailyReportData] = useState(null);
-  const getTodayLocalDate = () => {
+  const get_ist_now = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
-  const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
-  const [searchRollNo, setSearchRollNo] = useState("");
+  const [selectedDate, setSelectedDate] = useState(get_ist_now());
+  const [absenteeReport, setAbsenteeReport] = useState(null);
+  const [selectedClassForAbsentees, setSelectedClassForAbsentees] = useState("");
+  const [absenteeFilter, setAbsenteeFilter] = useState("all");
+  const [loadingAbsentees, setLoadingAbsentees] = useState(false);
+  const [dailyReportData, setDailyReportData] = useState(null);
   const [studentHistory, setStudentHistory] = useState(null);
   const [loadingFeature, setLoadingFeature] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -90,6 +93,31 @@ export default function DashboardPage() {
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const periods = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+
+  async function loadAbsenteesReport() {
+      if (!selectedClassForAbsentees || !selectedDate) return;
+      setLoadingAbsentees(true);
+      try {
+          const res = await apiRequest("/admin/absentees-report", {
+              method: "POST",
+              body: JSON.stringify({
+                  classId: selectedClassForAbsentees,
+                  date: selectedDate,
+                  filter: absenteeFilter
+              })
+          });
+          if (res.success) setAbsenteeReport(res.data);
+          else throw new Error(res.message);
+      } catch (err) {
+          setReportError("Absentees report failed: " + err.message);
+      } finally {
+          setLoadingAbsentees(false);
+      }
+  }
+
+  useEffect(() => {
+      if (selectedClassForAbsentees) loadAbsenteesReport();
+  }, [selectedClassForAbsentees, absenteeFilter, selectedDate]);
 
   useEffect(() => {
     async function fetchData() {
@@ -741,7 +769,7 @@ export default function DashboardPage() {
 
         {/* --- REPORTS TAB --- */}
         {activeTab === "reports" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-10">
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-32">
             {reportError && (
               <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
                 <span className="text-lg">⚠️</span>
@@ -904,6 +932,91 @@ export default function DashboardPage() {
               )}
             </div>
 
+            {/* 4.5 Full-Day Absentees List */}
+            <div className="space-y-4">
+              <div className="flex flex-col gap-4 px-1">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
+                  <div className="flex gap-2">
+                    <select
+                      className="bg-gray-100 px-4 py-2 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
+                      value={selectedClassForAbsentees}
+                      onChange={(e) => setSelectedClassForAbsentees(e.target.value)}
+                    >
+                      <option value="">Select Class</option>
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                
+                {selectedClassForAbsentees && (
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                    {[
+                      { id: 'all', label: 'All Absentees', emoji: '📋' },
+                      { id: 'A', label: 'Absent Only', emoji: '❌' },
+                      { id: 'S', label: 'Sick Only', emoji: '💊' },
+                      { id: 'L', label: 'Leave Only', emoji: '🏠' }
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => setAbsenteeFilter(f.id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-[10px] font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+                      >
+                        <span>{f.emoji}</span> {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {loadingAbsentees ? (
+                <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+              ) : absenteeReport && absenteeReport.length > 0 ? (
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+                  <div className="p-5 bg-gray-50/50 flex justify-between items-center">
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAbsentees}</p>
+                  </div>
+                  {absenteeReport.map((student, idx) => (
+                    <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
+                          {student.rollNo}
+                        </div>
+                        <div>
+                          <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
+                          <div className="flex gap-1.5 mt-1">
+                            {student.codes.map(code => (
+                              <span key={code} className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-md ${code === 'A' ? 'bg-red-50 text-red-500 border border-red-100' : code === 'S' ? 'bg-orange-50 text-orange-500 border border-orange-100' : 'bg-purple-50 text-purple-500 border border-purple-100'}`}>
+                                {code === 'A' ? 'Absent' : code === 'S' ? 'Sick 💊' : 'Leave 🏠'}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setSearchRollNo(student.rollNo);
+                          handleStudentSearch();
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:scale-90"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : selectedClassForAbsentees ? (
+                <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
+                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
+                </div>
+              ) : null}
+            </div>
+
             {/* 5. Live Daily Monitoring */}
             <div className="space-y-4">
               <div className="flex justify-between items-center px-1 pt-6 border-t border-gray-100">
@@ -948,7 +1061,7 @@ export default function DashboardPage() {
                               key={pIdx}
                               onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
                               className={`min-w-[55px] h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
-                                ? 'active:scale-95 cursor-pointer hover:shadow-md'
+                                ? 'cursor-pointer hover:shadow-md'
                                 : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
                                 } group/cell ${p.taken
                                   ? 'bg-green-50 border-green-200'
