@@ -20,7 +20,30 @@ def escape_html(text):
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # === Database Path Configuration ===
-DB_NAME = os.environ.get("ATTENDANCE_DB_PATH", "/data/web_attendance.db")
+def resolve_db_path():
+    configured = (os.environ.get("ATTENDANCE_DB_PATH") or "").strip()
+    if configured:
+        candidates = [
+            configured,
+            os.path.join(os.getcwd(), "attendance.db"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db"),
+            "/data/web_attendance.db",
+        ]
+    else:
+        candidates = [
+            os.path.join(os.getcwd(), "attendance.db"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db"),
+            "/data/web_attendance.db",
+        ]
+
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+
+    return configured or os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db")
+
+
+DB_NAME = resolve_db_path()
 
 # Ensure the directory for the database exists
 db_dir = os.path.dirname(DB_NAME)
@@ -4505,26 +4528,29 @@ if __name__ == "__main__":
 
                 elif action == "get_absentees_report":
                     class_id = str(data.get("classId") or "").strip()
-                    date = data.get("date")
-                    status_filter = data.get("filter", "all") # 'A', 'S', 'L' or 'all'
+                    date = str(data.get("date") or "").strip() or get_ist_now().strftime("%Y-%m-%d")
+                    status_filter = str(data.get("filter", "all") or "all").strip().upper()
                     
                     print(f"[DEBUG] Fetching absentees for class: '{class_id}' on {date}")
                     
                     # 1. Get all students scheduled for this class
                     c.execute("SELECT id, roll_no, name FROM students WHERE UPPER(class)=UPPER(?) ORDER BY roll_no", (class_id,))
                     students_data = c.fetchall()
-                    students_map = {row[0]: {"roll": row[1], "name": row[2], "periods": 0, "codes": set(), "absent_count": 0} for row in students_data}
+                    students_map = {
+                        row[0]: {"roll": row[1], "name": row[2], "codes": set(), "absent_count": 0}
+                        for row in students_data
+                    }
                     
                     print(f"[DEBUG] Found {len(students_map)} students in class")
                     
                     if not students_map:
                         result = {"success": True, "data": []}
                     else:
-                        # 2. Extract statuses from period_attendance
+                        # 2. Extract all non-present period statuses for the selected day.
                         c.execute("""
                             SELECT student_id, status, COUNT(*) 
                             FROM period_attendance 
-                            WHERE date=? AND UPPER(class)=UPPER(?) AND status != 'P'
+                            WHERE date=? AND UPPER(class)=UPPER(?) AND status IN ('A', 'S', 'L')
                             GROUP BY student_id, status
                         """, (date, class_id))
                         p_recs = c.fetchall()
@@ -4532,48 +4558,77 @@ if __name__ == "__main__":
                         
                         for sid, status, count in p_recs:
                             if sid in students_map:
-                                students_map[sid]["codes"].add(status)
-                                if status == 'A':
+                                normalized_status = str(status or "").strip().upper()
+                                if normalized_status in ('A', 'S', 'L'):
+                                    students_map[sid]["codes"].add(normalized_status)
+                                if normalized_status == 'A':
                                     students_map[sid]["absent_count"] += count
                         
-                        # 3. Extract statuses from attendance table (Health/Leave)
+                        # 3. Resolve the latest same-day health status per student.
                         c.execute("""
-                            SELECT student_id, status 
-                            FROM attendance 
-                            WHERE date=? AND UPPER(class)=UPPER(?) AND status IN ('S', 'L')
+                            SELECT a.student_id, a.status
+                            FROM attendance a
+                            INNER JOIN (
+                                SELECT student_id, MAX(id) AS latest_id
+                                FROM attendance
+                                WHERE date=? AND UPPER(class)=UPPER(?) AND status IN ('S', 'L', 'C', 'R')
+                                GROUP BY student_id
+                            ) latest ON latest.latest_id = a.id
                         """, (date, class_id))
                         a_recs = c.fetchall()
                         print(f"[DEBUG] Found {len(a_recs)} health status records")
                         
                         for sid, status in a_recs:
                             if sid in students_map:
-                                students_map[sid]["codes"].add(status)
+                                normalized_status = str(status or "").strip().upper()
+                                if normalized_status in ('S', 'L'):
+                                    students_map[sid]["codes"].add(normalized_status)
+                                elif normalized_status in ('C', 'R'):
+                                    students_map[sid]["codes"].discard('S')
+                                    students_map[sid]["codes"].discard('L')
 
                         # 4. Compile results
                         results = []
                         for sid, info in students_map.items():
-                            all_codes = list(info["codes"])
-                            if not all_codes:
+                            all_codes = set(info["codes"])
+                            status_code = None
+                            status_label = None
+
+                            if 'S' in all_codes:
+                                status_code = 'S'
+                                status_label = "Sick"
+                            elif 'L' in all_codes:
+                                status_code = 'L'
+                                status_label = "Leave"
+                            elif info.get("absent_count", 0) > 0 or 'A' in all_codes:
+                                status_code = 'A'
+                                absent_count = info.get("absent_count", 0)
+                                status_label = f"Absent ({absent_count} {'period' if absent_count == 1 else 'periods'})" if absent_count else "Absent"
+
+                            if not status_code:
                                 continue
                                 
                             # Apply filter
-                            if status_filter != "all" and status_filter not in all_codes:
+                            if status_filter != "ALL" and status_filter != status_code:
                                 continue
                             
-                            status_labels = []
-                            if 'A' in all_codes: status_labels.append(f"Absent ({info.get('absent_count', 1)} periods)" if info.get('absent_count') else "Absent")
-                            if 'S' in all_codes: status_labels.append("Sick 💊")
-                            if 'L' in all_codes: status_labels.append("Leave 🏠")
                             
                             results.append({
                                 "id": sid,
                                 "rollNo": info["roll"],
                                 "name": info["name"],
-                                "status": ", ".join(status_labels),
-                                "codes": all_codes,
+                                "status": status_label,
+                                "statusCode": status_code,
+                                "codes": sorted(all_codes),
                                 "absentCount": info.get("absent_count", 0)
                             })
-                        
+
+                        def sort_key(row):
+                            roll = str(row.get("rollNo") or "")
+                            match = re.search(r"\d+", roll)
+                            return (int(match.group()) if match else float("inf"), roll)
+
+                        results.sort(key=sort_key)
                         result = {"success": True, "data": results}
 
                 else:

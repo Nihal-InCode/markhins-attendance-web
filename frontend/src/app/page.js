@@ -34,11 +34,20 @@ export default function DashboardPage() {
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1); // 0=Mon...
-  const get_ist_now = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const getIstDateString = () => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(new Date());
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
   };
-  const [selectedDate, setSelectedDate] = useState(get_ist_now());
+  const [selectedDate, setSelectedDate] = useState(getIstDateString());
   const [absenteeReport, setAbsenteeReport] = useState(null);
   const [selectedClassForAbsentees, setSelectedClassForAbsentees] = useState("");
   const [absenteeFilter, setAbsenteeFilter] = useState("all");
@@ -95,10 +104,17 @@ export default function DashboardPage() {
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const periods = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+  const isReportsTab = activeTab === "reports";
+  const mainShellClass = activeTab === "timetable"
+    ? "max-w-7xl px-4 sm:px-6 lg:px-8"
+    : isReportsTab
+      ? "max-w-6xl px-4 sm:px-6 lg:px-8"
+      : "max-w-md px-6";
 
   async function loadAbsenteesReport() {
       if (!selectedClassForAbsentees || !selectedDate) return;
       setLoadingAbsentees(true);
+      setReportError("");
       try {
           const res = await apiRequest("/admin/absentees-report", {
               method: "POST",
@@ -363,7 +379,7 @@ export default function DashboardPage() {
   if (loading) return <PencilLoader />;
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50/50 font-sans text-gray-900">
+    <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
       <header className="anim-header px-6 py-4" style={{ background: 'linear-gradient(135deg, #0f1f2e 0%, #0d3347 50%, #0a4a4a 100%)', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
@@ -414,7 +430,12 @@ export default function DashboardPage() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      <main className={`flex-1 ${activeTab === 'timetable' ? 'max-w-full px-4' : 'max-w-md px-6'} mx-auto w-full py-6 pb-28 space-y-6 transition-all duration-300`}>
+      <main
+        className={`flex-1 ${mainShellClass} mx-auto w-full py-6 space-y-6 transition-[max-width,padding] duration-300`}
+        style={{
+          paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 1.5rem)"
+        }}
+      >
 
         {error && (
           <div className="max-w-md mx-auto p-4 text-red-600 bg-red-50 rounded-xl border border-red-100 text-sm font-medium">
@@ -564,7 +585,7 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       <div className="text-blue-900">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today's Schedule</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
                         <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
                         <p className="text-xs font-bold mt-1 text-blue-600 uppercase tracking-widest">Teacher: {resolvedSubject.teacher}</p>
                       </div>
@@ -773,7 +794,7 @@ export default function DashboardPage() {
 
         {/* --- REPORTS TAB --- */}
         {activeTab === "reports" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-32">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {reportError && (
               <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
                 <span className="text-lg">⚠️</span>
@@ -782,18 +803,18 @@ export default function DashboardPage() {
             )}
             {/* 1. Student Search */}
             <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block px-1">Student Search (Roll No)</label>
-              <div className="flex gap-3">
+              <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   placeholder="Enter Roll No"
-                  className="flex-1 bg-gray-50 border-none rounded-3xl px-6 py-4 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
+                  className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
                   value={searchRollNo}
                   onChange={(e) => setSearchRollNo(e.target.value)}
                 />
                 <button
                   onClick={handleStudentSearch}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
                 >
                   Search
                 </button>
@@ -804,30 +825,30 @@ export default function DashboardPage() {
               <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
                     <div>
                       <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
                       <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
                         Roll: {studentHistory.rollNo} • Class {studentHistory.class}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right">
                       <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
-                      <p className="text-[10px] text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
+                      <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
                       <p className="text-xl font-black">{studentHistory.stats?.total}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Total</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
                       <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Present</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
                       <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Absent</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
                     </div>
                   </div>
                 </div>
@@ -842,10 +863,10 @@ export default function DashboardPage() {
                   {sickLeaveOverview?.length || 0} active
                 </span>
               </div>
-              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar px-1">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
                 {sickLeaveOverview?.length > 0 ? (
                   sickLeaveOverview.map((item, idx) => (
-                    <div key={idx} className="min-w-[200px] bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative">
+                    <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
                       <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
                         {item.type === 'Sick' ? '💊' : '🏠'}
                       </span>
@@ -869,8 +890,9 @@ export default function DashboardPage() {
             {/* 3. Weekly Activity */}
             <div className="space-y-4">
               <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-x-auto">
-                <table className="w-full text-left">
+              <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left">
                   <thead>
                     <tr className="border-b border-gray-50">
                       <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
@@ -893,15 +915,16 @@ export default function DashboardPage() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
 
             {/* 4. Batch-wise Report */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
                 <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
                 <select
-                  className="bg-gray-100 px-4 py-2 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
+                  className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
                   value={selectedClassForBatch}
                   onChange={(e) => setSelectedClassForBatch(e.target.value)}
                 >
@@ -911,13 +934,13 @@ export default function DashboardPage() {
               </div>
 
               {batchReport ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {batchReport.map((student, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
                       <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
                         {Math.round(student.percent)}%
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
                         <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
                       </div>
@@ -943,7 +966,7 @@ export default function DashboardPage() {
                   <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
                   <div className="flex gap-2">
                     <select
-                      className="bg-gray-100 px-4 py-2 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
+                      className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
                       value={selectedClassForAbsentees}
                       onChange={(e) => setSelectedClassForAbsentees(e.target.value)}
                     >
@@ -964,7 +987,7 @@ export default function DashboardPage() {
                       <button
                         key={f.id}
                         onClick={() => setAbsenteeFilter(f.id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-[10px] font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
                       >
                         <span>{f.emoji}</span> {f.label}
                       </button>
@@ -1021,24 +1044,22 @@ export default function DashboardPage() {
 
             {/* 5. Live Daily Monitoring */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center px-1 pt-6 border-t border-gray-100">
+              <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
                 <div>
                   <h3 className="font-black text-gray-800 tracking-tight text-lg">Live Daily Monitoring</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     onClick={() => setDailyRefreshTs(Date.now())}
-                    className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm"
+                    className="h-11 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm font-black text-sm"
                     title="Refresh"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    Refresh
                   </button>
                   <input
                     type="date"
-                    className="text-[10px] font-black text-blue-600 bg-gray-50 px-4 py-2 rounded-2xl border-none uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                    className="h-11 text-sm font-black text-blue-600 bg-gray-50 px-4 rounded-2xl border border-gray-100 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                   />
@@ -1048,21 +1069,21 @@ export default function DashboardPage() {
               {loadingFeature && !dailyReportData ? (
                 <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
               ) : dailyReportData ? (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {dailyReportData.map((item, idx) => (
-                    <div key={idx} className="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group">
-                      <div className="flex justify-between mb-3 border-b border-gray-50 pb-2">
-                        <span className="font-black text-xs text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
-                        <span className="text-[8px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
+                    <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
+                      <div className="flex items-center justify-between gap-3 mb-4 border-b border-gray-50 pb-3">
+                        <span className="font-black text-sm text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
+                        <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
                       </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar px-1">
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
                         {item.periods.map((p, pIdx) => {
                           const isClickable = p.scheduled || p.taken;
                           return (
                             <button
                               key={pIdx}
                               onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
-                              className={`min-w-[55px] h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
+                              className={`min-h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
                                 ? 'cursor-pointer hover:shadow-md'
                                 : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
                                 } group/cell ${p.taken
@@ -1072,8 +1093,8 @@ export default function DashboardPage() {
                                     : ''
                                 }`}
                             >
-                              <span className={`text-[8px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
-                              <span className="text-xl mt-0.5 select-none text-gray-300">
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
+                              <span className="text-xl mt-1 select-none text-gray-300">
                                 {p.taken ? '✅' : p.scheduled ? '⏳' : '—'}
                               </span>
                             </button>
@@ -1092,7 +1113,6 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
-      <div className="h-20"></div>
 
       {/* ══════════════════════════════════════════════
           PERIOD DETAIL MODAL
@@ -1102,7 +1122,7 @@ export default function DashboardPage() {
           className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
-          <div className="bg-white w-full sm:max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl h-[85vh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-white w-full sm:max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex max-h-[calc(100dvh-0.5rem)] sm:max-h-[calc(100dvh-3rem)] min-h-0 flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
             {/* Modal Header */}
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-50 flex-shrink-0">
               <div>
@@ -1126,7 +1146,12 @@ export default function DashboardPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="overflow-y-auto flex-1 p-6 space-y-6 pb-24">
+            <div
+              className="overflow-y-auto overscroll-contain flex-1 min-h-0 px-5 sm:px-6 pt-5 space-y-6"
+              style={{
+                paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 1.5rem)"
+              }}
+            >
               {periodModal.loading ? (
                 <div className="flex justify-center py-16">
                   <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent" />
@@ -1243,17 +1268,18 @@ export default function DashboardPage() {
 
       {/* BOTTOM NAV BAR */}
       <nav
-        className="anim-tab-bar fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto"
+        className="anim-tab-bar fixed bottom-0 inset-x-0 z-50"
         style={{
           background: 'rgba(255,255,255,0.92)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(0,0,0,0.06)',
           boxShadow: '0 -4px 32px rgba(0,0,0,0.08)',
-          paddingBottom: 'env(safe-area-inset-bottom, 8px)'
+          paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+          minHeight: 'var(--bottom-nav-height)'
         }}
       >
-        <div className="flex items-center justify-around px-4 pt-2 pb-1">
+        <div className="mx-auto flex max-w-md items-center justify-around px-4 pt-2 pb-1">
           {[
             {
               id: 'attendance', label: 'Attendance',

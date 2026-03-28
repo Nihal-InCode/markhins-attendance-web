@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <LoadingProvider>
-            <main className="max-w-md mx-auto min-h-screen">
+            <main className="min-h-screen w-full">
               {children}
             </main>
           </LoadingProvider>
