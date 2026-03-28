@@ -124,9 +124,23 @@ export default function DashboardPage() {
                   filter: absenteeFilter
               })
           });
-          if (res.success && Array.isArray(res.data)) setAbsenteeReport(res.data);
-          else if (res.success) setAbsenteeReport([]);
-          else throw new Error(res.message);
+
+          if (Array.isArray(res)) {
+              setAbsenteeReport(res);
+              return;
+          }
+
+          if (res?.success && Array.isArray(res.data)) {
+              setAbsenteeReport(res.data);
+              return;
+          }
+
+          if (res?.success) {
+              setAbsenteeReport([]);
+              return;
+          }
+
+          throw new Error(res?.message || "Unable to load absentees report.");
       } catch (err) {
           setReportError("Absentees report failed: " + err.message);
           setAbsenteeReport([]);
