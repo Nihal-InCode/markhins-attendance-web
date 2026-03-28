@@ -530,23 +530,25 @@ export default function DashboardPage() {
                   onChange={(e) => setSelectedClass(e.target.value)}
                 >
                   <option value="">Choose Class</option>
-                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
+                  {(Array.isArray(classes) ? classes : []).map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
               </section>
 
               <section>
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">2. Select Period</label>
-                  {markedPeriods.length > 0 && (
+                  {Array.isArray(markedPeriods) && markedPeriods.length > 0 && (
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100 italic">
-                      Today: {markedPeriods.map(p => p.replace('P', '')).join(', ')} marked
+                      Today: {markedPeriods.map(p => String(p).replace('P', '')).join(', ')} marked
                     </span>
                   )}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {periods.map((p) => {
-                    const isMarked = markedPeriods.includes(p);
-                    const markData = markedDetails.find(d => d.period === p);
+                    const safeMarkedPeriods = Array.isArray(markedPeriods) ? markedPeriods : [];
+                    const safeMarkedDetails = Array.isArray(markedDetails) ? markedDetails : [];
+                    const isMarked = safeMarkedPeriods.includes(p);
+                    const markData = safeMarkedDetails.find(d => d.period === p);
                     const teacherName = markData?.teacher || "Marked";
 
                     return (
@@ -892,7 +894,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
-                {sickLeaveOverview?.length > 0 ? (
+                {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
                   sickLeaveOverview.map((item, idx) => (
                     <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
                       <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
@@ -944,7 +946,7 @@ export default function DashboardPage() {
                       </button>
                     </div>
                     <div className="mt-4 space-y-3">
-                      {adminActivityLog?.activeUsers?.length ? adminActivityLog.activeUsers.map((person) => (
+                      {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
                         <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -983,7 +985,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
-                            {adminActivityLog?.actions?.length ? adminActivityLog.actions.map((row, idx) => (
+                            {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
                               <tr key={`${row.type}-${idx}`} className="align-top">
                                 <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
                                 <td className="px-5 py-4">
@@ -1027,7 +1029,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {weeklyReport?.slice(0, 10).map((row, idx) => (
+                      {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
                         <tr key={idx} className="text-sm">
                           <td className="py-5 font-bold text-gray-600">{row.date}</td>
                           <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
@@ -1055,11 +1057,11 @@ export default function DashboardPage() {
                   onChange={(e) => setSelectedClassForBatch(e.target.value)}
                 >
                   <option value="">Select Class</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
-              {batchReport ? (
+              {Array.isArray(batchReport) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {batchReport.map((student, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
@@ -1097,7 +1099,7 @@ export default function DashboardPage() {
                       onChange={(e) => setSelectedClassForAbsentees(e.target.value)}
                     >
                       <option value="">Select Class</option>
-                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1124,7 +1126,7 @@ export default function DashboardPage() {
 
               {loadingAbsentees ? (
                 <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-              ) : absenteeReport && absenteeReport.length > 0 ? (
+              ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
                   <div className="p-5 bg-gray-50/50 flex justify-between items-center">
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
@@ -1194,7 +1196,7 @@ export default function DashboardPage() {
 
               {loadingFeature && !dailyReportData ? (
                 <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-              ) : dailyReportData ? (
+              ) : Array.isArray(dailyReportData) && dailyReportData.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {dailyReportData.map((item, idx) => (
                     <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
@@ -1203,7 +1205,7 @@ export default function DashboardPage() {
                         <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
                       </div>
                       <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-                        {item.periods.map((p, pIdx) => {
+                        {(Array.isArray(item.periods) ? item.periods : []).map((p, pIdx) => {
                           const isClickable = p.scheduled || p.taken;
                           return (
                             <button
@@ -1347,7 +1349,7 @@ export default function DashboardPage() {
                   )}
 
                   {/* Student Roster */}
-                  {periodModal.data.records?.length > 0 && (
+                  {Array.isArray(periodModal.data.records) && periodModal.data.records.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Student Roster</p>
                       <div className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden divide-y divide-gray-50">
