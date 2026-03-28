@@ -4504,38 +4504,48 @@ if __name__ == "__main__":
                         result = {"success": False, "error": "Session invalidated"}
 
                 elif action == "get_absentees_report":
-                    class_id = data.get("classId")
+                    class_id = str(data.get("classId") or "").strip()
                     date = data.get("date")
                     status_filter = data.get("filter", "all") # 'A', 'S', 'L' or 'all'
                     
-                    # 1. Get all students scheduled for this class to ensure we have names/rolls
-                    c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
-                    students_map = {row[0]: {"roll": row[1], "name": row[2], "periods": 0, "codes": set()} for row in c.fetchall()}
+                    print(f"[DEBUG] Fetching absentees for class: '{class_id}' on {date}")
+                    
+                    # 1. Get all students scheduled for this class
+                    c.execute("SELECT id, roll_no, name FROM students WHERE UPPER(class)=UPPER(?) ORDER BY roll_no", (class_id,))
+                    students_data = c.fetchall()
+                    students_map = {row[0]: {"roll": row[1], "name": row[2], "periods": 0, "codes": set(), "absent_count": 0} for row in students_data}
+                    
+                    print(f"[DEBUG] Found {len(students_map)} students in class")
                     
                     if not students_map:
                         result = {"success": True, "data": []}
                     else:
-                        # 2. Extract statuses from period_attendance (with period counts)
-                        # We only care about statuses that mean "not present"
+                        # 2. Extract statuses from period_attendance
                         c.execute("""
                             SELECT student_id, status, COUNT(*) 
                             FROM period_attendance 
-                            WHERE date=? AND class=? AND status != 'P'
+                            WHERE date=? AND UPPER(class)=UPPER(?) AND status != 'P'
                             GROUP BY student_id, status
                         """, (date, class_id))
-                        for sid, status, count in c.fetchall():
+                        p_recs = c.fetchall()
+                        print(f"[DEBUG] Found {len(p_recs)} period_attendance records")
+                        
+                        for sid, status, count in p_recs:
                             if sid in students_map:
                                 students_map[sid]["codes"].add(status)
                                 if status == 'A':
-                                    students_map[sid]["absent_count"] = students_map[sid].get("absent_count", 0) + count
+                                    students_map[sid]["absent_count"] += count
                         
                         # 3. Extract statuses from attendance table (Health/Leave)
                         c.execute("""
                             SELECT student_id, status 
                             FROM attendance 
-                            WHERE date=? AND class=? AND status IN ('S', 'L')
+                            WHERE date=? AND UPPER(class)=UPPER(?) AND status IN ('S', 'L')
                         """, (date, class_id))
-                        for sid, status in c.fetchall():
+                        a_recs = c.fetchall()
+                        print(f"[DEBUG] Found {len(a_recs)} health status records")
+                        
+                        for sid, status in a_recs:
                             if sid in students_map:
                                 students_map[sid]["codes"].add(status)
 

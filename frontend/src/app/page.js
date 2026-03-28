@@ -652,7 +652,7 @@ export default function DashboardPage() {
           >
             <button
               onClick={() => router.push('/health')}
-              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-white border border-gray-100 shadow-xl shadow-gray-100 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-95 group"
+              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-white border border-gray-100 shadow-xl shadow-gray-100 hover:shadow-2xl transition-all active:opacity-80 group"
             >
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 rounded-3xl bg-red-50 flex items-center justify-center text-2xl group-hover:bg-red-100 transition-colors">
@@ -680,7 +680,7 @@ export default function DashboardPage() {
           >
             <button
               onClick={() => router.push('/teachers')}
-              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-white border border-gray-100 shadow-xl shadow-gray-100 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-95 group"
+              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-white border border-gray-100 shadow-xl shadow-gray-100 hover:shadow-2xl transition-all active:opacity-80 group"
             >
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 rounded-3xl bg-blue-50 flex items-center justify-center text-2xl group-hover:bg-blue-100 transition-colors">
@@ -793,7 +793,7 @@ export default function DashboardPage() {
                 />
                 <button
                   onClick={handleStudentSearch}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-100"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100"
                 >
                   Search
                 </button>
@@ -801,7 +801,7 @@ export default function DashboardPage() {
             </div>
 
             {studentHistory && (
-              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in zoom-in-95 duration-300 relative overflow-hidden">
+              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-6">
@@ -913,7 +913,7 @@ export default function DashboardPage() {
               {batchReport ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {batchReport.map((student, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:scale-[1.02] hover:shadow-md">
+                    <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
                       <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
                         {Math.round(student.percent)}%
                       </div>
@@ -1002,7 +1002,7 @@ export default function DashboardPage() {
                           handleStudentSearch();
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:scale-90"
+                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -1029,7 +1029,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setDailyRefreshTs(Date.now())}
-                    className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm active:scale-95"
+                    className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm"
                     title="Refresh"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1099,10 +1099,10 @@ export default function DashboardPage() {
       ══════════════════════════════════════════════ */}
       {periodModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
-          <div className="bg-white w-full sm:max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-white w-full sm:max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl h-[85vh] sm:h-auto sm:max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
             {/* Modal Header */}
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-50 flex-shrink-0">
               <div>
@@ -1126,7 +1126,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+            <div className="overflow-y-auto flex-1 p-6 space-y-6 pb-24">
               {periodModal.loading ? (
                 <div className="flex justify-center py-16">
                   <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent" />
