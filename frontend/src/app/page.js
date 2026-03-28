@@ -60,6 +60,7 @@ export default function DashboardPage() {
   const [lastAttendance, setLastAttendance] = useState(null);
   const [markedPeriods, setMarkedPeriods] = useState([]);
   const [markedDetails, setMarkedDetails] = useState([]);
+  const [searchRollNo, setSearchRollNo] = useState("");
 
 
   const { logout, user } = useAuth();
