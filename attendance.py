@@ -16,6 +16,22 @@ def escape_html(text):
         return str(text)
     return html.escape(text, quote=True)
 
+
+def get_teacher_image_url(teacher_id):
+    """Return the public URL for a teacher photo if a matching file exists."""
+    teacher_id = str(teacher_id or "").strip()
+    if not teacher_id:
+        return None
+
+    app_root = os.path.dirname(os.path.abspath(__file__))
+    teachers_dir = os.path.join(app_root, "frontend", "public", "teachers")
+    for extension in ("jpg", "jpeg", "png", "webp"):
+        filename = f"{teacher_id}.{extension}"
+        if os.path.exists(os.path.join(teachers_dir, filename)):
+            return f"/teachers/{filename}"
+
+    return None
+
 # === Force UTF-8 output to handle emojis on Windows ===
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -3956,6 +3972,7 @@ if __name__ == "__main__":
                             "data": {
                                 "name": name,
                                 "username": username,
+                                "imageUrl": get_teacher_image_url(teacher_id),
                                 "role": role,
                                 "class_teacher_of": class_teacher_of if role in ("Class Teacher", "Vice Principal") else None,
                                 "main_subject": main_subject,
@@ -3978,6 +3995,7 @@ if __name__ == "__main__":
                             "data": {
                                 "name": "Vice Principal" if is_vp else "Principal",
                                 "username": "vp" if is_vp else "principal",
+                                "imageUrl": get_teacher_image_url(hardcoded_id),
                                 "role": "Vice Principal" if is_vp else "Principal",
                                 "class_teacher_of": "bs3" if is_vp else None,
                                 "main_subject": "Administration & Teaching" if is_vp else "Administration",
