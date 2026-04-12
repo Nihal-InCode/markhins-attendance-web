@@ -70,7 +70,7 @@ if (!fsSync.existsSync('uploads/')) {
 
 // --- Middleware ---
 app.use(cors({
-    origin: "*",
+    origin: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));

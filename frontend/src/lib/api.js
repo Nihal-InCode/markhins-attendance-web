@@ -61,8 +61,8 @@ export async function apiRequest(endpoint, options = {}) {
         // Handle Network Errors
         playSound('error');
         if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-            console.error(`[API Network Error] ${endpoint}: Could not connect to backend.`);
-            throw new Error('Network error. Please check your internet or if the backend is running.');
+            console.error(`[API Network Error] ${endpoint}: Could not connect to ${BASE_URL}`);
+            throw new Error(`Network error. Ensure you are on the same WiFi as the server (${BASE_URL}) or the server is running.`);
         }
         throw error;
     }
