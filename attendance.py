@@ -53,29 +53,25 @@ if db_dir and not os.path.exists(db_dir):
     except Exception as e:
         print(f"Warning: Could not create database directory {db_dir}: {e}")
 
-print("==============================")
-print("Using DB file:", DB_NAME)
-print("DB exists:", os.path.exists(DB_NAME))
-print("Current working dir:", os.getcwd())
+# Silence startup prints for cleaner Node.js bridge communication
+if "--verbose" in sys.argv:
+    print("==============================")
+    print("Using DB file:", DB_NAME)
+    print("DB exists:", os.path.exists(DB_NAME))
+    print("Current working dir:", os.getcwd())
 
-# Add probe for data count
-if os.path.exists(DB_NAME):
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        c = conn.cursor()
-        # Check if tables exist before counting
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='students'")
-        if c.fetchone():
-            c.execute("SELECT COUNT(*) FROM students")
-            print("Total students in DB:", c.fetchone()[0])
-            c.execute("SELECT COUNT(*) FROM attendance")
-            print("Total attendance records:", c.fetchone()[0])
-            c.execute("SELECT COUNT(*) FROM period_attendance")
-            print("Total period_attendance records:", c.fetchone()[0])
-        conn.close()
-    except Exception as e:
-        print("Probe error:", e)
-print("==============================")
+    if os.path.exists(DB_NAME):
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='students'")
+            if c.fetchone():
+                c.execute("SELECT COUNT(*) FROM students")
+                print("Total students in DB:", c.fetchone()[0])
+            conn.close()
+        except:
+            pass
+    print("==============================")
 
 
 

@@ -168,11 +168,22 @@ function callPython(data) {
 
             try {
                 const trimmedOutput = output.trim();
-                // Ensure we only parse the last line if there's multiple (due to print debugs)
-                const lines = trimmedOutput.split('\n');
-                const lastLine = lines[lines.length - 1];
+                // Ensure we handle both single-line and multi-line output with debug prints
+                // Regex looks for the last JSON object starting with {"success":
+                const jsonPattern = /\{"success":\s*(true|false),[\s\S]*\}/g;
+                const matches = trimmedOutput.match(jsonPattern);
+                
+                let jsonStr;
+                if (matches && matches.length > 0) {
+                    // Take the last complete JSON object found
+                    jsonStr = matches[matches.length - 1];
+                } else {
+                    // Fallback to the last line logic
+                    const lines = trimmedOutput.split('\n');
+                    jsonStr = lines[lines.length - 1];
+                }
 
-                const result = JSON.parse(lastLine);
+                const result = JSON.parse(jsonStr);
                 resolve(result);
             } catch (e) {
                 console.error(`[Parse Error] Full Output: "${output}"`);
