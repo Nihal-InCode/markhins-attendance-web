@@ -27,8 +27,10 @@ def get_teacher_image_url(teacher_id):
     teachers_dir = os.path.join(app_root, "frontend", "public", "teachers")
     for extension in ("jpg", "jpeg", "png", "webp"):
         filename = f"{teacher_id}.{extension}"
-        if os.path.exists(os.path.join(teachers_dir, filename)):
-            return f"/teachers/{filename}"
+        file_path = os.path.join(teachers_dir, filename)
+        if os.path.exists(file_path):
+            version = int(os.path.getmtime(file_path))
+            return f"/teachers/{filename}?v={version}"
 
     return None
 
@@ -4509,6 +4511,7 @@ if __name__ == "__main__":
                     def append_action(sort_key, actor, username, action_type, summary, meta=""):
                         actions.append({
                             "sortKey": sort_key or "",
+                            "timestamp": sort_key or "",
                             "actor": actor or "System",
                             "username": username or "",
                             "type": action_type,
@@ -4628,6 +4631,7 @@ if __name__ == "__main__":
                             "id": tid,
                             "name": name,
                             "username": username,
+                            "imageUrl": get_teacher_image_url(tid),
                             "hasPassword": bool(str(phone or "").strip()),
                             "passwordStatus": "Has password" if str(phone or "").strip() else "Using default",
                             "classTeacherOf": class_teacher_of,

@@ -176,6 +176,27 @@ export const updateAdminTeacher = (teacherId, data) => apiRequest(`/admin/teache
 export const deleteAdminTeacher = (teacherId) => apiRequest(`/admin/teachers/${teacherId}`, {
     method: 'DELETE',
 });
+export async function uploadTeacherPhoto(teacherId, file, token) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+    const response = await fetch(`${BASE_URL}/admin/teachers/${teacherId}/photo`, {
+        method: 'POST',
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    return data;
+}
+
+export const deleteTeacherPhoto = (teacherId) => apiRequest(`/admin/teachers/${teacherId}/photo`, {
+    method: 'DELETE',
+});
 export const getAdminTimetable = (weekday) => apiRequest(`/admin/timetable/${weekday}`);
 export const getTeacherSubjectOptions = (teacherId) => apiRequest(`/admin/teacher-subjects/${teacherId}`);
 export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/period', {

@@ -5,10 +5,13 @@ import { useAuth } from "@/context/AuthContext";
 import {
     apiRequest,
     createAdminTeacher,
+    deleteTeacherPhoto,
     deleteAdminTeacher,
+    getAdminActivityLog,
     getAdminTeachers,
     getAdminTimetable,
     getTeacherSubjectOptions,
+    uploadTeacherPhoto,
     updateAdminTeacher,
     updateTimetablePeriod,
 } from "@/lib/api";
@@ -18,9 +21,24 @@ import PencilLoader from "@/components/PencilLoader";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const PERIODS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+const ACTIVITY_POLL_MS = 30000;
+
+function getIstDateString() {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    });
+    const parts = formatter.formatToParts(new Date());
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+}
 
 export default function SettingsPage() {
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const router = useRouter();
     const [sessions, setSessions] = useState([]);
     const [systemInfo, setSystemInfo] = useState(null);
@@ -36,6 +54,9 @@ export default function SettingsPage() {
     const [teacherSearch, setTeacherSearch] = useState("");
     const [teacherModalOpen, setTeacherModalOpen] = useState(false);
     const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "" });
+    const [photoBusyTeacherId, setPhotoBusyTeacherId] = useState(null);
+    const [adminActivityLog, setAdminActivityLog] = useState({ activeUsers: [], liveUsers: [], actions: [], summary: {}, featureUsage: [] });
+    const [activityDate, setActivityDate] = useState(getIstDateString());
     const [selectedWeekday, setSelectedWeekday] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1);
     const [timetableRows, setTimetableRows] = useState([]);
     const [editingCell, setEditingCell] = useState(null);
@@ -52,17 +73,29 @@ export default function SettingsPage() {
         hideLoaderRef.current = hideLoader;
     }, [showLoader, hideLoader]);
 
+    const refreshAdminActivity = useCallback(async (targetDate = activityDate) => {
+        const activityRes = await getAdminActivityLog(targetDate);
+        setAdminActivityLog({
+            activeUsers: Array.isArray(activityRes?.activeUsers) ? activityRes.activeUsers : [],
+            liveUsers: Array.isArray(activityRes?.liveUsers) ? activityRes.liveUsers : [],
+            actions: Array.isArray(activityRes?.actions) ? activityRes.actions : [],
+            summary: activityRes?.summary || {},
+            featureUsage: Array.isArray(activityRes?.featureUsage) ? activityRes.featureUsage : [],
+        });
+    }, [activityDate]);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         setMsg("");
         setError("");
         showLoaderRef.current("Fetching system settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, activityRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
-                getAdminTimetable(selectedWeekday)
+                getAdminTimetable(selectedWeekday),
+                getAdminActivityLog(activityDate),
             ]);
 
             // apiRequest already unwraps .data if it exists
@@ -70,6 +103,13 @@ export default function SettingsPage() {
             setSystemInfo(infoRes || null);
             setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
             setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
+            setAdminActivityLog({
+                activeUsers: Array.isArray(activityRes?.activeUsers) ? activityRes.activeUsers : [],
+                liveUsers: Array.isArray(activityRes?.liveUsers) ? activityRes.liveUsers : [],
+                actions: Array.isArray(activityRes?.actions) ? activityRes.actions : [],
+                summary: activityRes?.summary || {},
+                featureUsage: Array.isArray(activityRes?.featureUsage) ? activityRes.featureUsage : [],
+            });
         } catch (err) {
             console.error(err);
             setError("Failed to load admin data: " + err.message);
@@ -77,7 +117,7 @@ export default function SettingsPage() {
             setLoading(false);
             hideLoaderRef.current();
         }
-    }, [selectedWeekday]);
+    }, [activityDate, selectedWeekday]);
 
     useEffect(() => {
         if (!user || user.role !== 'admin') {
@@ -86,6 +126,14 @@ export default function SettingsPage() {
         }
         fetchData();
     }, [fetchData, router, user]);
+
+    useEffect(() => {
+        if (!user || user.role !== 'admin') return;
+        const interval = setInterval(() => {
+            refreshAdminActivity(activityDate).catch(() => { });
+        }, ACTIVITY_POLL_MS);
+        return () => clearInterval(interval);
+    }, [activityDate, refreshAdminActivity, user]);
 
     async function refreshTeachers() {
         const teacherRes = await getAdminTeachers();
@@ -100,6 +148,18 @@ export default function SettingsPage() {
     async function refreshSessions() {
         const sessRes = await apiRequest("/admin/sessions");
         setSessions(sessRes.sessions || []);
+    }
+
+    async function handleRefreshAdminActivity() {
+        try {
+            await refreshAdminActivity(activityDate);
+        } catch (err) {
+            setError(err.message);
+        }
+    }
+
+    function getAuthToken() {
+        return typeof window !== "undefined" ? localStorage.getItem("token") : null;
     }
 
     async function handleRevoke(teacherId) {
@@ -129,11 +189,12 @@ export default function SettingsPage() {
         showLoader("Uploading system database...", { showProgress: true, progress: 45 });
         const formData = new FormData();
         formData.append("file", file);
+        const authToken = getAuthToken();
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/upload-db`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${token}` },
+                headers: authToken ? { "Authorization": `Bearer ${authToken}` } : {},
                 body: formData
             });
             const data = await res.json();
@@ -156,10 +217,11 @@ export default function SettingsPage() {
 
     function handleDownload() {
         const url = `${process.env.NEXT_PUBLIC_API_URL || ""}/admin/download-db`;
+        const authToken = getAuthToken();
         const a = document.createElement('a');
-        a.href = url + `?token=${token}`; // Some browsers might need this if they don't support fetch-based download easily
+        a.href = url + (authToken ? `?token=${authToken}` : ""); // Some browsers might need this if they don't support fetch-based download easily
         // Better: use fetch with auth and create blob
-        fetch(url, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(url, { headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {} })
             .then(res => res.blob())
             .then(blob => {
                 const bUrl = window.URL.createObjectURL(blob);
@@ -246,6 +308,46 @@ export default function SettingsPage() {
             setError(err.message);
         } finally {
             setTeachersBusy(false);
+        }
+    }
+
+    async function handleTeacherPhotoUpload(teacher, file) {
+        if (!file) return;
+        setPhotoBusyTeacherId(teacher.id);
+        setError("");
+        setMsg("");
+        showLoader(`Uploading photo for ${teacher.name}...`);
+        try {
+            await uploadTeacherPhoto(teacher.id, file, getAuthToken());
+            playSound('uploadSuccess');
+            setMsg(`Photo updated for ${teacher.name}.`);
+            await refreshTeachers();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setPhotoBusyTeacherId(null);
+            hideLoader();
+        }
+    }
+
+    async function handleTeacherPhotoRemove(teacher) {
+        if (!confirm(`Remove the profile photo for "${teacher.name}"?`)) return;
+        setPhotoBusyTeacherId(teacher.id);
+        setError("");
+        setMsg("");
+        showLoader(`Removing photo for ${teacher.name}...`);
+        try {
+            await deleteTeacherPhoto(teacher.id);
+            playSound('success');
+            setMsg(`Photo removed for ${teacher.name}.`);
+            await refreshTeachers();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setPhotoBusyTeacherId(null);
+            hideLoader();
         }
     }
 
@@ -401,6 +503,167 @@ export default function SettingsPage() {
                     <p className="mt-4 text-[10px] font-bold text-gray-400">DB PATH: {systemInfo?.dbPath}</p>
                 </section>
 
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900">Live Operations</h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Realtime visibility into teacher activity, feature usage and attendance work</p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <input
+                                type="date"
+                                value={activityDate}
+                                onChange={(e) => setActivityDate(e.target.value)}
+                                className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            />
+                            <button
+                                onClick={handleRefreshAdminActivity}
+                                className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-black transition-all"
+                            >
+                                Refresh Feed
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-6">
+                        <div className="rounded-[1.75rem] border border-blue-100 bg-blue-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Active Sessions</p>
+                            <p className="mt-3 text-2xl font-black text-blue-900">{adminActivityLog.summary?.activeSessions || 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-emerald-100 bg-emerald-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Interacting Now</p>
+                            <p className="mt-3 text-2xl font-black text-emerald-900">{adminActivityLog.summary?.currentlyInteracting || 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Periods Taken</p>
+                            <p className="mt-3 text-2xl font-black text-amber-900">{adminActivityLog.summary?.periodsTakenToday || 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-purple-100 bg-purple-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-500">Report Views</p>
+                            <p className="mt-3 text-2xl font-black text-purple-900">{adminActivityLog.summary?.reportViewsToday || 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-pink-100 bg-pink-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-pink-500">Feature Actions</p>
+                            <p className="mt-3 text-2xl font-black text-pink-900">{adminActivityLog.summary?.featureActionsToday || 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Unique Users</p>
+                            <p className="mt-3 text-2xl font-black text-slate-900">{adminActivityLog.summary?.uniqueActorsToday || 0}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+                        <div className="space-y-6">
+                            <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-900">Currently Interacting</h3>
+                                        <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Last 15 minutes</p>
+                                    </div>
+                                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                                        {adminActivityLog.liveUsers?.length || 0} live
+                                    </span>
+                                </div>
+                                <div className="mt-4 space-y-3">
+                                    {(adminActivityLog.liveUsers || []).slice(0, 8).map((person, idx) => (
+                                        <div key={`${person.username || person.name}-${idx}`} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-black text-gray-800">{person.name}</p>
+                                                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                        {person.role || "Teacher"}{person.username ? ` • @${person.username}` : ""}
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600">
+                                                    Live
+                                                </span>
+                                            </div>
+                                            <p className="mt-3 text-sm font-semibold text-gray-700">{person.lastAction || "Working in the app"}</p>
+                                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{person.lastSeen || ""}</p>
+                                        </div>
+                                    ))}
+                                    {(!adminActivityLog.liveUsers || adminActivityLog.liveUsers.length === 0) && (
+                                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-6 text-center">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No live interactions in the last 15 minutes</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
+                                <h3 className="text-sm font-black text-gray-900">Feature Usage</h3>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">What teachers are using today</p>
+                                <div className="mt-4 space-y-3">
+                                    {(adminActivityLog.featureUsage || []).slice(0, 6).map((entry) => (
+                                        <div key={entry.type} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="text-sm font-black text-gray-800">{entry.type}</p>
+                                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600">
+                                                    {entry.count} actions
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">{entry.users} user{entry.users === 1 ? "" : "s"}</p>
+                                        </div>
+                                    ))}
+                                    {(!adminActivityLog.featureUsage || adminActivityLog.featureUsage.length === 0) && (
+                                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-6 text-center">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No tracked feature usage for this date yet</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-black text-gray-900">Activity Feed</h3>
+                                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Who did what and when</p>
+                                </div>
+                                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-100">
+                                    {(adminActivityLog.actions || []).length} entries
+                                </span>
+                            </div>
+                            <div className="mt-4 space-y-3 max-h-[46rem] overflow-auto pr-1">
+                                {(adminActivityLog.actions || []).map((action, idx) => (
+                                    <div key={`${action.timestamp || action.time || idx}-${action.actor || 'system'}-${idx}`} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600">
+                                                        {action.type || "Activity"}
+                                                    </span>
+                                                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${action.source === "Web" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                                                        {action.source || "Log"}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-3 text-sm font-black text-gray-800">{action.summary}</p>
+                                                <p className="mt-2 text-xs font-semibold text-gray-600">
+                                                    {action.actor || "System"}{action.username ? ` (@${action.username})` : ""}
+                                                </p>
+                                                {action.meta ? (
+                                                    <p className="mt-1 text-[11px] font-medium text-gray-500">{action.meta}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="shrink-0 text-left sm:text-right">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{action.time || action.timestamp || ""}</p>
+                                                {action.timestamp ? (
+                                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-300">{action.timestamp.split(" ")[0]}</p>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!adminActivityLog.actions || adminActivityLog.actions.length === 0) && (
+                                    <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-10 text-center">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No activity recorded for this date</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* Database Management */}
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
                     <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>💾</span> Database Management</h2>
@@ -489,9 +752,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
                         <div className="max-h-[28rem] overflow-auto">
-                            <table className="w-full min-w-[720px] text-left">
+                            <table className="w-full min-w-[980px] text-left">
                                 <thead className="bg-gray-50 sticky top-0 z-10">
                                     <tr>
+                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Photo</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Name</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
@@ -503,9 +767,47 @@ export default function SettingsPage() {
                                     {filteredTeachers.map((teacher) => (
                                         <tr key={teacher.id}>
                                             <td className="px-6 py-4">
+                                                <div className="flex items-center gap-4">
+                                                    {teacher.imageUrl ? (
+                                                        <img
+                                                            src={teacher.imageUrl}
+                                                            alt={`${teacher.name} photo`}
+                                                            className="h-16 w-16 rounded-2xl object-cover border border-gray-100 shadow-sm"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-lg font-black text-gray-400">
+                                                            {teacher.name?.charAt(0) || "T"}
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-2">
+                                                        <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all ${photoBusyTeacherId === teacher.id ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"}`}>
+                                                            {photoBusyTeacherId === teacher.id ? "Uploading..." : "Upload"}
+                                                            <input
+                                                                type="file"
+                                                                accept="image/png,image/jpeg,image/webp"
+                                                                className="hidden"
+                                                                disabled={photoBusyTeacherId === teacher.id}
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    e.target.value = "";
+                                                                    handleTeacherPhotoUpload(teacher, file);
+                                                                }}
+                                                            />
+                                                        </label>
+                                                        <button
+                                                            onClick={() => handleTeacherPhotoRemove(teacher)}
+                                                            disabled={!teacher.imageUrl || photoBusyTeacherId === teacher.id}
+                                                            className="block w-full rounded-xl border border-red-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <p className="font-black text-gray-800">{teacher.name}</p>
                                                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-1">
-                                                    {teacher.sessionActive ? "Session active" : "No active session"}
+                                                    ID {teacher.id} · {teacher.sessionActive ? "Session active" : "No active session"}
                                                 </p>
                                             </td>
                                             <td className="px-6 py-4 font-mono text-sm font-bold text-blue-700">{teacher.username}</td>
@@ -536,7 +838,7 @@ export default function SettingsPage() {
                                     ))}
                                     {filteredTeachers.length === 0 && (
                                         <tr>
-                                            <td colSpan="5" className="px-6 py-10 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
+                                            <td colSpan="6" className="px-6 py-10 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
                                                 No teachers found
                                             </td>
                                         </tr>

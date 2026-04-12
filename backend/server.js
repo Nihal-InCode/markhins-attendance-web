@@ -37,6 +37,16 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
+const teacherPhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed.'));
+        }
+        cb(null, true);
+    }
+});
 function resolveAttendanceDbPath() {
     const configured = (process.env.ATTENDANCE_DB_PATH || '').trim();
     const candidates = configured
@@ -60,11 +70,283 @@ function resolveAttendanceDbPath() {
 }
 
 const ATTENDANCE_DB_PATH = resolveAttendanceDbPath();
+const TEACHER_PHOTO_DIR = path.join(__dirname, '..', 'frontend', 'public', 'teachers');
+const TEACHER_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const WEB_ACTIVITY_RETENTION = 600;
+const ACTIVE_INTERACTION_WINDOW_MS = 15 * 60 * 1000;
+const webActivityLog = [];
+
+function ensureTeacherPhotoDir() {
+    if (!fsSync.existsSync(TEACHER_PHOTO_DIR)) {
+        fsSync.mkdirSync(TEACHER_PHOTO_DIR, { recursive: true });
+    }
+}
+
+function getTeacherPhotoExtension(mimetype = '') {
+    switch (String(mimetype).toLowerCase()) {
+        case 'image/jpeg':
+        case 'image/jpg':
+            return '.jpg';
+        case 'image/png':
+            return '.png';
+        case 'image/webp':
+            return '.webp';
+        default:
+            return null;
+    }
+}
+
+async function removeTeacherPhotoFiles(teacherId) {
+    ensureTeacherPhotoDir();
+    const normalizedTeacherId = String(teacherId || '').trim();
+    if (!normalizedTeacherId) return;
+
+    const entries = await fs.readdir(TEACHER_PHOTO_DIR, { withFileTypes: true });
+    await Promise.all(entries
+        .filter((entry) => {
+            if (!entry.isFile()) return false;
+            const parsed = path.parse(entry.name);
+            return parsed.name === normalizedTeacherId && TEACHER_PHOTO_EXTENSIONS.has(parsed.ext.toLowerCase());
+        })
+        .map((entry) => fs.unlink(path.join(TEACHER_PHOTO_DIR, entry.name)).catch(() => { })));
+}
+
+function getIstNow() {
+    return new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+}
+
+function getIstDateKey(date = new Date()) {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+}
+
+function getIstTimestamp(date = new Date()) {
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+    return formatter.format(date).replace('T', ' ');
+}
+
+function getUserRoleLabel(user = {}) {
+    if (user.role === 'admin') return 'Admin';
+    if (user.role === 'Principal') return 'Principal';
+    if (user.role === 'Vice Principal') return 'Vice Principal';
+    if (user.role === 'Class Teacher') return 'Class Teacher';
+    return 'Subject Teacher';
+}
+
+function getRequestActivityDescriptor(req) {
+    const method = String(req.method || '').toUpperCase();
+    const routePath = String(req.route?.path || req.path || '');
+
+    if (routePath === '/daily-report' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed daily report', meta: req.query?.date || 'Today' };
+    }
+    if (routePath === '/weekly-report' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed weekly report', meta: 'Weekly overview' };
+    }
+    if (routePath === '/batch-report/:classId' && method === 'GET') {
+        return { type: 'Reports', summary: `Viewed batch report for ${req.params?.classId || 'class'}`, meta: 'Batch report' };
+    }
+    if (routePath === '/student-history/:rollNo' && method === 'GET') {
+        return { type: 'Reports', summary: `Viewed student history for roll ${req.params?.rollNo || '-'}`, meta: 'Student history' };
+    }
+    if (routePath === '/sick-leave-overview' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed sick and leave overview', meta: 'Health analytics' };
+    }
+    if (routePath === '/full-timetable/:weekday' && method === 'GET') {
+        return { type: 'Timetable', summary: 'Viewed full timetable', meta: `Weekday ${req.params?.weekday || '-'}` };
+    }
+    if (routePath === '/resolve-period' && method === 'GET') {
+        return { type: 'Attendance', summary: 'Resolved timetable period', meta: `${req.query?.class || '-'} ${req.query?.period || '-'}` };
+    }
+    if (routePath === '/attendance/last' && method === 'GET') {
+        return { type: 'Attendance', summary: 'Viewed last attendance', meta: 'Last recorded period' };
+    }
+    if (routePath === '/attendance/marked-periods' && method === 'GET') {
+        return { type: 'Attendance', summary: 'Checked marked periods', meta: `${req.query?.class || '-'} ${req.query?.date || ''}`.trim() };
+    }
+    if (routePath === '/attendance/edit-last' && method === 'PUT') {
+        return { type: 'Attendance', summary: 'Edited last attendance', meta: 'Manual correction' };
+    }
+    if (routePath === '/mark-attendance' && method === 'POST') {
+        return { type: 'Attendance', summary: 'Submitted attendance', meta: `${req.body?.classId || req.body?.class || '-'} ${req.body?.period || '-'}` };
+    }
+    if (routePath === '/attendance/extra' && method === 'POST') {
+        return { type: 'Extra Class', summary: 'Marked extra class attendance', meta: `${req.body?.classId || req.body?.class || '-'} ${req.body?.period || 'Extra'}` };
+    }
+    if (routePath === '/health/:type' && method === 'POST') {
+        return { type: 'Health', summary: `Updated health status: ${req.params?.type || 'action'}`, meta: req.body?.classId || 'Class update' };
+    }
+    if (routePath === '/profile/me' && method === 'GET') {
+        return { type: 'Profile', summary: 'Opened My Profile', meta: 'Profile view' };
+    }
+    if (routePath === '/profile/update-credentials' && method === 'POST') {
+        return { type: 'Profile', summary: 'Updated login credentials', meta: 'Credentials changed' };
+    }
+    if (routePath === '/admin/teachers' && method === 'POST') {
+        return { type: 'Admin', summary: 'Created teacher account', meta: req.body?.name || '' };
+    }
+    if (routePath === '/admin/teachers/:teacherId' && method === 'PUT') {
+        return { type: 'Admin', summary: 'Updated teacher account', meta: req.body?.name || `Teacher ${req.params?.teacherId || ''}` };
+    }
+    if (routePath === '/admin/teachers/:teacherId' && method === 'DELETE') {
+        return { type: 'Admin', summary: 'Deleted teacher account', meta: `Teacher ${req.params?.teacherId || ''}` };
+    }
+    if (routePath === '/admin/teachers/:teacherId/photo' && method === 'POST') {
+        return { type: 'Admin', summary: 'Uploaded teacher photo', meta: `Teacher ${req.params?.teacherId || ''}` };
+    }
+    if (routePath === '/admin/teachers/:teacherId/photo' && method === 'DELETE') {
+        return { type: 'Admin', summary: 'Removed teacher photo', meta: `Teacher ${req.params?.teacherId || ''}` };
+    }
+    if (routePath === '/admin/timetable/:weekday' && method === 'GET') {
+        return { type: 'Admin', summary: 'Viewed timetable editor', meta: `Weekday ${req.params?.weekday || '-'}` };
+    }
+    if (routePath === '/admin/timetable/period' && method === 'PUT') {
+        return { type: 'Admin', summary: 'Updated timetable period', meta: `${req.body?.classId || '-'} ${req.body?.period || '-'}` };
+    }
+    if (routePath === '/admin/revoke-session' && method === 'POST') {
+        return { type: 'Admin', summary: 'Revoked teacher session', meta: `Teacher ${req.body?.teacherId || ''}` };
+    }
+    if (routePath === '/admin/update-password' && method === 'POST') {
+        return { type: 'Security', summary: 'Updated admin password', meta: 'Security change' };
+    }
+    if (routePath === '/admin/upload-db' && method === 'POST') {
+        return { type: 'Database', summary: 'Uploaded replacement database', meta: 'Database import' };
+    }
+    if (routePath === '/admin/download-db' && method === 'GET') {
+        return { type: 'Database', summary: 'Downloaded database export', meta: 'Database export' };
+    }
+    return null;
+}
+
+function recordWebActivity(user, req) {
+    const descriptor = getRequestActivityDescriptor(req);
+    if (!descriptor) return;
+
+    const now = new Date();
+    appendWebActivityEvent({
+        id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: getIstTimestamp(now),
+        date: getIstDateKey(now),
+        epochMs: now.getTime(),
+        actor: user.name || 'Unknown User',
+        username: user.username || '',
+        role: getUserRoleLabel(user),
+        type: descriptor.type,
+        summary: descriptor.summary,
+        meta: descriptor.meta || '',
+    });
+}
+
+function appendWebActivityEvent(event) {
+    webActivityLog.push(event);
+    if (webActivityLog.length > WEB_ACTIVITY_RETENTION) {
+        webActivityLog.splice(0, webActivityLog.length - WEB_ACTIVITY_RETENTION);
+    }
+}
+
+function buildAdminActivitySnapshot(reportDate, baseData = {}) {
+    const activeUsers = Array.isArray(baseData.activeUsers) ? baseData.activeUsers : [];
+    const dbActions = Array.isArray(baseData.actions) ? baseData.actions : [];
+    const dayWebActions = webActivityLog
+        .filter((event) => event.date === reportDate)
+        .map((event) => ({
+            timestamp: event.timestamp,
+            time: event.timestamp.split(' ')[1] || event.timestamp,
+            actor: event.actor,
+            username: event.username,
+            role: event.role,
+            type: event.type,
+            summary: event.summary,
+            meta: event.meta,
+            source: 'Web',
+        }));
+
+    const mergedActions = [
+        ...dbActions.map((action) => ({ ...action, source: 'Database' })),
+        ...dayWebActions,
+    ].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+
+    const recentThreshold = Date.now() - ACTIVE_INTERACTION_WINDOW_MS;
+    const recentUsersMap = new Map();
+    for (const event of webActivityLog) {
+        if (event.epochMs < recentThreshold) continue;
+        const key = event.username || event.actor;
+        if (!key) continue;
+        const existing = recentUsersMap.get(key);
+        if (!existing || existing.epochMs < event.epochMs) {
+            recentUsersMap.set(key, event);
+        }
+    }
+
+    const liveUsers = Array.from(recentUsersMap.values())
+        .sort((a, b) => b.epochMs - a.epochMs)
+        .map((event) => ({
+            name: event.actor,
+            username: event.username,
+            role: event.role,
+            lastAction: event.summary,
+            lastSeen: event.timestamp,
+        }));
+
+    const uniqueActors = new Set();
+    for (const action of mergedActions) {
+        uniqueActors.add(action.username || action.actor || action.summary);
+    }
+
+    const featureUsageMap = new Map();
+    for (const action of dayWebActions) {
+        const entry = featureUsageMap.get(action.type) || { type: action.type, count: 0, users: new Set() };
+        entry.count += 1;
+        entry.users.add(action.username || action.actor);
+        featureUsageMap.set(action.type, entry);
+    }
+
+    return {
+        activeUsers,
+        liveUsers,
+        actions: mergedActions.slice(0, 120),
+        summary: {
+            activeSessions: activeUsers.length,
+            currentlyInteracting: liveUsers.length,
+            periodsTakenToday: dbActions.filter((action) => action.type === 'Attendance').length,
+            reportViewsToday: dayWebActions.filter((action) => action.type === 'Reports').length,
+            featureActionsToday: dayWebActions.length,
+            adminActionsToday: dayWebActions.filter((action) => ['Admin', 'Database', 'Security'].includes(action.type)).length,
+            uniqueActorsToday: uniqueActors.size,
+        },
+        featureUsage: Array.from(featureUsageMap.values())
+            .map((entry) => ({
+                type: entry.type,
+                count: entry.count,
+                users: entry.users.size,
+            }))
+            .sort((a, b) => b.count - a.count),
+    };
+}
 
 // Ensure uploads directory exists
 if (!fsSync.existsSync('uploads/')) {
     fsSync.mkdirSync('uploads/', { recursive: true });
 }
+ensureTeacherPhotoDir();
 
 // ── Feature 3: Edited Attendance system now uses DB state directly ──
 
@@ -114,6 +396,11 @@ const authenticateToken = (req, res, next) => {
         }
 
         req.user = user;
+        res.on('finish', () => {
+            if (res.statusCode < 400) {
+                recordWebActivity(user, req);
+            }
+        });
         next();
     });
 };
@@ -229,10 +516,23 @@ app.post('/login', async (req, res) => {
             const adminUser = {
                 id: "system-admin",
                 name: "System Administrator",
+                username: sysAdminUser,
                 role: "admin",
                 sessionId: require('crypto').randomBytes(16).toString('hex')
             };
             const token = jwt.sign(adminUser, JWT_SECRET, { expiresIn: '7d' });
+            appendWebActivityEvent({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                timestamp: getIstTimestamp(new Date()),
+                date: getIstDateKey(new Date()),
+                epochMs: Date.now(),
+                actor: adminUser.name,
+                username: adminUser.username,
+                role: 'Admin',
+                type: 'Login',
+                summary: 'Logged into the admin console',
+                meta: 'System administrator login',
+            });
             console.log(`[Login] System Admin Access Granted`);
             return res.json({ success: true, user: adminUser, token });
         }
@@ -243,6 +543,18 @@ app.post('/login', async (req, res) => {
 
         if (result.success) {
             const token = jwt.sign(result.user, JWT_SECRET, { expiresIn: '7d' });
+            appendWebActivityEvent({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                timestamp: getIstTimestamp(new Date()),
+                date: getIstDateKey(new Date()),
+                epochMs: Date.now(),
+                actor: result.user?.name || username,
+                username: result.user?.username || username,
+                role: getUserRoleLabel(result.user || {}),
+                type: 'Login',
+                summary: 'Logged into the web app',
+                meta: 'Successful login',
+            });
             res.json({ ...result, token });
         } else {
             res.status(401).json(result);
@@ -717,8 +1029,10 @@ app.post('/admin/absentees-report', authenticateToken, async (req, res) => {
 app.get('/admin/activity-log', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
-        const result = await callPython({ action: "get_admin_activity_log", date: req.query.date });
-        res.json(result);
+        const reportDate = String(req.query.date || getIstDateKey(new Date())).trim();
+        const result = await callPython({ action: "get_admin_activity_log", date: reportDate });
+        const snapshot = buildAdminActivitySnapshot(reportDate, result?.data || {});
+        res.json({ success: true, ...snapshot });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -762,10 +1076,65 @@ app.put('/admin/teachers/:teacherId', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/admin/teachers/:teacherId/photo', authenticateToken, teacherPhotoUpload.single('file'), async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+
+        const teacherId = String(req.params.teacherId || '').trim();
+        if (!teacherId) {
+            return res.status(400).json({ success: false, message: 'Teacher ID is required.' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+        }
+
+        const extension = getTeacherPhotoExtension(req.file.mimetype);
+        if (!extension) {
+            return res.status(400).json({ success: false, message: 'Unsupported image type. Use JPG, PNG or WEBP.' });
+        }
+
+        await removeTeacherPhotoFiles(teacherId);
+
+        const filename = `${teacherId}${extension}`;
+        const targetPath = path.join(TEACHER_PHOTO_DIR, filename);
+        await fs.writeFile(targetPath, req.file.buffer);
+
+        const version = Date.now();
+        return res.json({
+            success: true,
+            message: 'Teacher photo uploaded successfully.',
+            imageUrl: `/teachers/${filename}?v=${version}`
+        });
+    } catch (error) {
+        console.error('[Teacher Photo Upload Error]:', error);
+        return res.status(500).json({ success: false, message: error.message || 'Failed to upload teacher photo.' });
+    }
+});
+
+app.delete('/admin/teachers/:teacherId/photo', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+
+        const teacherId = String(req.params.teacherId || '').trim();
+        if (!teacherId) {
+            return res.status(400).json({ success: false, message: 'Teacher ID is required.' });
+        }
+
+        await removeTeacherPhotoFiles(teacherId);
+        return res.json({ success: true, message: 'Teacher photo removed successfully.' });
+    } catch (error) {
+        console.error('[Teacher Photo Delete Error]:', error);
+        return res.status(500).json({ success: false, message: error.message || 'Failed to remove teacher photo.' });
+    }
+});
+
 app.delete('/admin/teachers/:teacherId', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
         const result = await callPython({ action: "delete_teacher", teacherId: req.params.teacherId });
+        if (result?.success) {
+            await removeTeacherPhotoFiles(req.params.teacherId);
+        }
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
