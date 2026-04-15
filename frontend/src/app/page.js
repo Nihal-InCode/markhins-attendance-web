@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
   const [timetableError, setTimetableError] = useState("");
   const [reportError, setReportError] = useState("");
+  const [reportType, setReportType] = useState("overview");
   const [extraClassesReport, setExtraClassesReport] = useState([]);
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
@@ -384,9 +385,7 @@ export default function DashboardPage() {
 async function fetchAdminLog(date) {
     if (user?.role !== "admin") return;
     try {
-      const data = await getAdminActivityLog,
-  getExtraClassesReport,
-  getTeachersList(date);
+      const data = await getAdminActivityLog(date);
       setAdminActivityLog(data && typeof data === "object" ? data : { activeUsers: [], actions: [] });
     } catch (err) {
       setReportError("Failed to load admin activity log.");
@@ -862,7 +861,25 @@ async function fetchAdminLog(date) {
 
         {/* --- REPORTS TAB --- */}
         {activeTab === "reports" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
+              {[
+                { id: 'overview', label: 'Monitor', emoji: '📊' },
+                { id: 'absentees', label: 'Absentees', emoji: '❌' },
+                { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
+                { id: 'analysis', label: 'Analysis', emoji: '📈' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setReportType(tab.id)}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${reportType === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <span>{tab.emoji}</span> {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {reportError && (
               <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
                 <span className="text-lg">⚠️</span>
@@ -923,7 +940,8 @@ async function fetchAdminLog(date) {
               </div>
             )}
 
-            {/* 2. Active Health Status (Combined Sick/Leave) */}
+            {reportType === "overview" && (
+            <>{/* 2. Active Health Status (Combined Sick/Leave) */}
             <div className="space-y-4">
               <div className="flex justify-between items-center px-1">
                 <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
@@ -1085,7 +1103,11 @@ async function fetchAdminLog(date) {
               </div>
             )}
 
-            {/* 4. Batch-wise Report */}
+            </>
+          )}
+
+          {reportType === "analysis" && (
+            <>{/* 4. Batch-wise Report */}
             <div className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
                 <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
@@ -1125,7 +1147,11 @@ async function fetchAdminLog(date) {
               )}
             </div>
 
-            {/* 4.5 Full-Day Absentees List */}
+            </>
+          )}
+
+          {reportType === "absentees" && (
+            <>{/* 4.5 Full-Day Absentees List */}
             <div className="space-y-4">
               <div className="flex flex-col gap-4 px-1">
                 <div className="flex justify-between items-center">
@@ -1209,7 +1235,11 @@ async function fetchAdminLog(date) {
             </div>
 
             
-            {/* 4.7 Extra Classes Report Section */}
+            </>
+          )}
+
+          {reportType === "extra" && (
+            <>{/* 4.7 Extra Classes Report Section */}
             <div className="space-y-4 pt-6 border-t border-gray-100">
               <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
                 <div>
@@ -1273,7 +1303,11 @@ async function fetchAdminLog(date) {
               )}
             </div>
 
-{/* 5. Live Daily Monitoring */}
+</>
+          )}
+
+          {reportType === "overview" && (
+            <>{/* 5. Live Daily Monitoring */}
             <div className="space-y-4">
               <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
                 <div>
@@ -1341,9 +1375,12 @@ async function fetchAdminLog(date) {
                 </div>
               )}
             </div>
-          </div>
+          </>
         )}
-      </main>
+        </div>
+      </>
+    )}
+  </main>
 
       {/* ══════════════════════════════════════════════
           PERIOD DETAIL MODAL
