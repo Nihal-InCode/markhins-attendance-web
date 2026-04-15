@@ -680,6 +680,19 @@ app.get('/weekly-report', authenticateToken, async (req, res) => {
 app.get('/sick-leave-overview', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_sick_leave_overview" });
+
+
+app.get('/extra-classes-report', authenticateToken, async (req, res) => {
+    try {
+        const { date, teacherId, classId } = req.query;
+        const result = await callPython({ action: 'get_extra_classes_report', date, teacherId, classId });
+        recordWebActivity(req.user.name, 'VIEW_REPORT', 'Extra Classes Report', `Date: ${date || 'Today'}, Class: ${classId || 'All'}`);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

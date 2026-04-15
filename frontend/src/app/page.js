@@ -15,7 +15,9 @@ import {
   getLastAttendance,
   getMarkedPeriods,
   apiRequest,
-  getAdminActivityLog
+  getAdminActivityLog,
+  getExtraClassesReport,
+  getTeachersList
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -64,6 +66,12 @@ export default function DashboardPage() {
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
   const [timetableError, setTimetableError] = useState("");
   const [reportError, setReportError] = useState("");
+  const [extraClassesReport, setExtraClassesReport] = useState([]);
+  const [loadingExtra, setLoadingExtra] = useState(false);
+  const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
+  const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
+  const [teachers, setTeachers] = useState([]);
+
   // Period detail modal
   const [periodModal, setPeriodModal] = useState(null);
   const [dailyRefreshTs, setDailyRefreshTs] = useState(Date.now());
@@ -258,8 +266,10 @@ export default function DashboardPage() {
       fetchWeeklyReport();
       fetchSickLeaveOverview();
       fetchAdminLog(selectedDate);
+      fetchExtraClassesReport();
+      fetchTeachers();
     }
-  }, [activeTab, selectedDate, dailyRefreshTs, user?.role]);
+  }, [activeTab, selectedDate, dailyRefreshTs, user?.role, selectedTeacherForExtra, selectedClassForExtra]);
 
   // Auto-refresh daily report every 30 seconds when on reports tab
   useEffect(() => {
@@ -345,10 +355,38 @@ export default function DashboardPage() {
     }
   };
 
-  async function fetchAdminLog(date) {
+  
+  async function fetchExtraClassesReport() {
+    setLoadingExtra(true);
+    try {
+      const data = await getExtraClassesReport({
+        date: selectedDate,
+        teacherId: selectedTeacherForExtra,
+        classId: selectedClassForExtra
+      });
+      setExtraClassesReport(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Extra classes report failed:", err);
+    } finally {
+      setLoadingExtra(false);
+    }
+  }
+
+  async function fetchTeachers() {
+    try {
+      const data = await getTeachersList();
+      setTeachers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch teachers:", err);
+    }
+  }
+
+async function fetchAdminLog(date) {
     if (user?.role !== "admin") return;
     try {
-      const data = await getAdminActivityLog(date);
+      const data = await getAdminActivityLog,
+  getExtraClassesReport,
+  getTeachersList(date);
       setAdminActivityLog(data && typeof data === "object" ? data : { activeUsers: [], actions: [] });
     } catch (err) {
       setReportError("Failed to load admin activity log.");
@@ -1170,7 +1208,72 @@ export default function DashboardPage() {
               ) : null}
             </div>
 
-            {/* 5. Live Daily Monitoring */}
+            
+            {/* 4.7 Extra Classes Report Section */}
+            <div className="space-y-4 pt-6 border-t border-gray-100">
+              <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
+                <div>
+                  <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                    value={selectedClassForExtra}
+                    onChange={(e) => setSelectedClassForExtra(e.target.value)}
+                  >
+                    <option value="">All Classes</option>
+                    {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <select
+                    className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                    value={selectedTeacherForExtra}
+                    onChange={(e) => setSelectedTeacherForExtra(e.target.value)}
+                  >
+                    <option value="">All Teachers</option>
+                    {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {loadingExtra ? (
+                <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
+              ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {extraClassesReport.map((report, idx) => (
+                    <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
+                      <div className="flex justify-between items-start mb-4 relative z-10">
+                        <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
+                      </div>
+                      <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
+                      </div>
+                      <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
+                        <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
+                          <p className="text-sm font-black text-green-600">{report.presentCount}</p>
+                          <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
+                        </div>
+                        <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
+                          <p className="text-sm font-black text-red-600">{report.absentCount}</p>
+                          <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
+                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No extra classes records for this date</p>
+                </div>
+              )}
+            </div>
+
+{/* 5. Live Daily Monitoring */}
             <div className="space-y-4">
               <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
                 <div>

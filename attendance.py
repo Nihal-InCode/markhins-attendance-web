@@ -4294,7 +4294,52 @@ if __name__ == "__main__":
                         subjects = [{"id": "General", "name": "General"}]
                     result = {"success": True, "data": subjects}
 
-                elif action == "mark_extra_attendance":
+                
+                elif action == "get_extra_classes_report":
+                    # === EXTRA CLASS REPORTING ===
+                    # Filters: date (YYYY-MM-DD), teacher_id (optional), class_id (optional)
+                    report_date = str(data.get("date") or get_ist_now().strftime("%Y-%m-%d")).strip()
+                    teacher_id = data.get("teacherId")
+                    class_id = data.get("classId")
+                    
+                    query = "SELECT id, date, class, subject, teacher, time, absent_rolls FROM extra_classes WHERE date=?"
+                    params = [report_date]
+                    
+                    if class_id:
+                        query += " AND class = ?"
+                        params.append(class_id)
+                        
+                    if teacher_id:
+                        c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))
+                        t_row = c.fetchone()
+                        if t_row:
+                            query += " AND teacher = ?"
+                            params.append(t_row[0])
+                    
+                    query += " ORDER BY time DESC"
+                    c.execute(query, tuple(params))
+                    rows = c.fetchall()
+                    
+                    report_data = []
+                    for r in rows:
+                        c.execute("SELECT COUNT(*) FROM students WHERE class=?", (r[2],))
+                        cls_total = c.fetchone()[0] or 0
+                        absent_list = [x for x in (r[6] or "").split(",") if x.strip()]
+                        absent_count = len(absent_list)
+                        
+                        report_data.append({
+                            "id": r[0],
+                            "date": r[1],
+                            "class": r[2],
+                            "subject": r[3],
+                            "teacherName": r[4],
+                            "time": r[5] or "00:00",
+                            "absentCount": absent_count,
+                            "presentCount": max(0, cls_total - absent_count),
+                            "totalStudents": cls_total
+                        })
+                    result = {"success": True, "data": report_data}
+elif action == "mark_extra_attendance":
                     # === EXTRA CLASS ATTENDANCE MARKING ===
                     # Mirrors bot's extra_att logic:
                     # - Stores in extra_classes table

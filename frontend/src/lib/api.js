@@ -142,6 +142,15 @@ export const editLastAttendance = (records, { classId, period, date } = {}) =>
  */
 export const getExtraSubjects = () => apiRequest('/extra-subjects');
 
+export const getExtraClassesReport = (params = {}) => {
+    const { date, teacherId, classId } = params;
+    let url = '/extra-classes-report?';
+    if (date) url += `date=${date}&`;
+    if (teacherId) url += `teacherId=${teacherId}&`;
+    if (classId) url += `classId=${classId}&`;
+    return apiRequest(url);
+};
+
 export const markExtraAttendance = (data) =>
     apiRequest('/attendance/extra', {
         method: 'POST',
