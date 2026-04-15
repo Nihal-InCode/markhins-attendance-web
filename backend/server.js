@@ -170,6 +170,9 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/sick-leave-overview' && method === 'GET') {
         return { type: 'Reports', summary: 'Viewed sick and leave overview', meta: 'Health analytics' };
     }
+    if (routePath === '/extra-classes-report' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed extra classes report', meta: req.query?.date || 'Today' };
+    }
     if (routePath === '/full-timetable/:weekday' && method === 'GET') {
         return { type: 'Timetable', summary: 'Viewed full timetable', meta: `Weekday ${req.params?.weekday || '-'}` };
     }
@@ -680,19 +683,18 @@ app.get('/weekly-report', authenticateToken, async (req, res) => {
 app.get('/sick-leave-overview', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_sick_leave_overview" });
-
-
-app.get('/extra-classes-report', authenticateToken, async (req, res) => {
-    try {
-        const { date, teacherId, classId } = req.query;
-        const result = await callPython({ action: 'get_extra_classes_report', date, teacherId, classId });
-        recordWebActivity(req.user.name, 'VIEW_REPORT', 'Extra Classes Report', `Date: ${date || 'Today'}, Class: ${classId || 'All'}`);
+        recordWebActivity(req.user, req);
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
+app.get('/extra-classes-report', authenticateToken, async (req, res) => {
+    try {
+        const { date, teacherId, classId } = req.query;
+        const result = await callPython({ action: 'get_extra_classes_report', date, teacherId, classId });
+        recordWebActivity(req.user, req);
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

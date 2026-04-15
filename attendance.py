@@ -4339,7 +4339,7 @@ if __name__ == "__main__":
                             "totalStudents": cls_total
                         })
                     result = {"success": True, "data": report_data}
-elif action == "mark_extra_attendance":
+                elif action == "mark_extra_attendance":
                     # === EXTRA CLASS ATTENDANCE MARKING ===
                     # Mirrors bot's extra_att logic:
                     # - Stores in extra_classes table
