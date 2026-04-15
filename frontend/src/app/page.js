@@ -80,6 +80,9 @@ export default function DashboardPage() {
   const [markedPeriods, setMarkedPeriods] = useState([]);
   const [markedDetails, setMarkedDetails] = useState([]);
   const [searchRollNo, setSearchRollNo] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(getIstDateString());
+  const [multiMode, setMultiMode] = useState(false);
+  const [selectedPeriods, setSelectedPeriods] = useState([]);
 
 
   const { logout, user } = useAuth();
@@ -213,7 +216,7 @@ export default function DashboardPage() {
   async function fetchMarked() {
     if (selectedClass && activeTab === 'attendance') {
       try {
-        const res = await getMarkedPeriods(selectedClass, selectedDate);
+        const res = await getMarkedPeriods(selectedClass, attendanceDate);
         setMarkedPeriods(res?.marked_periods || []);
         setMarkedDetails(res?.marked_details || []);
       } catch (err) {
@@ -228,29 +231,27 @@ export default function DashboardPage() {
   // Fetch marked periods for the selected class
   useEffect(() => {
     fetchMarked();
-  }, [selectedClass, activeTab, dailyRefreshTs]);
+  }, [selectedClass, activeTab, dailyRefreshTs, attendanceDate]);
 
   // Auto-resolve subject when class or period changes
   useEffect(() => {
     if (selectedClass && selectedPeriod) {
-      handleResolvePeriod(selectedClass, selectedPeriod);
+      handleResolvePeriod(selectedClass, selectedPeriod, attendanceDate);
     } else {
       setResolvedSubject(null);
     }
-  }, [selectedClass, selectedPeriod]);
+  }, [selectedClass, selectedPeriod, attendanceDate]);
 
-  const handleResolvePeriod = async (cls, prd) => {
+  const handleResolvePeriod = async (cls, prd, date) => {
     setResolving(true);
-    // showLoader("Resolving timetable..."); // Optional, might be too frequent
     setResolvedSubject(null);
     try {
-      const res = await resolvePeriod(cls, prd);
+      const res = await resolvePeriod(cls, prd, date);
       setResolvedSubject(res);
     } catch (err) {
       setResolvedSubject({ error: err.message || "No subject scheduled." });
     } finally {
       setResolving(false);
-      // hideLoader();
     }
   };
 
@@ -422,19 +423,32 @@ async function fetchAdminLog(date) {
   };
 
   const handleLoadStudents = () => {
-    if (!selectedClass || !selectedPeriod || !resolvedSubject || resolvedSubject.error) {
-      alert("Please ensure Class and Period are selected and a subject is scheduled.");
+    if (!selectedClass) {
+      alert("Please select a class.");
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    if (multiMode) {
+      if (selectedPeriods.length === 0) {
+        alert("Please select at least one period.");
+        return;
+      }
+    } else {
+      if (!selectedPeriod || !resolvedSubject || resolvedSubject.error) {
+        alert("Please select a period with a scheduled subject.");
+        return;
+      }
+    }
+
     sessionStorage.setItem("attendance_params", JSON.stringify({
       classId: selectedClass,
-      period: selectedPeriod,
-      subjectId: resolvedSubject.subject,
-      date: today,
+      period: multiMode ? selectedPeriods.join(", ") : selectedPeriod,
+      periods: multiMode ? selectedPeriods : [selectedPeriod],
+      subjectId: multiMode ? "Multiple" : resolvedSubject.subject,
+      date: attendanceDate,
       className: classes.find(c => c.id === selectedClass)?.name,
-      subjectName: resolvedSubject.subject,
+      subjectName: multiMode ? "Multi-Period Attendance" : resolvedSubject.subject,
+      multiMode: multiMode
     }));
 
     router.push("/attendance");
@@ -559,6 +573,17 @@ async function fetchAdminLog(date) {
                 <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Regular Attendance</span>
               </div>
               <section>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Attendance Date 🗓️</label>
+                <input
+                  type="date"
+                  className="w-full px-6 py-5 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 outline-none text-xl font-bold transition-all appearance-none cursor-pointer"
+                  value={attendanceDate}
+                  max={getIstDateString()}
+                  onChange={(e) => setAttendanceDate(e.target.value)}
+                />
+              </section>
+
+              <section>
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">1. Select Class</label>
                 <select
                   className="w-full px-6 py-5 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 outline-none text-xl font-bold transition-all appearance-none cursor-pointer"
@@ -573,11 +598,23 @@ async function fetchAdminLog(date) {
               <section>
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">2. Select Period</label>
-                  {Array.isArray(markedPeriods) && markedPeriods.length > 0 && (
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100 italic">
-                      Today: {markedPeriods.map(p => String(p).replace('P', '')).join(', ')} marked
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setMultiMode(!multiMode);
+                        setSelectedPeriods([]);
+                        setSelectedPeriod("");
+                      }}
+                      className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${multiMode ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-white text-gray-400 border-gray-100 hover:bg-gray-50'}`}
+                    >
+                      {multiMode ? '🔥 Multi ON' : 'Multi-Select'}
+                    </button>
+                    {Array.isArray(markedPeriods) && markedPeriods.length > 0 && (
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100 italic">
+                        {attendanceDate === getIstDateString() ? 'Today' : attendanceDate}: {markedPeriods.map(p => String(p).replace('P', '')).join(', ')} marked
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {periods.map((p) => {
@@ -587,12 +624,25 @@ async function fetchAdminLog(date) {
                     const markData = safeMarkedDetails.find(d => d.period === p);
                     const teacherName = markData?.teacher || "Marked";
 
+                    const isSelected = multiMode ? selectedPeriods.includes(p) : selectedPeriod === p;
+
+                    const handleToggle = () => {
+                      if (isMarked) return;
+                      if (multiMode) {
+                        setSelectedPeriods(prev => 
+                          prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+                        );
+                      } else {
+                        setSelectedPeriod(p);
+                      }
+                    };
+
                     return (
                       <button
                         key={p}
-                        onClick={() => !isMarked && setSelectedPeriod(p)}
+                        onClick={handleToggle}
                         disabled={isMarked}
-                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-hidden flex flex-col items-center justify-center gap-1 ${selectedPeriod === p
+                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-hidden flex flex-col items-center justify-center gap-1 ${isSelected
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : isMarked
                             ? 'bg-red-50 text-red-500 border border-red-100 cursor-not-allowed opacity-90'
@@ -602,7 +652,6 @@ async function fetchAdminLog(date) {
                         <span className="relative z-10">{p.replace('P', '')}</span>
                         {isMarked && (
                           <>
-                            {/* Horizontal Rectangle Seal */}
                             <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-end pb-1.5 pointer-events-none">
                               <div className="bg-emerald-500/10 border border-emerald-200/50 backdrop-blur-[2px] px-1.5 py-0.5 rounded-md transform rotate-[-4deg] shadow-sm">
                                 <span className="text-[5px] font-black text-emerald-600 uppercase tracking-widest whitespace-nowrap block max-w-[50px] overflow-hidden text-ellipsis">
@@ -629,50 +678,52 @@ async function fetchAdminLog(date) {
                 )}
               </section>
 
-              <section className="pt-4 border-t border-gray-50">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Detected Subject</label>
-                <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${resolvedSubject?.error ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
-                  {resolving ? (
-                    <div className="flex items-center space-x-3 text-blue-400">
-                      <div className="animate-pulse rounded-full h-4 w-4 bg-blue-400"></div>
-                      <span className="text-sm font-bold uppercase tracking-widest">Resolving Timetable...</span>
-                    </div>
-                  ) : resolvedSubject ? (
-                    resolvedSubject.error ? (
-                      <div className="text-red-600">
-                        <p className="text-lg font-bold">Class Not Scheduled</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-70">{resolvedSubject.error}</p>
-                        <button
-                          onClick={() => router.push("/extra")}
-                          className="mt-3 flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-200 transition-all"
-                        >
-                          <span>⚡</span> Use Extra Class instead
-                        </button>
+              { !multiMode && (
+                <section className="pt-4 border-t border-gray-50">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Detected Subject</label>
+                  <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${resolvedSubject?.error ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                    {resolving ? (
+                      <div className="flex items-center space-x-3 text-blue-400">
+                        <div className="animate-pulse rounded-full h-4 w-4 bg-blue-400"></div>
+                        <span className="text-sm font-bold uppercase tracking-widest">Resolving Timetable...</span>
                       </div>
+                    ) : resolvedSubject ? (
+                      resolvedSubject.error ? (
+                        <div className="text-red-600">
+                          <p className="text-lg font-bold">Class Not Scheduled</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-70">{resolvedSubject.error}</p>
+                          <button
+                            onClick={() => router.push("/extra")}
+                            className="mt-3 flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-200 transition-all"
+                          >
+                            <span>⚡</span> Use Extra Class instead
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-blue-900">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
+                          <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
+                          <p className="text-xs font-bold mt-1 text-blue-600 uppercase tracking-widest">Teacher: {resolvedSubject.teacher}</p>
+                        </div>
+                      )
                     ) : (
-                      <div className="text-blue-900">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
-                        <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
-                        <p className="text-xs font-bold mt-1 text-blue-600 uppercase tracking-widest">Teacher: {resolvedSubject.teacher}</p>
-                      </div>
-                    )
-                  ) : (
                     <p className="text-gray-300 text-sm font-bold uppercase tracking-widest italic">Wait for selection...</p>
                   )}
                 </div>
               </section>
+              )}
             </div>
 
             <button
               onClick={handleLoadStudents}
-              disabled={!resolvedSubject || resolvedSubject.error || resolving}
-              className={`anim-fade-up w-full py-6 rounded-[2rem] text-xl font-black shadow-2xl transition-all active:scale-[0.97] ${(!resolvedSubject || resolvedSubject.error || resolving)
+              disabled={(!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0)}
+              className={`anim-fade-up w-full py-6 rounded-[2rem] text-xl font-black shadow-2xl transition-all active:scale-[0.97] ${((!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0))
                 ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
                 : 'anim-shimmer-btn anim-cta-glow text-white'
                 }`}
               style={{ animationDelay: '0.25s' }}
             >
-              {resolvedSubject?.error ? "Unavailable" : "Start Marking"}
+              {multiMode ? "Start Marking" : resolvedSubject?.error ? "Unavailable" : "Start Marking"}
             </button>
           </div>
         )}

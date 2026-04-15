@@ -3638,18 +3638,31 @@ if __name__ == "__main__":
 
                 elif action == "get_students":
                     class_id = data.get("classId")
+                    date = data.get("date")
                     c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
                     student_rows = c.fetchall()
                     
                     students = []
                     for r in student_rows:
                         sid, roll, name = r
-                        health_status = get_student_current_status(c, sid)
+                        
+                        # Get status at specific date if provided
+                        if date:
+                            c.execute("""
+                                SELECT status FROM attendance 
+                                WHERE student_id = ? AND date <= ?
+                                ORDER BY date DESC, id DESC LIMIT 1
+                            """, (sid, date))
+                            latest = c.fetchone()
+                            health_status = latest[0] if latest else None
+                        else:
+                            health_status = get_student_current_status(c, sid)
+
                         students.append({
                             "id": sid, 
                             "rollNo": roll, 
                             "name": name, 
-                            "healthStatus": health_status, # 'S', 'L', or None
+                            "healthStatus": health_status, 
                             "health_status": health_status 
                         })
                     result = {"success": True, "data": students}
@@ -3915,8 +3928,15 @@ if __name__ == "__main__":
                         p_label = f"P{period}"
                     else:
                         p_label = period
-                        
-                    weekday = get_ist_now().weekday() 
+
+                    date_str = data.get("date")
+                    if date_str:
+                        try:
+                            weekday = dt.strptime(date_str, "%Y-%m-%d").weekday()
+                        except:
+                            weekday = get_ist_now().weekday()
+                    else:
+                        weekday = get_ist_now().weekday()
                     
                     c.execute("""
                         SELECT tt.subject, t.name 
@@ -4096,65 +4116,88 @@ if __name__ == "__main__":
 
                 elif action == "mark_attendance":
                     class_id = data.get("classId")
-                    period_raw = data.get("period", "Web")
                     teacher_id = data.get("teacher_id", 1)
                     records = data.get("records", [])
-
-                    date = get_ist_now().strftime("%Y-%m-%d")
-
-                    if not period_raw.startswith("P"):
-                        p_label = f"P{period_raw}"
+                    
+                    # --- Feature: Date Selection ---
+                    date_str = data.get("date")
+                    if date_str:
+                        date = date_str
                     else:
-                        p_label = period_raw
+                        date = get_ist_now().strftime("%Y-%m-%d")
+                    
+                    try:
+                        target_dt = dt.strptime(date, "%Y-%m-%d")
+                        weekday = target_dt.weekday()
+                    except:
+                        target_dt = get_ist_now()
+                        date = target_dt.strftime("%Y-%m-%d")
+                        weekday = target_dt.weekday()
 
-                    # ── Feature 1: Duplicate check ──────────────────────────────
-                    # Check if ANY attendance row already exists for this class/period/date
-                    c.execute("""
-                        SELECT COUNT(*) FROM period_attendance
-                        WHERE class=? AND period=? AND date=?
-                    """, (class_id, p_label, date))
-                    already_count = c.fetchone()[0]
-                    if already_count > 0:
-                        result = {
-                            "success": False,
-                            "duplicate": True,
-                            "error": "Attendance already marked for this period."
-                        }
-                    else:
-                        weekday = get_ist_now().weekday()
+                    # --- Feature: Multi-Period ---
+                    periods_list = data.get("periods", [])
+                    if not periods_list:
+                        single_period = data.get("period", "Web")
+                        periods_list = [single_period]
+
+                    p_labels = []
+                    for pr in periods_list:
+                        p_str = str(pr).strip()
+                        if not p_str.startswith("P"):
+                            p_labels.append(f"P{p_str}")
+                        else:
+                            p_labels.append(p_str)
+
+                    success_periods = []
+                    already_marked = []
+
+                    for p_label in p_labels:
+                        # Duplicate check per period
+                        c.execute("""
+                            SELECT COUNT(*) FROM period_attendance
+                            WHERE class=? AND period=? AND date=?
+                        """, (class_id, p_label, date))
+                        already_count = c.fetchone()[0]
+                        if already_count > 0:
+                            already_marked.append(p_label)
+                            continue
+
+                        # Find subject for this period/weekday
                         c.execute("SELECT subject FROM timetable WHERE class=? AND weekday=? AND period_label=? LIMIT 1", (class_id, weekday, p_label))
                         row = c.fetchone()
                         subject_id = row[0] if row else "General"
-
-                        now_ts = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
 
                         for rec in records:
                             student_id = rec.get("studentId")
                             status_map = {"present": "P", "absent": "A", "sick": "S", "leave": "L"}
                             requested_status = status_map.get(rec.get("status"), "A")
                             
-                            # BACKEND ENFORCEMENT: Check auto-absent for Sick/Leave
                             health_status = get_student_current_status(c, student_id)
-                            if health_status in ('S', 'L'):
-                                final_status = 'A' # Always Absent in period_attendance if marked Sick/Leave in health
-                            else:
-                                final_status = requested_status
+                            final_status = 'A' if health_status in ('S', 'L') else requested_status
 
                             c.execute("""
                                 INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
                                 VALUES (?, ?, ?, ?, ?, ?)
                             """, (date, class_id, p_label, student_id, final_status, teacher_id))
+                        
+                        success_periods.append(p_label)
 
-                        conn.commit()
+                    conn.commit()
+                    
+                    if not success_periods and already_marked:
+                        result = {
+                            "success": False,
+                            "duplicate": True,
+                            "error": f"Attendance already marked for {', '.join(already_marked)}."
+                        }
+                    else:
+                        msg = f"Attendance marked for {', '.join(success_periods)}."
+                        if already_marked:
+                            msg += f" (Note: {', '.join(already_marked)} were already marked and skipped)"
                         result = {
                             "success": True,
-                            "message": f"Attendance recorded for {len(records)} students.",
-                            "last": {
-                                "classId": class_id,
-                                "period": p_label,
-                                "date": date,
-                                "teacher_id": teacher_id
-                            }
+                            "message": msg,
+                            "marked": success_periods
                         }
 
                 elif action == "get_last_attendance":

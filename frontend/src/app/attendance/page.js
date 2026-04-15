@@ -50,7 +50,7 @@ function ConfirmationModal({ params, students, attendance, onGoHome }) {
                         </div>
                         <h2 className="text-white text-xl font-black">{params?.className}</h2>
                         <p className="text-green-100 text-xs font-bold mt-0.5">
-                            {params?.subjectName} • {params?.period?.replace("P", "Period ")} • {params?.date}
+                            {params?.subjectName} • {params?.multiMode ? `Periods: ${params?.periods?.join(', ')}` : `Period ${params?.period?.replace("P", "")}`} • {params?.date}
                         </p>
                     </div>
                 </div>
@@ -118,13 +118,13 @@ export default function AttendancePage() {
         if (!stored) { router.push("/"); return; }
         const parsed = JSON.parse(stored);
         setParams(parsed);
-        fetchStudents(parsed.classId, parsed.isEdit ? parsed : null);
+        fetchStudents(parsed.classId, parsed.isEdit ? parsed : null, parsed.subjectId, parsed.date);
     }, [router]);
 
-    async function fetchStudents(classId, editParams = null) {
+    async function fetchStudents(classId, editParams = null, subjectId = null, date = null) {
         showLoader("Loading students...");
         try {
-            const data = await getStudents(classId);
+            const data = await getStudents(classId, subjectId, date);
             setStudents(data);
             const initial = {};
 
@@ -208,6 +208,8 @@ export default function AttendancePage() {
                 const result = await markAttendance({
                     classId: params.classId,
                     period: params.period,
+                    periods: params.periods,
+                    date: params.date,
                     records,
                 });
 
@@ -260,7 +262,7 @@ export default function AttendancePage() {
                     <div className="text-center">
                         <h1 className="text-lg font-black">{params?.isEdit ? '✏️ Edit Attendance' : params?.className}</h1>
                         <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
-                            {params?.subjectName} • Period {params?.period?.replace("P", "")}
+                            {params?.subjectName} • {params?.multiMode ? `Periods: ${params?.periods?.join(', ')}` : `Period ${params?.period?.replace("P", "")}`}
                         </p>
                     </div>
                     <div className="w-6" />

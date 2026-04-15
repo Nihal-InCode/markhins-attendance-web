@@ -612,8 +612,8 @@ app.get('/timetable/:class', authenticateToken, async (req, res) => {
 
 app.get('/resolve-period', authenticateToken, async (req, res) => {
     try {
-        const { class: cls, period } = req.query;
-        const result = await callPython({ action: "resolve_period", class: cls, period });
+        const { class: cls, period, date } = req.query;
+        const result = await callPython({ action: "resolve_period", class: cls, period, date });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

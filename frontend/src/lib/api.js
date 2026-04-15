@@ -82,8 +82,8 @@ export const login = (username, password) =>
  */
 export const validateToken = () => apiRequest('/validate-token');
 
-export const resolvePeriod = (classId, period) =>
-    apiRequest(`/resolve-period?class=${classId}&period=${period}`);
+export const resolvePeriod = (classId, period, date) =>
+    apiRequest(`/resolve-period?class=${classId}&period=${period}&date=${date || ''}`);
 
 /**
  * Dashboard & Students Endpoints
