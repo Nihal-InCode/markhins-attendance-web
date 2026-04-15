@@ -52,7 +52,6 @@ export default function DashboardPage() {
   };
   const [selectedDate, setSelectedDate] = useState(getIstDateString());
   const [absenteeReport, setAbsenteeReport] = useState(null);
-  const [selectedClassForAbsentees, setSelectedClassForAbsentees] = useState("");
   const [absenteeFilter, setAbsenteeFilter] = useState("ALL");
   const [loadingAbsentees, setLoadingAbsentees] = useState(false);
   const [dailyReportData, setDailyReportData] = useState(null);
@@ -62,7 +61,7 @@ export default function DashboardPage() {
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [adminActivityLog, setAdminActivityLog] = useState(null);
   const [batchReport, setBatchReport] = useState(null);
-  const [selectedClassForBatch, setSelectedClassForBatch] = useState("");
+  const [selectedClassForAnalysis, setSelectedClassForAnalysis] = useState("");
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
   const [timetableError, setTimetableError] = useState("");
   const [reportError, setReportError] = useState("");
@@ -123,7 +122,7 @@ export default function DashboardPage() {
       : "max-w-md px-6";
 
   async function loadAbsenteesReport() {
-      if (!selectedClassForAbsentees || !selectedDate) return;
+      if (!selectedClassForAnalysis || !selectedDate) return;
       setLoadingAbsentees(true);
       setReportError("");
       try {
@@ -131,7 +130,7 @@ export default function DashboardPage() {
           const res = await apiRequest("/absentees-report", {
               method: "POST",
               body: JSON.stringify({
-                  classId: selectedClassForAbsentees,
+                  classId: selectedClassForAnalysis,
                   date: selectedDate,
                   filter: normalizedFilter
               })
@@ -162,8 +161,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-      if (selectedClassForAbsentees) loadAbsenteesReport();
-  }, [selectedClassForAbsentees, absenteeFilter, selectedDate]);
+      if (selectedClassForAnalysis) loadAbsenteesReport();
+  }, [selectedClassForAnalysis, absenteeFilter, selectedDate]);
 
   useEffect(() => {
     async function fetchData() {
@@ -282,10 +281,10 @@ export default function DashboardPage() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === "reports" && selectedClassForBatch) {
-      fetchBatchReport(selectedClassForBatch);
+    if (activeTab === "reports" && selectedClassForAnalysis) {
+      fetchBatchReport(selectedClassForAnalysis);
     }
-  }, [selectedClassForBatch, activeTab]);
+  }, [selectedClassForAnalysis, activeTab]);
 
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
@@ -865,7 +864,6 @@ async function fetchAdminLog(date) {
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
               {[
                 { id: 'overview', label: 'Monitor', emoji: '📊' },
-                { id: 'absentees', label: 'Absentees', emoji: '❌' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈' },
               ].map(tab => (
@@ -1113,8 +1111,8 @@ async function fetchAdminLog(date) {
                 <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
                 <select
                   className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
-                  value={selectedClassForBatch}
-                  onChange={(e) => setSelectedClassForBatch(e.target.value)}
+                  value={selectedClassForAnalysis}
+                  onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
                 >
                   <option value="">Select Class</option>
                   {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1147,20 +1145,16 @@ async function fetchAdminLog(date) {
               )}
             </div>
 
-            </>
-          )}
-
-          {reportType === "absentees" && (
-            <>{/* 4.5 Full-Day Absentees List */}
-            <div className="space-y-4">
+            <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
+              {/* 4.5 Full-Day Absentees List */}
               <div className="flex flex-col gap-4 px-1">
                 <div className="flex justify-between items-center">
                   <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
                   <div className="flex gap-2">
                     <select
                       className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
-                      value={selectedClassForAbsentees}
-                      onChange={(e) => setSelectedClassForAbsentees(e.target.value)}
+                      value={selectedClassForAnalysis}
+                      onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
                     >
                       <option value="">Select Class</option>
                       {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1168,7 +1162,7 @@ async function fetchAdminLog(date) {
                   </div>
                 </div>
                 
-                {selectedClassForAbsentees && (
+                {selectedClassForAnalysis && (
                   <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
                     {[
                       { id: 'ALL', label: 'All Absentees', emoji: '📋' },
@@ -1194,7 +1188,7 @@ async function fetchAdminLog(date) {
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
                   <div className="p-5 bg-gray-50/50 flex justify-between items-center">
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAbsentees}</p>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
                   </div>
                   {absenteeReport.map((student, idx) => (
                     <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
@@ -1205,9 +1199,18 @@ async function fetchAdminLog(date) {
                         <div>
                           <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
                           <div className="flex gap-1.5 mt-1">
-                            <span className="text-[9px] font-black uppercase tracking-tight text-gray-500">
-                              {student.status}
-                            </span>
+                            <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
+                                  {student.status.split('(')[0].trim()}
+                                </span>
+                                {student.status.includes('(') && (
+                                  <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
+                                    {student.status.match(/\((\d+)/)?.[1]} P
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1226,19 +1229,17 @@ async function fetchAdminLog(date) {
                     </div>
                   ))}
                 </div>
-              ) : selectedClassForAbsentees ? (
+              ) : selectedClassForAnalysis ? (
                 <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
                   <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
                 </div>
               ) : null}
             </div>
-
-            
-            </>
+</>
           )}
 
-          {reportType === "extra" && (
+{reportType === "extra" && (
             <>{/* 4.7 Extra Classes Report Section */}
             <div className="space-y-4 pt-6 border-t border-gray-100">
               <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
@@ -1263,6 +1264,12 @@ async function fetchAdminLog(date) {
                     <option value="">All Teachers</option>
                     {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
+                  <input
+                    type="date"
+                    className="bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
                 </div>
               </div>
 
