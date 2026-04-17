@@ -5159,9 +5159,17 @@ if __name__ == "__main__":
                             weekday_period_map.setdefault(int(weekday), []).append(period_label)
 
                         while cursor_date <= end_date:
-                            assigned_periods += len(weekday_period_map.get(cursor_date.weekday(), []))
+                            # Skip Fridays (4 in Python weekday() where Mon=0)
+                            day_of_week = cursor_date.weekday()
+                            if day_of_week != 4:
+                                # Count periods assigned in timetable for this weekday
+                                periods_on_this_day = weekday_period_map.get(day_of_week, [])
+                                assigned_periods += len(periods_on_this_day)
+                            
                             cursor_date += datetime.timedelta(days=1)
-                    except Exception:
+                    except Exception as e:
+                        # Log error for transparency
+                        print(f"DEBUG: Error calculating assigned periods: {e}", file=sys.stderr)
                         assigned_periods = 0
 
                     classes_taken = len(all_sessions)
