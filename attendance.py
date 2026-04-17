@@ -5071,73 +5071,91 @@ if __name__ == "__main__":
                 elif action == "get_teacher_register_report":
                     class_id = data.get("classId")
                     teacher_id = data.get("teacherId")
-                    date = data.get("date")
+                    from_date = data.get("fromDate")
+                    to_date = data.get("toDate")
                     
-                    if not date:
-                        date = get_ist_now().strftime("%Y-%m-%d")
+                    if not from_date: from_date = get_ist_now().strftime("%Y-%m-%d")
+                    if not to_date: to_date = from_date
 
-                    # 1. Fetch Students in class
+                    # 1. Fetch Students
                     c.execute("SELECT id, name, roll_no FROM students WHERE class=? ORDER BY roll_no", (class_id,))
                     student_rows = c.fetchall()
                     
-                    # 2. Fetch specific teacher's attendance for this class and date
+                    # 2. Fetch Attendance for teacher in date range
+                    # CAST teacher_id to int to ensure match
+                    try:
+                        t_id_int = int(teacher_id)
+                    except:
+                        t_id_int = teacher_id
+
                     c.execute("""
-                        SELECT pa.student_id, pa.period, pa.status
+                        SELECT pa.student_id, pa.date, pa.period, pa.status
                         FROM period_attendance pa
-                        WHERE pa.class = ? AND pa.teacher_id = ? AND pa.date = ?
-                        ORDER BY pa.period
-                    """, (class_id, teacher_id, date))
+                        WHERE pa.class = ? AND pa.teacher_id = ? AND pa.date BETWEEN ? AND ?
+                        ORDER BY pa.date ASC, pa.period ASC
+                    """, (class_id, t_id_int, from_date, to_date))
                     attendance_rows = c.fetchall()
                     
-                    attendance_map = {}
-                    periods_found = set()
-                    for sid, period, status in attendance_rows:
-                        if sid not in attendance_map:
-                            attendance_map[sid] = {}
-                        attendance_map[sid][period] = status
-                        periods_found.add(period)
+                    student_history = {}
+                    all_sessions = []
+                    sessions_set = set()
                     
-                    # Sort periods: P1, P2...
-                    sorted_periods = sorted(list(periods_found), key=lambda x: int(x.replace("P", "")) if x.replace("P", "").isdigit() else 99)
+                    for sid, adate, period, status in attendance_rows:
+                        # Period sorting key: Date + P-Number
+                        p_num_clean = period.replace("P", "")
+                        sort_p = int(p_num_clean) if p_num_clean.isdigit() else 99
+                        session_key = (adate, sort_p, period) # (date, sort_order, label)
+                        
+                        if session_key not in sessions_set:
+                            sessions_set.add(session_key)
+                            all_sessions.append(session_key)
+                        
+                        if sid not in student_history:
+                            student_history[sid] = {}
+                        student_history[sid][session_key] = status
+                    
+                    # Sort sessions chronologically
+                    all_sessions = sorted(all_sessions)
                     
                     final_data = []
                     for sid, name, roll in student_rows:
-                        row_periods_list = []
-                        total_present = 0
-                        period_statuses = {}
+                        line_parts = []
+                        present_count = 0
+                        total_sessions = len(all_sessions)
                         
-                        for p in sorted_periods:
-                            status = attendance_map.get(sid, {}).get(p, "-")
-                            p_num = p.replace("P", "")
+                        for session in all_sessions:
+                            status = student_history.get(sid, {}).get(session, "-")
+                            p_num = session[2].replace("P", "")
                             
                             if status == 'P':
-                                row_periods_list.append(p_num)
-                                total_present += 1
-                                period_statuses[p] = p_num
+                                line_parts.append(p_num)
+                                present_count += 1
                             elif status == 'A':
-                                row_periods_list.append("A")
-                                period_statuses[p] = "A"
+                                line_parts.append("A")
                             elif status in ('S', 'L'):
-                                row_periods_list.append(status)
-                                period_statuses[p] = status
+                                line_parts.append(status)
                             else:
-                                row_periods_list.append("-")
-                                period_statuses[p] = "-"
+                                line_parts.append("-")
                         
+                        percentage = 0
+                        if total_sessions > 0:
+                            percentage = round((present_count / total_sessions) * 100, 1)
+                            
                         final_data.append({
                             "rollNo": roll,
                             "name": name,
-                            "attendanceLine": ", ".join(row_periods_list),
-                            "periodStatuses": period_statuses,
-                            "total": total_present
+                            "attendanceLine": ", ".join(line_parts),
+                            "total": present_count,
+                            "percentage": percentage
                         })
                     
                     result = {
                         "success": True, 
                         "data": final_data, 
-                        "periods": sorted_periods,
+                        "totalSessions": len(all_sessions),
                         "classId": class_id,
-                        "date": date
+                        "fromDate": from_date,
+                        "toDate": to_date
                     }
 
                 else:

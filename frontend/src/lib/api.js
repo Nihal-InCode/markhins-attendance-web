@@ -142,8 +142,8 @@ export const editLastAttendance = (records, { classId, period, date } = {}) =>
  */
 export const getExtraSubjects = () => apiRequest('/extra-subjects');
 export const getTeacherRegisterReport = (params = {}) => {
-    const { classId, teacherId, date } = params;
-    return apiRequest(`/teacher-register-report?classId=${classId}&teacherId=${teacherId}&date=${date || ''}`);
+    const { classId, teacherId, fromDate, toDate } = params;
+    return apiRequest(`/teacher-register-report?classId=${classId}&teacherId=${teacherId}&fromDate=${fromDate || ''}&toDate=${toDate || ''}`);
 };
 
 export const getExtraClassesReport = (params = {}) => {

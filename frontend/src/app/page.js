@@ -70,6 +70,8 @@ export default function DashboardPage() {
   const [extraClassesReport, setExtraClassesReport] = useState([]);
   const [digitalRegisterData, setDigitalRegisterData] = useState([]);
   const [digitalRegisterPeriods, setDigitalRegisterPeriods] = useState([]);
+  const [registerFromDate, setRegisterFromDate] = useState(getIstDateString());
+  const [registerToDate, setRegisterToDate] = useState(getIstDateString());
   const [selectedTeacherForRegister, setSelectedTeacherForRegister] = useState("");
   const [loadingRegister, setLoadingRegister] = useState(false);
   const [loadingExtra, setLoadingExtra] = useState(false);
@@ -386,10 +388,11 @@ export default function DashboardPage() {
       const res = await getTeacherRegisterReport({
         classId: selectedClassForAnalysis,
         teacherId: selectedTeacherForRegister,
-        date: selectedDate
+        fromDate: registerFromDate,
+        toDate: registerToDate
       });
       setDigitalRegisterData(res.data || []);
-      setDigitalRegisterPeriods(res.periods || []);
+      setDigitalRegisterPeriods(res.periods || []); // Note: Backend now returns totalSessions but data includes aggregation
     } catch (err) {
       console.error("Digital register report failed:", err);
       setReportError("Failed to load digital register.");
@@ -397,6 +400,28 @@ export default function DashboardPage() {
       setLoadingRegister(false);
     }
   }
+
+  const exportToExcel = async () => {
+    if (digitalRegisterData.length === 0) return;
+    try {
+      const XLSX = await import("xlsx");
+      const worksheetData = digitalRegisterData.map(row => ({
+        "Roll No": row.rollNo,
+        "Student Name": row.name,
+        "Attendance History": row.attendanceLine,
+        "Total Present": row.total,
+        "Percentage (%)": row.percentage
+      }));
+      const ws = XLSX.utils.json_to_sheet(worksheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Register");
+      const fileName = `attendance_register_${selectedClassForAnalysis}_${registerFromDate}_to_${registerToDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error("Excel export failed:", err);
+      alert("Failed to export Excel. Please try again.");
+    }
+  };
 
   async function fetchTeachers() {
     try {
@@ -1393,7 +1418,7 @@ async function fetchAdminLog(date) {
           {reportType === "register" && (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <section>
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
                     <select
@@ -1417,37 +1442,52 @@ async function fetchAdminLog(date) {
                     </select>
                   </section>
                   <section>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Date</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">From Date</label>
                     <input
                       type="date"
                       className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
+                      value={registerFromDate}
+                      onChange={(e) => setRegisterFromDate(e.target.value)}
+                    />
+                  </section>
+                  <section>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">To Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                      value={registerToDate}
+                      onChange={(e) => setRegisterToDate(e.target.value)}
                     />
                   </section>
                 </div>
-                <button
-                  onClick={fetchDigitalRegister}
-                  disabled={loadingRegister}
-                  className="w-full mt-6 py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                  <button
+                    onClick={fetchDigitalRegister}
+                    disabled={loadingRegister}
+                    className="py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
+                  </button>
+                  <button
+                    onClick={exportToExcel}
+                    disabled={digitalRegisterData.length === 0}
+                    className="py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-200 disabled:shadow-none"
+                  >
+                    📥 Download Excel
+                  </button>
+                </div>
               </div>
 
               {digitalRegisterData.length > 0 ? (
                 <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
                       <thead>
                         <tr className="bg-gray-50/50 border-b border-gray-100">
                           <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
                           <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
-                          {digitalRegisterPeriods.map(p => (
-                            <th key={p} className="px-3 py-4 text-[10px] font-black text-blue-500 uppercase tracking-widest text-center">
-                              {p.replace("P", "Prd ")}
-                            </th>
-                          ))}
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Attendance Timeline</th>
+                          <th className="px-4 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right">%</th>
                           <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
                         </tr>
                       </thead>
@@ -1459,22 +1499,34 @@ async function fetchAdminLog(date) {
                                 {row.rollNo}
                               </span>
                             </td>
-                            <td className="px-6 py-4 font-bold text-gray-700">{row.name}</td>
-                            {digitalRegisterPeriods.map(p => {
-                              const status = row.periodStatuses[p] || "-";
-                              const isAbsent = status === 'A' || status === 'S' || status === 'L';
-                              return (
-                                <td key={p} className="px-3 py-4 text-center">
-                                  <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-black ${
-                                    isAbsent ? 'bg-red-50 text-red-500' : status === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
-                                  }`}>
-                                    {status}
-                                  </span>
-                                </td>
-                              );
-                            })}
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-gray-700 whitespace-nowrap">{row.name}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[300px]">
+                                {row.attendanceLine.split(",").map((status, sIdx) => {
+                                  const s = status.trim();
+                                  const isAbsent = s === 'A' || s === 'S' || s === 'L';
+                                  return (
+                                    <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${
+                                      isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
+                                    }`}>
+                                      {s}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <span className={`font-black text-[10px] px-2 py-1 rounded-md ${
+                                row.percentage >= 75 ? 'bg-emerald-50 text-emerald-600' : 
+                                row.percentage >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                              }`}>
+                                {row.percentage}%
+                              </span>
+                            </td>
                             <td className="px-6 py-4 text-right">
-                              <span className="font-black text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg">
+                              <span className="font-black text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg">
                                 {row.total}
                               </span>
                             </td>
@@ -1487,8 +1539,8 @@ async function fetchAdminLog(date) {
               ) : (
                 !loadingRegister && (
                   <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-400">📒</div>
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select class and teacher to view register</p>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-300">📒</div>
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
                   </div>
                 )
               )}
