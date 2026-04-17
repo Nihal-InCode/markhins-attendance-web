@@ -5068,6 +5068,78 @@ if __name__ == "__main__":
                         results.sort(key=sort_key)
                         result = {"success": True, "data": results}
 
+                elif action == "get_teacher_register_report":
+                    class_id = data.get("classId")
+                    teacher_id = data.get("teacherId")
+                    date = data.get("date")
+                    
+                    if not date:
+                        date = get_ist_now().strftime("%Y-%m-%d")
+
+                    # 1. Fetch Students in class
+                    c.execute("SELECT id, name, roll_no FROM students WHERE class=? ORDER BY roll_no", (class_id,))
+                    student_rows = c.fetchall()
+                    
+                    # 2. Fetch specific teacher's attendance for this class and date
+                    c.execute("""
+                        SELECT pa.student_id, pa.period, pa.status
+                        FROM period_attendance pa
+                        WHERE pa.class = ? AND pa.teacher_id = ? AND pa.date = ?
+                        ORDER BY pa.period
+                    """, (class_id, teacher_id, date))
+                    attendance_rows = c.fetchall()
+                    
+                    attendance_map = {}
+                    periods_found = set()
+                    for sid, period, status in attendance_rows:
+                        if sid not in attendance_map:
+                            attendance_map[sid] = {}
+                        attendance_map[sid][period] = status
+                        periods_found.add(period)
+                    
+                    # Sort periods: P1, P2...
+                    sorted_periods = sorted(list(periods_found), key=lambda x: int(x.replace("P", "")) if x.replace("P", "").isdigit() else 99)
+                    
+                    final_data = []
+                    for sid, name, roll in student_rows:
+                        row_periods_list = []
+                        total_present = 0
+                        period_statuses = {}
+                        
+                        for p in sorted_periods:
+                            status = attendance_map.get(sid, {}).get(p, "-")
+                            p_num = p.replace("P", "")
+                            
+                            if status == 'P':
+                                row_periods_list.append(p_num)
+                                total_present += 1
+                                period_statuses[p] = p_num
+                            elif status == 'A':
+                                row_periods_list.append("A")
+                                period_statuses[p] = "A"
+                            elif status in ('S', 'L'):
+                                row_periods_list.append(status)
+                                period_statuses[p] = status
+                            else:
+                                row_periods_list.append("-")
+                                period_statuses[p] = "-"
+                        
+                        final_data.append({
+                            "rollNo": roll,
+                            "name": name,
+                            "attendanceLine": ", ".join(row_periods_list),
+                            "periodStatuses": period_statuses,
+                            "total": total_present
+                        })
+                    
+                    result = {
+                        "success": True, 
+                        "data": final_data, 
+                        "periods": sorted_periods,
+                        "classId": class_id,
+                        "date": date
+                    }
+
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}
 

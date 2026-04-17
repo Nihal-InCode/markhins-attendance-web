@@ -653,6 +653,16 @@ app.get('/period-summary', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/teacher-register-report', authenticateToken, async (req, res) => {
+    try {
+        const { classId, teacherId, date } = req.query;
+        const result = await callPython({ action: "get_teacher_register_report", classId, teacherId, date });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/daily-report', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_daily_report", date: req.query.date });

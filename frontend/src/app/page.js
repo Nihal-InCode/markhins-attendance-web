@@ -17,7 +17,8 @@ import {
   apiRequest,
   getAdminActivityLog,
   getExtraClassesReport,
-  getTeachersList
+  getTeachersList,
+  getTeacherRegisterReport
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -67,6 +68,10 @@ export default function DashboardPage() {
   const [reportError, setReportError] = useState("");
   const [reportType, setReportType] = useState("overview");
   const [extraClassesReport, setExtraClassesReport] = useState([]);
+  const [digitalRegisterData, setDigitalRegisterData] = useState([]);
+  const [digitalRegisterPeriods, setDigitalRegisterPeriods] = useState([]);
+  const [selectedTeacherForRegister, setSelectedTeacherForRegister] = useState("");
+  const [loadingRegister, setLoadingRegister] = useState(false);
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
   const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
@@ -370,6 +375,26 @@ export default function DashboardPage() {
       console.error("Extra classes report failed:", err);
     } finally {
       setLoadingExtra(false);
+    }
+  }
+
+  async function fetchDigitalRegister() {
+    if (!selectedClassForAnalysis || !selectedTeacherForRegister) return;
+    setLoadingRegister(true);
+    setReportError("");
+    try {
+      const res = await getTeacherRegisterReport({
+        classId: selectedClassForAnalysis,
+        teacherId: selectedTeacherForRegister,
+        date: selectedDate
+      });
+      setDigitalRegisterData(res.data || []);
+      setDigitalRegisterPeriods(res.periods || []);
+    } catch (err) {
+      console.error("Digital register report failed:", err);
+      setReportError("Failed to load digital register.");
+    } finally {
+      setLoadingRegister(false);
     }
   }
 
@@ -917,6 +942,7 @@ async function fetchAdminLog(date) {
                 { id: 'overview', label: 'Monitor', emoji: '📊' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈' },
+                { id: 'register', label: 'Register', emoji: '📒' },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1362,6 +1388,111 @@ async function fetchAdminLog(date) {
             </div>
 
 </>
+          )}
+
+          {reportType === "register" && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <section>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
+                    <select
+                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                      value={selectedClassForAnalysis}
+                      onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                    >
+                      <option value="">Select Class</option>
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </section>
+                  <section>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Teacher</label>
+                    <select
+                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                      value={selectedTeacherForRegister}
+                      onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
+                    >
+                      <option value="">Select Teacher</option>
+                      {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </section>
+                  <section>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </section>
+                </div>
+                <button
+                  onClick={fetchDigitalRegister}
+                  disabled={loadingRegister}
+                  className="w-full mt-6 py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
+                </button>
+              </div>
+
+              {digitalRegisterData.length > 0 ? (
+                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
+                          {digitalRegisterPeriods.map(p => (
+                            <th key={p} className="px-3 py-4 text-[10px] font-black text-blue-500 uppercase tracking-widest text-center">
+                              {p.replace("P", "Prd ")}
+                            </th>
+                          ))}
+                          <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {digitalRegisterData.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                            <td className="px-6 py-4">
+                              <span className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-[10px] font-black group-hover:bg-white group-hover:text-gray-600 transition-all">
+                                {row.rollNo}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-bold text-gray-700">{row.name}</td>
+                            {digitalRegisterPeriods.map(p => {
+                              const status = row.periodStatuses[p] || "-";
+                              const isAbsent = status === 'A' || status === 'S' || status === 'L';
+                              return (
+                                <td key={p} className="px-3 py-4 text-center">
+                                  <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-black ${
+                                    isAbsent ? 'bg-red-50 text-red-500' : status === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
+                                  }`}>
+                                    {status}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                            <td className="px-6 py-4 text-right">
+                              <span className="font-black text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg">
+                                {row.total}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                !loadingRegister && (
+                  <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-400">📒</div>
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select class and teacher to view register</p>
+                  </div>
+                )
+              )}
+            </div>
           )}
 
           {reportType === "overview" && (
