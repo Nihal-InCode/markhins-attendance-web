@@ -5169,7 +5169,13 @@ if __name__ == "__main__":
                         "totalSessions": len(all_sessions),
                         "classId": class_id,
                         "fromDate": from_date,
-                        "toDate": to_date
+                        "toDate": to_date,
+                        "debug": {
+                            "student_count": len(student_rows),
+                            "attendance_count": len(attendance_rows),
+                            "teacher_id_used": t_search_id,
+                            "teacher_name_used": t_search_name
+                        }
                     }
 
                 else:
