@@ -69,8 +69,8 @@ export default function DashboardPage() {
   const [reportType, setReportType] = useState("overview");
   const [extraClassesReport, setExtraClassesReport] = useState([]);
   const [digitalRegisterData, setDigitalRegisterData] = useState([]);
-  const [digitalRegisterPeriods, setDigitalRegisterPeriods] = useState(0);
-  const [digitalRegisterSummary, setDigitalRegisterSummary] = useState({ classesTaken: 0, periodsAssigned: 0 });
+  const [digitalRegisterSessionLabels, setDigitalRegisterSessionLabels] = useState([]);
+  const [digitalRegisterSummary, setDigitalRegisterSummary] = useState({ classesTaken: 0, assignedPeriods: 0, teachingPercentage: 0 });
   const [registerFromDate, setRegisterFromDate] = useState(getIstDateString());
   const [registerToDate, setRegisterToDate] = useState(getIstDateString());
   const [selectedTeacherForRegister, setSelectedTeacherForRegister] = useState("");
@@ -400,8 +400,8 @@ export default function DashboardPage() {
       });
       console.log("API RESPONSE:", res);
       setDigitalRegisterData(Array.isArray(res?.data) ? res.data : []);
-      setDigitalRegisterPeriods(res.totalSessions || 0);
-      setDigitalRegisterSummary(res?.summary || { classesTaken: 0, periodsAssigned: 0 });
+      setDigitalRegisterSessionLabels(Array.isArray(res?.sessionLabels) ? res.sessionLabels : []);
+      setDigitalRegisterSummary(res?.summary || { classesTaken: 0, assignedPeriods: 0, teachingPercentage: 0 });
     } catch (err) {
       console.error("Digital register report failed:", err);
       setReportError("Failed to load digital register.");
@@ -414,17 +414,108 @@ export default function DashboardPage() {
     if (digitalRegisterData.length === 0) return;
     try {
       const XLSX = await import("xlsx");
-      const worksheetData = digitalRegisterData.map(row => ({
-        "Roll No": row.rollNo,
-        "Student Name": row.name,
-        "Attendance History": row.attendanceLine,
-        "Total Present": row.total,
-        "Percentage (%)": row.percentage
-      }));
-      const ws = XLSX.utils.json_to_sheet(worksheetData);
+      const teacherName = teachers.find((teacher) => String(teacher.id) === String(selectedTeacherForRegister))?.name || "Teacher";
+      const className = classes.find((cls) => String(cls.id) === String(selectedClassForAnalysis))?.name || selectedClassForAnalysis || "Class";
+      const fromDateObj = new Date(registerFromDate);
+      const toDateObj = new Date(registerToDate);
+      const sameMonth = fromDateObj.getFullYear() === toDateObj.getFullYear() && fromDateObj.getMonth() === toDateObj.getMonth();
+      const monthLabel = sameMonth
+        ? fromDateObj.toLocaleString('en-US', { month: 'long' })
+        : `${fromDateObj.toLocaleString('en-US', { month: 'short' })}To${toDateObj.toLocaleString('en-US', { month: 'short' })}`;
+      const safeFilePart = (value) => String(value || "").replace(/[^a-zA-Z0-9]+/g, "");
+
+      const headerRows = [
+        ["Digital Register Report"],
+        ["Teacher Name", teacherName],
+        ["Class", className],
+        ["Date Range", `${registerFromDate} to ${registerToDate}`],
+        [],
+      ];
+      const tableHeader = [
+        "Roll",
+        "Student",
+        ...(digitalRegisterSessionLabels.length > 0 ? digitalRegisterSessionLabels : digitalRegisterData[0]?.attendanceCells?.map((_, index) => `P${index + 1}`) || []),
+        "Total",
+        "%",
+      ];
+      const bodyRows = digitalRegisterData.map((row) => ([
+        row.rollNo,
+        row.name,
+        ...((Array.isArray(row.attendanceCells) ? row.attendanceCells : row.attendanceLine.split(",").map((item) => item.trim()))),
+        row.total,
+        row.percentage,
+      ]));
+      const ws = XLSX.utils.aoa_to_sheet([...headerRows, tableHeader, ...bodyRows]);
+
+      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: tableHeader.length - 1 } }];
+      ws["!cols"] = [
+        { wch: 10 },
+        { wch: 28 },
+        ...tableHeader.slice(2, -2).map(() => ({ wch: 14 })),
+        { wch: 10 },
+        { wch: 10 },
+      ];
+
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      const makeCellStyle = (fillColor, fontColor = "000000") => ({
+        font: { bold: true, color: { rgb: fontColor } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "D1D5DB" } },
+          bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+          left: { style: "thin", color: { rgb: "D1D5DB" } },
+          right: { style: "thin", color: { rgb: "D1D5DB" } },
+        },
+        fill: { fgColor: { rgb: fillColor } },
+      });
+
+      for (let col = 0; col <= range.e.c; col += 1) {
+        const cellRef = XLSX.utils.encode_cell({ r: 5, c: col });
+        if (ws[cellRef]) {
+          ws[cellRef].s = makeCellStyle("E5E7EB", "111827");
+        }
+      }
+
+      for (let rowIndex = 6; rowIndex <= range.e.r; rowIndex += 1) {
+        for (let colIndex = 0; colIndex <= range.e.c; colIndex += 1) {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+          const cell = ws[cellRef];
+          if (!cell) continue;
+
+          let style = {
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+              top: { style: "thin", color: { rgb: "E5E7EB" } },
+              bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+              left: { style: "thin", color: { rgb: "E5E7EB" } },
+              right: { style: "thin", color: { rgb: "E5E7EB" } },
+            },
+          };
+
+          if (colIndex === 1) {
+            style.alignment = { horizontal: "left", vertical: "center" };
+          }
+
+          const value = String(cell.v ?? "").trim();
+          if (value && colIndex >= 2 && colIndex < tableHeader.length - 2) {
+            if (/^\d+$/.test(value)) {
+              style = { ...style, fill: { fgColor: { rgb: "DCFCE7" } }, font: { bold: true, color: { rgb: "166534" } } };
+            } else if (value === "A") {
+              style = { ...style, fill: { fgColor: { rgb: "FEE2E2" } }, font: { bold: true, color: { rgb: "B91C1C" } } };
+            } else if (value === "S") {
+              style = { ...style, fill: { fgColor: { rgb: "FED7AA" } }, font: { bold: true, color: { rgb: "C2410C" } } };
+            } else if (value === "L") {
+              style = { ...style, fill: { fgColor: { rgb: "DBEAFE" } }, font: { bold: true, color: { rgb: "1D4ED8" } } };
+            }
+          }
+
+          cell.s = style;
+        }
+      }
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Register");
-      const fileName = `attendance_register_${selectedClassForAnalysis}_${registerFromDate}_to_${registerToDate}.xlsx`;
+      const fileName = `${safeFilePart(teacherName)}_${safeFilePart(className)}_${safeFilePart(monthLabel)}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (err) {
       console.error("Excel export failed:", err);
@@ -1496,11 +1587,11 @@ async function fetchAdminLog(date) {
                     </div>
                     <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
                       <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
-                      <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.periodsAssigned || 0}</p>
+                      <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.assignedPeriods || 0}</p>
                     </div>
                     <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Sessions In Range</p>
-                      <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterPeriods || 0}</p>
+                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Teaching %</p>
+                      <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterSummary.teachingPercentage || 0}%</p>
                     </div>
                   </div>
                 <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">

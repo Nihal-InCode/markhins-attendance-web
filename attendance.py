@@ -5142,15 +5142,33 @@ if __name__ == "__main__":
                     all_sessions = sorted(all_sessions)
                     
                     c.execute("""
-                        SELECT COUNT(*)
+                        SELECT weekday, period_label
                         FROM timetable
                         WHERE teacher_id = ?
-                    """, (t_search_id,))
-                    periods_assigned = c.fetchone()[0] or 0
+                          AND UPPER(TRIM(class)) = UPPER(TRIM(?))
+                        ORDER BY weekday ASC, period_label ASC
+                    """, (t_search_id, class_id))
+                    timetable_rows = c.fetchall()
+
+                    assigned_periods = 0
+                    try:
+                        cursor_date = dt.strptime(from_date, "%Y-%m-%d").date()
+                        end_date = dt.strptime(to_date, "%Y-%m-%d").date()
+                        weekday_period_map = {}
+                        for weekday, period_label in timetable_rows:
+                            weekday_period_map.setdefault(int(weekday), []).append(period_label)
+
+                        while cursor_date <= end_date:
+                            assigned_periods += len(weekday_period_map.get(cursor_date.weekday(), []))
+                            cursor_date += datetime.timedelta(days=1)
+                    except Exception:
+                        assigned_periods = 0
 
                     classes_taken = len(all_sessions)
+                    teaching_percentage = round((classes_taken / assigned_periods) * 100, 1) if assigned_periods > 0 else 0
 
                     final_data = []
+                    session_labels = [f"{session[0]} {session[2]}" for session in all_sessions]
                     for sid, name, roll in student_rows:
                         line_parts = []
                         present_count = 0
@@ -5176,6 +5194,7 @@ if __name__ == "__main__":
                         final_data.append({
                             "rollNo": roll,
                             "name": name,
+                            "attendanceCells": line_parts[:],
                             "attendanceLine": ", ".join(line_parts),
                             "total": present_count,
                             "percentage": percentage
@@ -5185,10 +5204,12 @@ if __name__ == "__main__":
                         "success": True, 
                         "summary": {
                             "classesTaken": classes_taken,
-                            "periodsAssigned": periods_assigned
+                            "assignedPeriods": assigned_periods,
+                            "teachingPercentage": teaching_percentage
                         },
                         "data": final_data, 
                         "totalSessions": len(all_sessions),
+                        "sessionLabels": session_labels,
                         "classId": class_id,
                         "fromDate": from_date,
                         "toDate": to_date,
