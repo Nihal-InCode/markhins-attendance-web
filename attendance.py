@@ -5108,16 +5108,31 @@ if __name__ == "__main__":
                     
                     query += " ORDER BY pa.date ASC, pa.period ASC"
                     c.execute(query, tuple(params))
-                    attendance_rows = c.fetchall()
-                    print("QUERY RESULT:", {
+                    attendance_rows = list(c.fetchall())
+
+                    # 3. Include Extra Classes
+                    extra_teacher_search = t_search_name if t_search_name else str(t_search_id)
+                    c.execute("""
+                        SELECT date, period, absent_rolls 
+                        FROM extra_classes 
+                        WHERE UPPER(TRIM(class)) = UPPER(TRIM(?))
+                        AND teacher = ?
+                        AND date BETWEEN ? AND ?
+                    """, (class_id, extra_teacher_search, from_date, to_date))
+                    
+                    extra_rows = c.fetchall()
+                    for ex_date, ex_period, ex_absent in extra_rows:
+                        absent_list = [r.strip() for r in str(ex_absent).split(",") if r.strip()]
+                        for sid, name, roll in student_rows:
+                            status = 'A' if str(roll) in absent_list else 'P'
+                            attendance_rows.append((sid, ex_date, f"{ex_period} (Extra)", status))
+
+                    print("QUERY RESULT (WITH EXTRA):", {
                         "classId": class_id,
                         "teacherId": teacher_id,
                         "fromDate": from_date,
                         "toDate": to_date,
-                        "studentCount": len(student_rows),
-                        "attendanceCount": len(attendance_rows),
-                        "teacherResolvedId": t_search_id,
-                        "teacherResolvedName": t_search_name
+                        "attendanceCount": len(attendance_rows)
                     })
                     
                     student_history = {}

@@ -133,46 +133,46 @@ export default function DashboardPage() {
       : "max-w-md px-6";
 
   async function loadAbsenteesReport() {
-      if (!selectedClassForAnalysis || !selectedDate) return;
-      setLoadingAbsentees(true);
-      setReportError("");
-      try {
-          const normalizedFilter = String(absenteeFilter || "ALL").trim().toUpperCase();
-          const res = await apiRequest("/absentees-report", {
-              method: "POST",
-              body: JSON.stringify({
-                  classId: selectedClassForAnalysis,
-                  date: selectedDate,
-                  filter: normalizedFilter
-              })
-          });
+    if (!selectedClassForAnalysis || !selectedDate) return;
+    setLoadingAbsentees(true);
+    setReportError("");
+    try {
+      const normalizedFilter = String(absenteeFilter || "ALL").trim().toUpperCase();
+      const res = await apiRequest("/absentees-report", {
+        method: "POST",
+        body: JSON.stringify({
+          classId: selectedClassForAnalysis,
+          date: selectedDate,
+          filter: normalizedFilter
+        })
+      });
 
-          if (Array.isArray(res)) {
-              setAbsenteeReport(res);
-              return;
-          }
-
-          if (res?.success && Array.isArray(res.data)) {
-              setAbsenteeReport(res.data);
-              return;
-          }
-
-          if (res?.success) {
-              setAbsenteeReport([]);
-              return;
-          }
-
-          throw new Error(res?.message || "Unable to load absentees report.");
-      } catch (err) {
-          setReportError("Absentees report failed: " + err.message);
-          setAbsenteeReport([]);
-      } finally {
-          setLoadingAbsentees(false);
+      if (Array.isArray(res)) {
+        setAbsenteeReport(res);
+        return;
       }
+
+      if (res?.success && Array.isArray(res.data)) {
+        setAbsenteeReport(res.data);
+        return;
+      }
+
+      if (res?.success) {
+        setAbsenteeReport([]);
+        return;
+      }
+
+      throw new Error(res?.message || "Unable to load absentees report.");
+    } catch (err) {
+      setReportError("Absentees report failed: " + err.message);
+      setAbsenteeReport([]);
+    } finally {
+      setLoadingAbsentees(false);
+    }
   }
 
   useEffect(() => {
-      if (selectedClassForAnalysis) loadAbsenteesReport();
+    if (selectedClassForAnalysis) loadAbsenteesReport();
   }, [selectedClassForAnalysis, absenteeFilter, selectedDate]);
 
   useEffect(() => {
@@ -364,7 +364,7 @@ export default function DashboardPage() {
     }
   };
 
-  
+
   async function fetchExtraClassesReport() {
     setLoadingExtra(true);
     try {
@@ -413,113 +413,119 @@ export default function DashboardPage() {
   const exportToExcel = async () => {
     if (digitalRegisterData.length === 0) return;
     try {
-      const XLSX = await import("xlsx");
-      const teacherName = teachers.find((teacher) => String(teacher.id) === String(selectedTeacherForRegister))?.name || "Teacher";
-      const className = classes.find((cls) => String(cls.id) === String(selectedClassForAnalysis))?.name || selectedClassForAnalysis || "Class";
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Digital Register');
+
+      const teacherName = teachers.find((t) => String(t.id) === String(selectedTeacherForRegister))?.name || "Teacher";
+      const className = classes.find((c) => String(c.id) === String(selectedClassForAnalysis))?.name || selectedClassForAnalysis || "Class";
+      
       const fromDateObj = new Date(registerFromDate);
       const toDateObj = new Date(registerToDate);
       const sameMonth = fromDateObj.getFullYear() === toDateObj.getFullYear() && fromDateObj.getMonth() === toDateObj.getMonth();
-      const monthLabel = sameMonth
-        ? fromDateObj.toLocaleString('en-US', { month: 'long' })
-        : `${fromDateObj.toLocaleString('en-US', { month: 'short' })}To${toDateObj.toLocaleString('en-US', { month: 'short' })}`;
-      const safeFilePart = (value) => String(value || "").replace(/[^a-zA-Z0-9]+/g, "");
+      const monthLabel = sameMonth 
+        ? fromDateObj.toLocaleString('en-US', { month: 'long' }) 
+        : `${fromDateObj.toLocaleString('en-US', { month: 'short' })}-${toDateObj.toLocaleString('en-US', { month: 'short' })}`;
 
-      const headerRows = [
-        ["Digital Register Report"],
-        ["Teacher Name", teacherName],
-        ["Class", className],
-        ["Date Range", `${registerFromDate} to ${registerToDate}`],
-        [],
-      ];
-      const tableHeader = [
-        "Roll",
-        "Student",
-        ...(digitalRegisterSessionLabels.length > 0 ? digitalRegisterSessionLabels : digitalRegisterData[0]?.attendanceCells?.map((_, index) => `P${index + 1}`) || []),
+      // 1. Setup Columns
+      const headers = [
+        "Roll No",
+        "Student Name",
+        ...(digitalRegisterSessionLabels.length > 0 ? digitalRegisterSessionLabels : []),
         "Total",
-        "%",
+        "Percentage (%)"
       ];
-      const bodyRows = digitalRegisterData.map((row) => ([
-        row.rollNo,
-        row.name,
-        ...((Array.isArray(row.attendanceCells) ? row.attendanceCells : row.attendanceLine.split(",").map((item) => item.trim()))),
-        row.total,
-        row.percentage,
-      ]));
-      const ws = XLSX.utils.aoa_to_sheet([...headerRows, tableHeader, ...bodyRows]);
+      
+      sheet.columns = headers.map((h, i) => ({
+        header: h,
+        key: `col_${i}`,
+        width: i === 1 ? 30 : (i > 1 && i < headers.length - 2 ? 16 : 12)
+      }));
 
-      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: tableHeader.length - 1 } }];
-      ws["!cols"] = [
-        { wch: 10 },
-        { wch: 28 },
-        ...tableHeader.slice(2, -2).map(() => ({ wch: 14 })),
-        { wch: 10 },
-        { wch: 10 },
-      ];
-
-      const range = XLSX.utils.decode_range(ws["!ref"]);
-      const makeCellStyle = (fillColor, fontColor = "000000") => ({
-        font: { bold: true, color: { rgb: fontColor } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: {
-          top: { style: "thin", color: { rgb: "D1D5DB" } },
-          bottom: { style: "thin", color: { rgb: "D1D5DB" } },
-          left: { style: "thin", color: { rgb: "D1D5DB" } },
-          right: { style: "thin", color: { rgb: "D1D5DB" } },
-        },
-        fill: { fgColor: { rgb: fillColor } },
+      // 2. Add Title & Metadata Header
+      sheet.insertRow(1, ["DIGITAL REGISTER ATTENDANCE REPORT"]);
+      sheet.insertRow(2, ["Teacher Name", teacherName]);
+      sheet.insertRow(3, ["Class", className]);
+      sheet.insertRow(4, ["Reporting Period", `${registerFromDate} to ${registerToDate}`]);
+      sheet.insertRow(5, []); // Spacer
+      
+      const titleCell = sheet.getCell('A1');
+      titleCell.font = { size: 16, bold: true, color: { argb: 'FF1D4ED8' } }; 
+      
+      // 3. Header Row Styling
+      const headerRow = sheet.getRow(6);
+      headerRow.values = headers;
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; 
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+        };
       });
 
-      for (let col = 0; col <= range.e.c; col += 1) {
-        const cellRef = XLSX.utils.encode_cell({ r: 5, c: col });
-        if (ws[cellRef]) {
-          ws[cellRef].s = makeCellStyle("E5E7EB", "111827");
-        }
-      }
-
-      for (let rowIndex = 6; rowIndex <= range.e.r; rowIndex += 1) {
-        for (let colIndex = 0; colIndex <= range.e.c; colIndex += 1) {
-          const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-          const cell = ws[cellRef];
-          if (!cell) continue;
-
-          let style = {
-            alignment: { horizontal: "center", vertical: "center" },
-            border: {
-              top: { style: "thin", color: { rgb: "E5E7EB" } },
-              bottom: { style: "thin", color: { rgb: "E5E7EB" } },
-              left: { style: "thin", color: { rgb: "E5E7EB" } },
-              right: { style: "thin", color: { rgb: "E5E7EB" } },
-            },
+      // 4. Add Data
+      digitalRegisterData.forEach((row) => {
+        const bodyRowValues = [
+          row.rollNo,
+          row.name,
+          ...(row.attendanceCells || []),
+          row.total,
+          `${row.percentage}%`
+        ];
+        const newRow = sheet.addRow(bodyRowValues);
+        
+        newRow.eachCell((cell, colNum) => {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: {style:'thin', color: {argb:'FFE2E8F0'}}, 
+            left: {style:'thin', color: {argb:'FFE2E8F0'}}, 
+            bottom: {style:'thin', color: {argb:'FFE2E8F0'}}, 
+            right: {style:'thin', color: {argb:'FFE2E8F0'}}
           };
 
-          if (colIndex === 1) {
-            style.alignment = { horizontal: "left", vertical: "center" };
-          }
-
-          const value = String(cell.v ?? "").trim();
-          if (value && colIndex >= 2 && colIndex < tableHeader.length - 2) {
-            if (/^\d+$/.test(value)) {
-              style = { ...style, fill: { fgColor: { rgb: "DCFCE7" } }, font: { bold: true, color: { rgb: "166534" } } };
-            } else if (value === "A") {
-              style = { ...style, fill: { fgColor: { rgb: "FEE2E2" } }, font: { bold: true, color: { rgb: "B91C1C" } } };
-            } else if (value === "S") {
-              style = { ...style, fill: { fgColor: { rgb: "FED7AA" } }, font: { bold: true, color: { rgb: "C2410C" } } };
-            } else if (value === "L") {
-              style = { ...style, fill: { fgColor: { rgb: "DBEAFE" } }, font: { bold: true, color: { rgb: "1D4ED8" } } };
+          // Conditional Styling for attendance cells
+          if (colNum > 2 && colNum <= headers.length - 2) {
+            const val = String(cell.value || "");
+            if (val === 'A') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF2F2' } }; // Light Red
+              cell.font = { color: { argb: 'FFDC2626' }, bold: true };
+            } else if (val === 'S') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } }; // Light Orange
+              cell.font = { color: { argb: 'FFD97706' }, bold: true };
+            } else if (val === 'L') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // Light Blue
+              cell.font = { color: { argb: 'FF2563EB' }, bold: true };
+            } else if (val !== "" && val !== "-") {
+              // Numbers (Present)
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } }; // Light Green
+              cell.font = { color: { argb: 'FF059669' }, bold: true };
             }
           }
+          
+          if (colNum === 2) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            cell.font = { bold: true };
+          }
+          if (colNum === 1) cell.font = { bold: true };
+        });
+      });
 
-          cell.s = style;
-        }
-      }
+      sheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 6 }];
 
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Register");
-      const fileName = `${safeFilePart(teacherName)}_${safeFilePart(className)}_${safeFilePart(monthLabel)}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-    } catch (err) {
-      console.error("Excel export failed:", err);
-      alert("Failed to export Excel. Please try again.");
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (s) => String(s || "").replace(/[^a-z0-9]/gi, '_');
+      a.href = url;
+      a.download = `${safeName(teacherName)}_${safeName(className)}_${monthLabel.replace(/\s+/g, '_')}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Excel Export Error:", error);
+      alert("Failed to export Excel. Please check console.");
     }
   };
 
@@ -532,7 +538,7 @@ export default function DashboardPage() {
     }
   }
 
-async function fetchAdminLog(date) {
+  async function fetchAdminLog(date) {
     if (user?.role !== "admin") return;
     try {
       const data = await getAdminActivityLog(date);
@@ -779,7 +785,7 @@ async function fetchAdminLog(date) {
                     const handleToggle = () => {
                       if (isMarked) return;
                       if (multiMode) {
-                        setSelectedPeriods(prev => 
+                        setSelectedPeriods(prev =>
                           prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
                         );
                       } else {
@@ -828,7 +834,7 @@ async function fetchAdminLog(date) {
                 )}
               </section>
 
-              { !multiMode && (
+              {!multiMode && (
                 <section className="pt-4 border-t border-gray-50">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Detected Subject</label>
                   <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${resolvedSubject?.error ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
@@ -857,10 +863,10 @@ async function fetchAdminLog(date) {
                         </div>
                       )
                     ) : (
-                    <p className="text-gray-300 text-sm font-bold uppercase tracking-widest italic">Wait for selection...</p>
-                  )}
-                </div>
-              </section>
+                      <p className="text-gray-300 text-sm font-bold uppercase tracking-widest italic">Wait for selection...</p>
+                    )}
+                  </div>
+                </section>
               )}
             </div>
 
@@ -1080,664 +1086,662 @@ async function fetchAdminLog(date) {
             </div>
 
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {reportError && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
-                <span className="text-lg">⚠️</span>
-                <span>{reportError}</span>
-              </div>
-            )}
-            {/* 1. Student Search */}
-            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  type="text"
-                  placeholder="Enter Roll No"
-                  className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
-                  value={searchRollNo}
-                  onChange={(e) => setSearchRollNo(e.target.value)}
-                />
-                <button
-                  onClick={handleStudentSearch}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            {studentHistory && (
-              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                <div className="relative z-10">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
-                    <div>
-                      <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
-                      <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
-                        Roll: {studentHistory.rollNo} • Class {studentHistory.class}
-                      </p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
-                      <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                      <p className="text-xl font-black">{studentHistory.stats?.total}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                      <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                      <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
-                    </div>
-                  </div>
+              {reportError && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
+                  <span className="text-lg">⚠️</span>
+                  <span>{reportError}</span>
+                </div>
+              )}
+              {/* 1. Student Search */}
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    type="text"
+                    placeholder="Enter Roll No"
+                    className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
+                    value={searchRollNo}
+                    onChange={(e) => setSearchRollNo(e.target.value)}
+                  />
+                  <button
+                    onClick={handleStudentSearch}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
+                  >
+                    Search
+                  </button>
                 </div>
               </div>
-            )}
 
-            {reportType === "overview" && (
-            <>{/* 2. Active Health Status (Combined Sick/Leave) */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
-                <span className="bg-purple-50 text-purple-600 text-[10px] font-black px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
-                  {sickLeaveOverview?.length || 0} active
-                </span>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
-                {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
-                  sickLeaveOverview.map((item, idx) => (
-                    <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
-                      <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
-                        {item.type === 'Sick' ? '💊' : '🏠'}
-                      </span>
+              {studentHistory && (
+                <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                  <div className="relative z-10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
                       <div>
-                        <p className="font-black text-gray-800 line-clamp-1 pr-6">{item.name}</p>
-                        <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {item.rollNo} • {item.class}</p>
+                        <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
+                        <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
+                          Roll: {studentHistory.rollNo} • Class {studentHistory.class}
+                        </p>
                       </div>
-                      <div className="mt-2 pt-3 border-t border-gray-50">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Since {item.since}</p>
+                      <div className="text-left sm:text-right">
+                        <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
+                        <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="w-full bg-gray-50/50 p-10 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">All students normal</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {user?.role === "admin" && (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
-                  <div>
-                    <h3 className="font-black text-gray-800 tracking-tight text-lg">Admin Activity Log</h3>
-                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and today&apos;s actions for {selectedDate}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                      {adminActivityLog?.activeUsers?.length || 0} active now
-                    </span>
-                    <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
-                      {adminActivityLog?.actions?.length || 0} actions
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-                  <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-black text-gray-800">Users Online</h4>
-                      <button
-                        onClick={() => fetchAdminLog(selectedDate)}
-                        className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
-                        <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-gray-900">{person.name}</p>
-                              <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-gray-400">@{person.username}</p>
-                            </div>
-                            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{person.role}</span>
-                            {person.classTeacherOf && (
-                              <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">{person.classTeacherOf}</span>
-                            )}
-                          </div>
-                          <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Last login: {person.lastLogin || "Unknown"}</p>
-                        </div>
-                      )) : (
-                        <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No active users right now</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                    <h4 className="text-sm font-black text-gray-800">Today&apos;s Action Feed</h4>
-                    <div className="mt-4 overflow-hidden rounded-[2rem] border border-gray-100">
-                      <div className="max-h-[28rem] overflow-auto">
-                        <table className="w-full min-w-[720px] text-left">
-                          <thead className="sticky top-0 z-10 bg-gray-50">
-                            <tr>
-                              <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Time</th>
-                              <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">User</th>
-                              <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Type</th>
-                              <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
-                            {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
-                              <tr key={`${row.type}-${idx}`} className="align-top">
-                                <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
-                                <td className="px-5 py-4">
-                                  <p className="text-sm font-black text-gray-800">{row.actor}</p>
-                                  {row.username && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">@{row.username}</p>}
-                                </td>
-                                <td className="px-5 py-4">
-                                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{row.type}</span>
-                                </td>
-                                <td className="px-5 py-4">
-                                  <p className="text-sm font-semibold text-gray-700">{row.summary}</p>
-                                  {row.meta && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{row.meta}</p>}
-                                </td>
-                              </tr>
-                            )) : (
-                              <tr>
-                                <td colSpan="4" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No activity records for this date</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                        <p className="text-xl font-black">{studentHistory.stats?.total}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
+                      </div>
+                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                        <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
+                      </div>
+                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                        <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {user?.role !== "admin" && (
-              <div className="space-y-4">
-                <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
-                <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left">
-                    <thead>
-                      <tr className="border-b border-gray-50">
-                        <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                        <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                        <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Period</th>
-                        <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
-                        <tr key={idx} className="text-sm">
-                          <td className="py-5 font-bold text-gray-600">{row.date}</td>
-                          <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
-                          <td className="py-5 font-bold text-gray-800">{row.period}</td>
-                          <td className="py-5 text-right"><span className="text-green-600 font-black text-[10px] uppercase tracking-wider">✅ Taken</span></td>
-                        </tr>
-                      ))}
-                      {(!weeklyReport || weeklyReport.length === 0) && (
-                        <tr><td colSpan="4" className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No activity records</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            </>
-          )}
-
-          {reportType === "analysis" && (
-            <>{/* 4. Batch-wise Report */}
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
-                <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
-                <select
-                  className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
-                  value={selectedClassForAnalysis}
-                  onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                >
-                  <option value="">Select Class</option>
-                  {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              {Array.isArray(batchReport) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {batchReport.map((student, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
-                      <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
-                        {Math.round(student.percent)}%
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                        <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-black text-gray-600">{student.attended}/{student.total}</p>
-                        <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
-                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select a class to view batch percentages</p>
                 </div>
               )}
-            </div>
 
-            <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
-              {/* 4.5 Full-Day Absentees List */}
-              <div className="flex flex-col gap-4 px-1">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
-                  <div className="flex gap-2">
-                    <select
-                      className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
-                      value={selectedClassForAnalysis}
-                      onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                    >
-                      <option value="">Select Class</option>
-                      {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                
-                {selectedClassForAnalysis && (
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                    {[
-                      { id: 'ALL', label: 'All Absentees', emoji: '📋' },
-                      { id: 'A', label: 'Absent Only', emoji: '❌' },
-                      { id: 'S', label: 'Sick Only', emoji: '💊' },
-                      { id: 'L', label: 'Leave Only', emoji: '🏠' }
-                    ].map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => setAbsenteeFilter(f.id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
-                      >
-                        <span>{f.emoji}</span> {f.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {loadingAbsentees ? (
-                <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-              ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
-                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                  <div className="p-5 bg-gray-50/50 flex justify-between items-center">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
-                  </div>
-                  {absenteeReport.map((student, idx) => (
-                    <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
-                          {student.rollNo}
+              {reportType === "overview" && (
+                <>{/* 2. Active Health Status (Combined Sick/Leave) */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
+                      <span className="bg-purple-50 text-purple-600 text-[10px] font-black px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
+                        {sickLeaveOverview?.length || 0} active
+                      </span>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
+                      {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
+                        sickLeaveOverview.map((item, idx) => (
+                          <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
+                            <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
+                              {item.type === 'Sick' ? '💊' : '🏠'}
+                            </span>
+                            <div>
+                              <p className="font-black text-gray-800 line-clamp-1 pr-6">{item.name}</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {item.rollNo} • {item.class}</p>
+                            </div>
+                            <div className="mt-2 pt-3 border-t border-gray-50">
+                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Since {item.since}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="w-full bg-gray-50/50 p-10 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">All students normal</p>
                         </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {user?.role === "admin" && (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
                         <div>
-                          <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                          <div className="flex gap-1.5 mt-1">
-                            <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
-                                  {student.status.split('(')[0].trim()}
-                                </span>
-                                {student.status.includes('(') && (
-                                  <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
-                                    {student.status.match(/\((\d+)/)?.[1]} P
-                                  </span>
-                                )}
+                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Admin Activity Log</h3>
+                          <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and today&apos;s actions for {selectedDate}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                            {adminActivityLog?.activeUsers?.length || 0} active now
+                          </span>
+                          <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                            {adminActivityLog?.actions?.length || 0} actions
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-black text-gray-800">Users Online</h4>
+                            <button
+                              onClick={() => fetchAdminLog(selectedDate)}
+                              className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
+                            >
+                              Refresh
+                            </button>
+                          </div>
+                          <div className="mt-4 space-y-3">
+                            {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
+                              <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-gray-900">{person.name}</p>
+                                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-gray-400">@{person.username}</p>
+                                  </div>
+                                  <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{person.role}</span>
+                                  {person.classTeacherOf && (
+                                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">{person.classTeacherOf}</span>
+                                  )}
+                                </div>
+                                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Last login: {person.lastLogin || "Unknown"}</p>
                               </div>
+                            )) : (
+                              <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No active users right now</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+                          <h4 className="text-sm font-black text-gray-800">Today&apos;s Action Feed</h4>
+                          <div className="mt-4 overflow-hidden rounded-[2rem] border border-gray-100">
+                            <div className="max-h-[28rem] overflow-auto">
+                              <table className="w-full min-w-[720px] text-left">
+                                <thead className="sticky top-0 z-10 bg-gray-50">
+                                  <tr>
+                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Time</th>
+                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">User</th>
+                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Type</th>
+                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                  {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
+                                    <tr key={`${row.type}-${idx}`} className="align-top">
+                                      <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
+                                      <td className="px-5 py-4">
+                                        <p className="text-sm font-black text-gray-800">{row.actor}</p>
+                                        {row.username && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">@{row.username}</p>}
+                                      </td>
+                                      <td className="px-5 py-4">
+                                        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{row.type}</span>
+                                      </td>
+                                      <td className="px-5 py-4">
+                                        <p className="text-sm font-semibold text-gray-700">{row.summary}</p>
+                                        {row.meta && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{row.meta}</p>}
+                                      </td>
+                                    </tr>
+                                  )) : (
+                                    <tr>
+                                      <td colSpan="4" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No activity records for this date</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => {
-                          setSearchRollNo(student.rollNo);
-                          handleStudentSearch();
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
+                    </div>
+                  )}
+
+                  {user?.role !== "admin" && (
+                    <div className="space-y-4">
+                      <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
+                      <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[560px] text-left">
+                            <thead>
+                              <tr className="border-b border-gray-50">
+                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
+                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Period</th>
+                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
+                                <tr key={idx} className="text-sm">
+                                  <td className="py-5 font-bold text-gray-600">{row.date}</td>
+                                  <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
+                                  <td className="py-5 font-bold text-gray-800">{row.period}</td>
+                                  <td className="py-5 text-right"><span className="text-green-600 font-black text-[10px] uppercase tracking-wider">✅ Taken</span></td>
+                                </tr>
+                              ))}
+                              {(!weeklyReport || weeklyReport.length === 0) && (
+                                <tr><td colSpan="4" className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No activity records</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </>
+              )}
+
+              {reportType === "analysis" && (
+                <>{/* 4. Batch-wise Report */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
+                      <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
+                      <select
+                        className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
+                        value={selectedClassForAnalysis}
+                        onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                        </svg>
+                        <option value="">Select Class</option>
+                        {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+
+                    {Array.isArray(batchReport) ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {batchReport.map((student, idx) => (
+                          <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
+                            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
+                              {Math.round(student.percent)}%
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-black text-gray-600">{student.attended}/{student.total}</p>
+                              <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
+                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select a class to view batch percentages</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
+                    {/* 4.5 Full-Day Absentees List */}
+                    <div className="flex flex-col gap-4 px-1">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
+                        <div className="flex gap-2">
+                          <select
+                            className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
+                            value={selectedClassForAnalysis}
+                            onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                          >
+                            <option value="">Select Class</option>
+                            {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      {selectedClassForAnalysis && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                          {[
+                            { id: 'ALL', label: 'All Absentees', emoji: '📋' },
+                            { id: 'A', label: 'Absent Only', emoji: '❌' },
+                            { id: 'S', label: 'Sick Only', emoji: '💊' },
+                            { id: 'L', label: 'Leave Only', emoji: '🏠' }
+                          ].map(f => (
+                            <button
+                              key={f.id}
+                              onClick={() => setAbsenteeFilter(f.id)}
+                              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+                            >
+                              <span>{f.emoji}</span> {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {loadingAbsentees ? (
+                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                    ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
+                      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+                        <div className="p-5 bg-gray-50/50 flex justify-between items-center">
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
+                        </div>
+                        {absenteeReport.map((student, idx) => (
+                          <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
+                                {student.rollNo}
+                              </div>
+                              <div>
+                                <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
+                                <div className="flex gap-1.5 mt-1">
+                                  <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
+                                        {student.status.split('(')[0].trim()}
+                                      </span>
+                                      {student.status.includes('(') && (
+                                        <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
+                                          {student.status.match(/\((\d+)/)?.[1]} P
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSearchRollNo(student.rollNo);
+                                handleStudentSearch();
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : selectedClassForAnalysis ? (
+                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
+                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )}
+
+              {reportType === "extra" && (
+                <>{/* 4.7 Extra Classes Report Section */}
+                  <div className="space-y-4 pt-6 border-t border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
+                      <div>
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <select
+                          className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                          value={selectedClassForExtra}
+                          onChange={(e) => setSelectedClassForExtra(e.target.value)}
+                        >
+                          <option value="">All Classes</option>
+                          {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <select
+                          className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                          value={selectedTeacherForExtra}
+                          onChange={(e) => setSelectedTeacherForExtra(e.target.value)}
+                        >
+                          <option value="">All Teachers</option>
+                          {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                        <input
+                          type="date"
+                          className="bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {loadingExtra ? (
+                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
+                    ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {extraClassesReport.map((report, idx) => (
+                          <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                              <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
+                            </div>
+                            <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
+                              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
+                            </div>
+                            <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
+                              <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
+                                <p className="text-sm font-black text-green-600">{report.presentCount}</p>
+                                <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
+                              </div>
+                              <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
+                                <p className="text-sm font-black text-red-600">{report.absentCount}</p>
+                                <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
+                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No extra classes records for this date</p>
+                      </div>
+                    )}
+                  </div>
+
+                </>
+              )}
+
+              {reportType === "register" && (
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <section>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
+                        <select
+                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                          value={selectedClassForAnalysis}
+                          onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                        >
+                          <option value="">Select Class</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </section>
+                      <section>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Teacher</label>
+                        <select
+                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                          value={selectedTeacherForRegister}
+                          onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
+                        >
+                          <option value="">Select Teacher</option>
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </section>
+                      <section>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">From Date</label>
+                        <input
+                          type="date"
+                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                          value={registerFromDate}
+                          onChange={(e) => setRegisterFromDate(e.target.value)}
+                        />
+                      </section>
+                      <section>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">To Date</label>
+                        <input
+                          type="date"
+                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                          value={registerToDate}
+                          onChange={(e) => setRegisterToDate(e.target.value)}
+                        />
+                      </section>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                      <button
+                        onClick={fetchDigitalRegister}
+                        disabled={loadingRegister}
+                        className="py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
+                      </button>
+                      <button
+                        onClick={exportToExcel}
+                        disabled={digitalRegisterData.length === 0}
+                        className="py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-200 disabled:shadow-none"
+                      >
+                        📥 Download Excel
                       </button>
                     </div>
-                  ))}
-                </div>
-              ) : selectedClassForAnalysis ? (
-                <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
-                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
-                </div>
-              ) : null}
-            </div>
-</>
-          )}
-
-{reportType === "extra" && (
-            <>{/* 4.7 Extra Classes Report Section */}
-            <div className="space-y-4 pt-6 border-t border-gray-100">
-              <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
-                <div>
-                  <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
-                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <select
-                    className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
-                    value={selectedClassForExtra}
-                    onChange={(e) => setSelectedClassForExtra(e.target.value)}
-                  >
-                    <option value="">All Classes</option>
-                    {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <select
-                    className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
-                    value={selectedTeacherForExtra}
-                    onChange={(e) => setSelectedTeacherForExtra(e.target.value)}
-                  >
-                    <option value="">All Teachers</option>
-                    {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                  <input
-                    type="date"
-                    className="bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {loadingExtra ? (
-                <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
-              ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {extraClassesReport.map((report, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
-                      <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
-                      </div>
-                      <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
-                      <div className="mt-2 space-y-1">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
-                      </div>
-                      <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-                        <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
-                          <p className="text-sm font-black text-green-600">{report.presentCount}</p>
-                          <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
-                        </div>
-                        <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
-                          <p className="text-sm font-black text-red-600">{report.absentCount}</p>
-                          <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
-                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No extra classes records for this date</p>
-                </div>
-              )}
-            </div>
-
-</>
-          )}
-
-          {reportType === "register" && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <section>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
-                    <select
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                      value={selectedClassForAnalysis}
-                      onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                    >
-                      <option value="">Select Class</option>
-                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </section>
-                  <section>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Teacher</label>
-                    <select
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                      value={selectedTeacherForRegister}
-                      onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
-                    >
-                      <option value="">Select Teacher</option>
-                      {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </section>
-                  <section>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">From Date</label>
-                    <input
-                      type="date"
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                      value={registerFromDate}
-                      onChange={(e) => setRegisterFromDate(e.target.value)}
-                    />
-                  </section>
-                  <section>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">To Date</label>
-                    <input
-                      type="date"
-                      className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                      value={registerToDate}
-                      onChange={(e) => setRegisterToDate(e.target.value)}
-                    />
-                  </section>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                  <button
-                    onClick={fetchDigitalRegister}
-                    disabled={loadingRegister}
-                    className="py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
-                  </button>
-                  <button
-                    onClick={exportToExcel}
-                    disabled={digitalRegisterData.length === 0}
-                    className="py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-200 disabled:shadow-none"
-                  >
-                    📥 Download Excel
-                  </button>
-                </div>
-              </div>
-
-              {digitalRegisterData.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Classes Taken</p>
-                      <p className="mt-3 text-2xl font-black text-blue-900">{digitalRegisterSummary.classesTaken || 0}</p>
-                    </div>
-                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                      <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
-                      <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.assignedPeriods || 0}</p>
-                    </div>
-                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Teaching %</p>
-                      <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterSummary.teachingPercentage || 0}%</p>
-                    </div>
                   </div>
-                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[600px]">
-                      <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Attendance Timeline</th>
-                          <th className="px-4 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right">%</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {digitalRegisterData.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                            <td className="px-6 py-4">
-                              <span className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-[10px] font-black group-hover:bg-white group-hover:text-gray-600 transition-all">
-                                {row.rollNo}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="font-bold text-gray-700 whitespace-nowrap">{row.name}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[300px]">
-                                {row.attendanceLine.split(",").map((status, sIdx) => {
-                                  const s = status.trim();
-                                  const isAbsent = s === 'A' || s === 'S' || s === 'L';
-                                  return (
-                                    <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${
-                                      isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
-                                    }`}>
-                                      {s}
+
+                  {digitalRegisterData.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                          <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Classes Taken</p>
+                          <p className="mt-3 text-2xl font-black text-blue-900">{digitalRegisterSummary.classesTaken || 0}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
+                          <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.assignedPeriods || 0}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                          <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Teaching %</p>
+                          <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterSummary.teachingPercentage || 0}%</p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse min-w-[600px]">
+                            <thead>
+                              <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Attendance Timeline</th>
+                                <th className="px-4 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right">%</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {digitalRegisterData.map((row, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                                  <td className="px-6 py-4">
+                                    <span className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-[10px] font-black group-hover:bg-white group-hover:text-gray-600 transition-all">
+                                      {row.rollNo}
                                     </span>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <span className={`font-black text-[10px] px-2 py-1 rounded-md ${
-                                row.percentage >= 75 ? 'bg-emerald-50 text-emerald-600' : 
-                                row.percentage >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
-                              }`}>
-                                {row.percentage}%
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span className="font-black text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg">
-                                {row.total}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                </div>
-              ) : (
-                !loadingRegister && (
-                  <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-300">📒</div>
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-
-          {reportType === "overview" && (
-            <>{/* 5. Live Daily Monitoring */}
-            <div className="space-y-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
-                <div>
-                  <h3 className="font-black text-gray-800 tracking-tight text-lg">Live Daily Monitoring</h3>
-                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    onClick={() => setDailyRefreshTs(Date.now())}
-                    className="h-11 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm font-black text-sm"
-                    title="Refresh"
-                  >
-                    Refresh
-                  </button>
-                  <input
-                    type="date"
-                    className="h-11 text-sm font-black text-blue-600 bg-gray-50 px-4 rounded-2xl border border-gray-100 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {loadingFeature && !dailyReportData ? (
-                <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-              ) : Array.isArray(dailyReportData) && dailyReportData.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  {dailyReportData.map((item, idx) => (
-                    <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
-                      <div className="flex items-center justify-between gap-3 mb-4 border-b border-gray-50 pb-3">
-                        <span className="font-black text-sm text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
-                        <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-                        {(Array.isArray(item.periods) ? item.periods : []).map((p, pIdx) => {
-                          const isClickable = p.scheduled || p.taken;
-                          return (
-                            <button
-                              key={pIdx}
-                              onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
-                              className={`min-h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
-                                ? 'cursor-pointer hover:shadow-md'
-                                : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
-                                } group/cell ${p.taken
-                                  ? 'bg-green-50 border-green-200'
-                                  : p.scheduled
-                                    ? 'bg-red-50 border-red-100'
-                                    : ''
-                                }`}
-                            >
-                              <span className={`text-[10px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
-                              <span className="text-xl mt-1 select-none text-gray-300">
-                                {p.taken ? '✅' : p.scheduled ? '⏳' : '—'}
-                              </span>
-                            </button>
-                          );
-                        })}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <p className="font-bold text-gray-700 whitespace-nowrap">{row.name}</p>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[300px]">
+                                      {row.attendanceLine.split(",").map((status, sIdx) => {
+                                        const s = status.trim();
+                                        const isAbsent = s === 'A' || s === 'S' || s === 'L';
+                                        return (
+                                          <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
+                                            }`}>
+                                            {s}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 text-right">
+                                    <span className={`font-black text-[10px] px-2 py-1 rounded-md ${row.percentage >= 75 ? 'bg-emerald-50 text-emerald-600' :
+                                        row.percentage >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                      }`}>
+                                      {row.percentage}%
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <span className="font-black text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg">
+                                      {row.total}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    !loadingRegister && (
+                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-300">📒</div>
+                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
+                      </div>
+                    )
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-20 bg-gray-50/30 rounded-[2.5rem] border border-dashed border-gray-200">
-                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records found for this date</p>
-                </div>
+              )}
+
+              {reportType === "overview" && (
+                <>{/* 5. Live Daily Monitoring */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
+                      <div>
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Live Daily Monitoring</h3>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <button
+                          onClick={() => setDailyRefreshTs(Date.now())}
+                          className="h-11 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm font-black text-sm"
+                          title="Refresh"
+                        >
+                          Refresh
+                        </button>
+                        <input
+                          type="date"
+                          className="h-11 text-sm font-black text-blue-600 bg-gray-50 px-4 rounded-2xl border border-gray-100 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {loadingFeature && !dailyReportData ? (
+                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                    ) : Array.isArray(dailyReportData) && dailyReportData.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        {dailyReportData.map((item, idx) => (
+                          <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
+                            <div className="flex items-center justify-between gap-3 mb-4 border-b border-gray-50 pb-3">
+                              <span className="font-black text-sm text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
+                              <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                              {(Array.isArray(item.periods) ? item.periods : []).map((p, pIdx) => {
+                                const isClickable = p.scheduled || p.taken;
+                                return (
+                                  <button
+                                    key={pIdx}
+                                    onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
+                                    className={`min-h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
+                                      ? 'cursor-pointer hover:shadow-md'
+                                      : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
+                                      } group/cell ${p.taken
+                                        ? 'bg-green-50 border-green-200'
+                                        : p.scheduled
+                                          ? 'bg-red-50 border-red-100'
+                                          : ''
+                                      }`}
+                                  >
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
+                                    <span className="text-xl mt-1 select-none text-gray-300">
+                                      {p.taken ? '✅' : p.scheduled ? '⏳' : '—'}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-20 bg-gray-50/30 rounded-[2.5rem] border border-dashed border-gray-200">
+                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records found for this date</p>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </>
         )}
-        </div>
-      </>
-    )}
-  </main>
+      </main>
 
       {/* ══════════════════════════════════════════════
           PERIOD DETAIL MODAL
