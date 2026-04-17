@@ -655,14 +655,18 @@ app.get('/period-summary', authenticateToken, async (req, res) => {
 
 app.get('/teacher-register-report', authenticateToken, async (req, res) => {
     try {
+        console.log("REQ QUERY:", req.query);
         const { classId, teacherId, fromDate, toDate } = req.query;
-        const result = await callPython({ 
+        const payload = { 
             action: "get_teacher_register_report", 
             classId, 
             teacherId, 
             fromDate, 
             toDate 
-        });
+        };
+        console.log("PYTHON INPUT:", payload);
+        const result = await callPython(payload);
+        console.log("PYTHON OUTPUT:", result);
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

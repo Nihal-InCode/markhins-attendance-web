@@ -5109,6 +5109,16 @@ if __name__ == "__main__":
                     query += " ORDER BY pa.date ASC, pa.period ASC"
                     c.execute(query, tuple(params))
                     attendance_rows = c.fetchall()
+                    print("QUERY RESULT:", {
+                        "classId": class_id,
+                        "teacherId": teacher_id,
+                        "fromDate": from_date,
+                        "toDate": to_date,
+                        "studentCount": len(student_rows),
+                        "attendanceCount": len(attendance_rows),
+                        "teacherResolvedId": t_search_id,
+                        "teacherResolvedName": t_search_name
+                    })
                     
                     student_history = {}
                     all_sessions = []

@@ -141,10 +141,26 @@ export const editLastAttendance = (records, { classId, period, date } = {}) =>
  * Extra Class Attendance
  */
 export const getExtraSubjects = () => apiRequest('/extra-subjects');
-export const getTeacherRegisterReport = (params = {}) => {
+export async function getTeacherRegisterReport(params = {}) {
     const { classId, teacherId, fromDate, toDate } = params;
-    return apiRequest(`/teacher-register-report?classId=${classId}&teacherId=${teacherId}&fromDate=${fromDate || ''}&toDate=${toDate || ''}`);
-};
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(
+        `${BASE_URL}/teacher-register-report?classId=${classId}&teacherId=${teacherId}&fromDate=${fromDate || ''}&toDate=${toDate || ''}`,
+        {
+            method: 'GET',
+            headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            cache: 'no-store',
+        }
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    return data;
+}
 
 export const getExtraClassesReport = (params = {}) => {
     const { date, teacherId, classId } = params;

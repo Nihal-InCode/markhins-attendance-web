@@ -385,15 +385,21 @@ export default function DashboardPage() {
     setLoadingRegister(true);
     setReportError("");
     try {
+      console.log("REQUEST PARAMS:", {
+        classId: selectedClassForAnalysis,
+        teacherId: selectedTeacherForRegister,
+        fromDate: registerFromDate,
+        toDate: registerToDate
+      });
       const res = await getTeacherRegisterReport({
         classId: selectedClassForAnalysis,
         teacherId: selectedTeacherForRegister,
         fromDate: registerFromDate,
         toDate: registerToDate
       });
-      console.log("Register Response:", res);
-      setDigitalRegisterData(res.data || []);
-      setDigitalRegisterPeriods(res.periods || []); // Note: Backend now returns totalSessions but data includes aggregation
+      console.log("API RESPONSE:", res);
+      setDigitalRegisterData(Array.isArray(res?.data) ? res.data : []);
+      setDigitalRegisterPeriods(res.totalSessions || 0);
     } catch (err) {
       console.error("Digital register report failed:", err);
       setReportError("Failed to load digital register.");
