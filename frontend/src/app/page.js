@@ -388,8 +388,8 @@ export default function DashboardPage() {
       const res = await getTeacherRegisterReport({
         classId: selectedClassForAnalysis,
         teacherId: selectedTeacherForRegister,
-        fromDate: new Date(registerFromDate).toISOString().split("T")[0],
-        toDate: new Date(registerToDate).toISOString().split("T")[0]
+        fromDate: registerFromDate,
+        toDate: registerToDate
       });
       console.log("Register Response:", res);
       setDigitalRegisterData(res.data || []);
