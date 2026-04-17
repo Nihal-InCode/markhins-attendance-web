@@ -5141,6 +5141,15 @@ if __name__ == "__main__":
                     # Sort sessions chronologically
                     all_sessions = sorted(all_sessions)
                     
+                    c.execute("""
+                        SELECT COUNT(*)
+                        FROM timetable
+                        WHERE teacher_id = ?
+                    """, (t_search_id,))
+                    periods_assigned = c.fetchone()[0] or 0
+
+                    classes_taken = len(all_sessions)
+
                     final_data = []
                     for sid, name, roll in student_rows:
                         line_parts = []
@@ -5149,11 +5158,10 @@ if __name__ == "__main__":
                         
                         for session in all_sessions:
                             status = student_history.get(sid, {}).get(session, "-")
-                            p_num = session[2].replace("P", "")
                             
                             if status == 'P':
-                                line_parts.append(p_num)
                                 present_count += 1
+                                line_parts.append(str(present_count))
                             elif status == 'A':
                                 line_parts.append("A")
                             elif status in ('S', 'L'):
@@ -5175,6 +5183,10 @@ if __name__ == "__main__":
                     
                     result = {
                         "success": True, 
+                        "summary": {
+                            "classesTaken": classes_taken,
+                            "periodsAssigned": periods_assigned
+                        },
                         "data": final_data, 
                         "totalSessions": len(all_sessions),
                         "classId": class_id,

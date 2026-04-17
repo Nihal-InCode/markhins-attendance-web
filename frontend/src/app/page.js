@@ -69,7 +69,8 @@ export default function DashboardPage() {
   const [reportType, setReportType] = useState("overview");
   const [extraClassesReport, setExtraClassesReport] = useState([]);
   const [digitalRegisterData, setDigitalRegisterData] = useState([]);
-  const [digitalRegisterPeriods, setDigitalRegisterPeriods] = useState([]);
+  const [digitalRegisterPeriods, setDigitalRegisterPeriods] = useState(0);
+  const [digitalRegisterSummary, setDigitalRegisterSummary] = useState({ classesTaken: 0, periodsAssigned: 0 });
   const [registerFromDate, setRegisterFromDate] = useState(getIstDateString());
   const [registerToDate, setRegisterToDate] = useState(getIstDateString());
   const [selectedTeacherForRegister, setSelectedTeacherForRegister] = useState("");
@@ -400,6 +401,7 @@ export default function DashboardPage() {
       console.log("API RESPONSE:", res);
       setDigitalRegisterData(Array.isArray(res?.data) ? res.data : []);
       setDigitalRegisterPeriods(res.totalSessions || 0);
+      setDigitalRegisterSummary(res?.summary || { classesTaken: 0, periodsAssigned: 0 });
     } catch (err) {
       console.error("Digital register report failed:", err);
       setReportError("Failed to load digital register.");
@@ -1486,6 +1488,21 @@ async function fetchAdminLog(date) {
               </div>
 
               {digitalRegisterData.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Classes Taken</p>
+                      <p className="mt-3 text-2xl font-black text-blue-900">{digitalRegisterSummary.classesTaken || 0}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                      <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
+                      <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.periodsAssigned || 0}</p>
+                    </div>
+                    <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                      <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Sessions In Range</p>
+                      <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterPeriods || 0}</p>
+                    </div>
+                  </div>
                 <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[600px]">
@@ -1542,6 +1559,7 @@ async function fetchAdminLog(date) {
                       </tbody>
                     </table>
                   </div>
+                </div>
                 </div>
               ) : (
                 !loadingRegister && (
