@@ -388,9 +388,10 @@ export default function DashboardPage() {
       const res = await getTeacherRegisterReport({
         classId: selectedClassForAnalysis,
         teacherId: selectedTeacherForRegister,
-        fromDate: registerFromDate,
-        toDate: registerToDate
+        fromDate: new Date(registerFromDate).toISOString().split("T")[0],
+        toDate: new Date(registerToDate).toISOString().split("T")[0]
       });
+      console.log("Register Response:", res);
       setDigitalRegisterData(res.data || []);
       setDigitalRegisterPeriods(res.periods || []); // Note: Backend now returns totalSessions but data includes aggregation
     } catch (err) {

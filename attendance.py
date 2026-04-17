@@ -5077,23 +5077,29 @@ if __name__ == "__main__":
                     if not from_date: from_date = get_ist_now().strftime("%Y-%m-%d")
                     if not to_date: to_date = from_date
 
-                    # 1. Fetch Students
-                    c.execute("SELECT id, name, roll_no FROM students WHERE class=? ORDER BY roll_no", (class_id,))
+                    # 1. Fetch Students in class (Case-Insensitive)
+                    c.execute("SELECT id, name, roll_no FROM students WHERE UPPER(class)=UPPER(?) ORDER BY roll_no", (class_id,))
                     student_rows = c.fetchall()
                     
                     # 2. Fetch Attendance for teacher in date range
-                    # CAST teacher_id to int to ensure match
-                    try:
-                        t_id_int = int(teacher_id)
-                    except:
-                        t_id_int = teacher_id
+                    # Ensure teacher_id is matched as string/int robustly
+                    t_id_str = str(teacher_id)
+                    t_id_int = None
+                    try: t_id_int = int(teacher_id)
+                    except: pass
 
-                    c.execute("""
-                        SELECT pa.student_id, pa.date, pa.period, pa.status
-                        FROM period_attendance pa
-                        WHERE pa.class = ? AND pa.teacher_id = ? AND pa.date BETWEEN ? AND ?
-                        ORDER BY pa.date ASC, pa.period ASC
-                    """, (class_id, t_id_int, from_date, to_date))
+                    query = "SELECT pa.student_id, pa.date, pa.period, pa.status FROM period_attendance pa WHERE UPPER(pa.class) = UPPER(?) AND pa.date BETWEEN ? AND ?"
+                    params = [class_id, from_date, to_date]
+                    
+                    if t_id_int is not None:
+                        query += " AND (pa.teacher_id = ? OR pa.teacher_id = ?)"
+                        params.extend([t_id_int, t_id_str])
+                    else:
+                        query += " AND pa.teacher_id = ?"
+                        params.append(t_id_str)
+                    
+                    query += " ORDER BY pa.date ASC, pa.period ASC"
+                    c.execute(query, tuple(params))
                     attendance_rows = c.fetchall()
                     
                     student_history = {}
