@@ -714,10 +714,15 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100">New Semester</p>
-                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">Fresh start for attendance</h2>
+                  <p
+                    className="text-3xl font-black leading-tight text-cyan-50"
+                    style={{ fontFamily: "'Amiri', 'Noto Naskh Arabic', 'Times New Roman', serif" }}
+                  >
+                    السلام عليكم
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">A fresh semester begins</h2>
                   <p className="mt-3 text-sm font-semibold leading-6 text-cyan-50/90">
-                    Welcome back, {user?.name || "Teacher"}. Please take a quick look at your class list, timetable and assigned periods before marking attendance.
+                    Respected {user?.name || "Teacher"}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.
                   </p>
                 </div>
               </div>
@@ -726,9 +731,7 @@ export default function DashboardPage() {
             <div className="space-y-5 px-6 py-6">
               <div className="grid gap-3">
                 {[
-                  "Confirm your class and subject assignments.",
-                  "Check timetable periods before the first attendance.",
-                  "Report any wrong batch or student list to admin."
+                  "If anything goes wrong or does not work correctly, please inform the developer."
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                     <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
@@ -741,13 +744,23 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              <button
-                onClick={dismissSemesterPopup}
-                disabled={semesterPopupSaving}
-                className="w-full rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 transition-all hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {semesterPopupSaving ? "Saving..." : "Got it"}
-              </button>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <a
+                  href={`https://wa.me/918123312736?text=${encodeURIComponent("السلام عليكم")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-4 text-center text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-emerald-100 transition-all hover:bg-emerald-700 active:scale-95"
+                >
+                  Contact Developer
+                </a>
+                <button
+                  onClick={dismissSemesterPopup}
+                  disabled={semesterPopupSaving}
+                  className="rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 transition-all hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {semesterPopupSaving ? "Saving..." : "Got it"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
