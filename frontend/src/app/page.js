@@ -708,10 +708,12 @@ export default function DashboardPage() {
           <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-950/20 border border-white/80 animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-gradient-to-br from-teal-600 via-cyan-700 to-slate-900 px-6 py-7 text-white">
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/14 ring-1 ring-white/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/90 p-1.5 ring-1 ring-white/30">
+                  <img
+                    src="/logo.png"
+                    alt="Campus logo"
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div>
                   <p
