@@ -191,6 +191,10 @@ export const updateCredentials = (data) => apiRequest('/profile/update-credentia
     method: 'POST',
     body: JSON.stringify(data)
 });
+export const getAnnouncementStatus = (announcementKey) => apiRequest(`/announcements/${announcementKey}`);
+export const dismissAnnouncement = (announcementKey) => apiRequest(`/announcements/${announcementKey}/dismiss`, {
+    method: 'POST',
+});
 export const getTeachersList = () => apiRequest('/teachers');
 
 export const getAdminTeachers = () => apiRequest('/admin/teachers');

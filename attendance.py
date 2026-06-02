@@ -233,6 +233,15 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS teacher_announcements (
+                teacher_id TEXT NOT NULL,
+                announcement_key TEXT NOT NULL,
+                dismissed_at TEXT,
+                PRIMARY KEY (teacher_id, announcement_key)
+            )
+        """)
+
         # 2. MIGRATIONS & SCHEMA UPDATES
         
         # Ensure 'absent_rolls' and 'period' exist in extra_classes
@@ -3999,6 +4008,50 @@ if __name__ == "__main__":
                                 "class_teacher_of": class_teacher_of if role in ("Class Teacher", "Vice Principal") else None,
                                 "main_subject": main_subject,
                                 "subjects": subjects
+                            }
+                        }
+
+                elif action == "get_teacher_announcement":
+                    teacher_id = str(data.get("teacher_id") or "").strip()
+                    announcement_key = str(data.get("announcement_key") or "").strip()
+
+                    if not teacher_id or not announcement_key:
+                        result = {"success": False, "message": "Teacher and announcement are required."}
+                    else:
+                        c.execute("""
+                            SELECT dismissed_at
+                            FROM teacher_announcements
+                            WHERE teacher_id=? AND announcement_key=?
+                        """, (teacher_id, announcement_key))
+                        dismissed = c.fetchone()
+                        result = {
+                            "success": True,
+                            "data": {
+                                "announcementKey": announcement_key,
+                                "shouldShow": dismissed is None,
+                                "dismissedAt": dismissed[0] if dismissed else None
+                            }
+                        }
+
+                elif action == "dismiss_teacher_announcement":
+                    teacher_id = str(data.get("teacher_id") or "").strip()
+                    announcement_key = str(data.get("announcement_key") or "").strip()
+
+                    if not teacher_id or not announcement_key:
+                        result = {"success": False, "message": "Teacher and announcement are required."}
+                    else:
+                        dismissed_at = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                        c.execute("""
+                            INSERT OR REPLACE INTO teacher_announcements
+                                (teacher_id, announcement_key, dismissed_at)
+                            VALUES (?, ?, ?)
+                        """, (teacher_id, announcement_key, dismissed_at))
+                        conn.commit()
+                        result = {
+                            "success": True,
+                            "data": {
+                                "announcementKey": announcement_key,
+                                "dismissedAt": dismissed_at
                             }
                         }
 

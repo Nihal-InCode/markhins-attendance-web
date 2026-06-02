@@ -18,12 +18,15 @@ import {
   getAdminActivityLog,
   getExtraClassesReport,
   getTeachersList,
-  getTeacherRegisterReport
+  getTeacherRegisterReport,
+  getAnnouncementStatus,
+  dismissAnnouncement
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 
+const SEMESTER_ANNOUNCEMENT_KEY = "fresh-semester-start-v1";
 
 export default function DashboardPage() {
   const regularFormRef = useRef(null);
@@ -79,6 +82,8 @@ export default function DashboardPage() {
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
   const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
   const [teachers, setTeachers] = useState([]);
+  const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
+  const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
 
   // Period detail modal
   const [periodModal, setPeriodModal] = useState(null);
@@ -122,6 +127,27 @@ export default function DashboardPage() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || user?.role === "admin") return;
+
+    let cancelled = false;
+    async function checkSemesterPopup() {
+      try {
+        const status = await getAnnouncementStatus(SEMESTER_ANNOUNCEMENT_KEY);
+        if (!cancelled && status?.shouldShow) {
+          setSemesterPopupOpen(true);
+        }
+      } catch (err) {
+        console.error("Failed to load announcement status:", err);
+      }
+    }
+
+    checkSemesterPopup();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role]);
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const periods = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
@@ -578,6 +604,19 @@ export default function DashboardPage() {
     if (history.state?.modal === 'period') history.back();
   };
 
+  const dismissSemesterPopup = async () => {
+    setSemesterPopupSaving(true);
+    try {
+      await dismissAnnouncement(SEMESTER_ANNOUNCEMENT_KEY);
+      setSemesterPopupOpen(false);
+    } catch (err) {
+      console.error("Failed to dismiss announcement:", err);
+      alert("Could not save this popup as dismissed. Please try again.");
+    } finally {
+      setSemesterPopupSaving(false);
+    }
+  };
+
   const handleLoadStudents = () => {
     if (!selectedClass) {
       alert("Please select a class.");
@@ -664,6 +703,56 @@ export default function DashboardPage() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
+      {semesterPopupOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 px-5 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-950/20 border border-white/80 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-br from-teal-600 via-cyan-700 to-slate-900 px-6 py-7 text-white">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/14 ring-1 ring-white/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100">New Semester</p>
+                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">Fresh start for attendance</h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-cyan-50/90">
+                    Welcome back, {user?.name || "Teacher"}. Please take a quick look at your class list, timetable and assigned periods before marking attendance.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-5 px-6 py-6">
+              <div className="grid gap-3">
+                {[
+                  "Confirm your class and subject assignments.",
+                  "Check timetable periods before the first attendance.",
+                  "Report any wrong batch or student list to admin."
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    <p className="text-sm font-bold leading-5 text-gray-700">{item}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={dismissSemesterPopup}
+                disabled={semesterPopupSaving}
+                className="w-full rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 transition-all hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {semesterPopupSaving ? "Saving..." : "Got it"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main
         className={`flex-1 ${mainShellClass} mx-auto w-full py-6 space-y-6 transition-[max-width,padding] duration-300`}
         style={{

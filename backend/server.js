@@ -731,6 +731,32 @@ app.get('/profile/me', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_teacher_announcement",
+            teacher_id: req.user.id,
+            announcement_key: req.params.announcementKey
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/announcements/:announcementKey/dismiss', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "dismiss_teacher_announcement",
+            teacher_id: req.user.id,
+            announcement_key: req.params.announcementKey
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/teachers', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_teachers_list", teacher_id: req.user.id });
