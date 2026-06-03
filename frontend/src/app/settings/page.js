@@ -4,14 +4,18 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
     apiRequest,
+    createAdminAnnouncement,
     createAdminTeacher,
+    deleteAdminAnnouncement,
     deleteTeacherPhoto,
     deleteAdminTeacher,
+    getAdminAnnouncements,
     getAdminActivityLog,
     getAdminTeachers,
     getAdminTimetable,
     getTeacherSubjectOptions,
     uploadTeacherPhoto,
+    updateAdminAnnouncement,
     updateAdminTeacher,
     updateTimetablePeriod,
 } from "@/lib/api";
@@ -64,6 +68,15 @@ export default function SettingsPage() {
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [timetableEditor, setTimetableEditor] = useState({ classId: "", period: "", teacherId: "", subject: "" });
     const [manualSubjectEntry, setManualSubjectEntry] = useState(false);
+    const [announcements, setAnnouncements] = useState([]);
+    const [announcementBusy, setAnnouncementBusy] = useState(false);
+    const [announcementForm, setAnnouncementForm] = useState({
+        id: null,
+        heading: "A fresh semester begins",
+        content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.",
+        footer: "If anything goes wrong or does not work correctly, please inform the developer.",
+        active: true,
+    });
     const { showLoader, hideLoader } = useLoading();
     const showLoaderRef = useRef(showLoader);
     const hideLoaderRef = useRef(hideLoader);
@@ -90,12 +103,13 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Fetching system settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, activityRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, activityRes, announcementRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
                 getAdminTimetable(selectedWeekday),
                 getAdminActivityLog(activityDate),
+                getAdminAnnouncements(),
             ]);
 
             // apiRequest already unwraps .data if it exists
@@ -103,6 +117,7 @@ export default function SettingsPage() {
             setSystemInfo(infoRes || null);
             setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
             setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
+            setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
             setAdminActivityLog({
                 activeUsers: Array.isArray(activityRes?.activeUsers) ? activityRes.activeUsers : [],
                 liveUsers: Array.isArray(activityRes?.liveUsers) ? activityRes.liveUsers : [],
@@ -366,6 +381,99 @@ export default function SettingsPage() {
             setError(err.message);
         } finally {
             setTeachersBusy(false);
+        }
+    }
+
+    async function refreshAnnouncements() {
+        const announcementRes = await getAdminAnnouncements();
+        setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
+    }
+
+    function resetAnnouncementForm() {
+        setAnnouncementForm({
+            id: null,
+            heading: "A fresh semester begins",
+            content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.",
+            footer: "If anything goes wrong or does not work correctly, please inform the developer.",
+            active: true,
+        });
+    }
+
+    async function handleSaveAnnouncement(e) {
+        if (e) e.preventDefault();
+        setAnnouncementBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            if (announcementForm.id) {
+                await updateAdminAnnouncement(announcementForm.id, announcementForm);
+                setMsg("Broadcast updated successfully.");
+            } else {
+                await createAdminAnnouncement(announcementForm);
+                setMsg("Broadcast created successfully.");
+            }
+            playSound('success');
+            resetAnnouncementForm();
+            await refreshAnnouncements();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setAnnouncementBusy(false);
+        }
+    }
+
+    function handleEditAnnouncement(announcement) {
+        setAnnouncementForm({
+            id: announcement.id,
+            heading: announcement.heading || "",
+            content: announcement.content || "",
+            footer: announcement.footer || "",
+            active: announcement.active ?? true,
+        });
+    }
+
+    async function handleDeleteAnnouncement(announcement) {
+        if (!confirm(`Delete announcement "${announcement.heading}"? This will also remove dismissal records.`)) return;
+        setAnnouncementBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            await deleteAdminAnnouncement(announcement.id);
+            playSound('success');
+            setMsg("Broadcast deleted successfully.");
+            if (announcementForm.id === announcement.id) {
+                resetAnnouncementForm();
+            }
+            await refreshAnnouncements();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setAnnouncementBusy(false);
+        }
+    }
+
+    async function handleToggleAnnouncementActive(announcement) {
+        setAnnouncementBusy(true);
+        setError("");
+        setMsg("");
+        try {
+            const updatedActive = !announcement.active;
+            await updateAdminAnnouncement(announcement.id, {
+                heading: announcement.heading,
+                content: announcement.content,
+                footer: announcement.footer,
+                active: updatedActive
+            });
+            playSound('success');
+            setMsg(`Broadcast "${announcement.heading}" is now ${updatedActive ? 'active' : 'inactive'}.`);
+            await refreshAnnouncements();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setAnnouncementBusy(false);
         }
     }
 
@@ -726,6 +834,144 @@ export default function SettingsPage() {
                             Update Security Password
                         </button>
                     </form>
+                </section>
+
+                {/* Popup Broadcasts */}
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="mb-6">
+                        <h2 className="text-xl font-black flex items-center gap-2"><span>📢</span> Popup Broadcasts</h2>
+                        <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Create and manage alerts shown to teachers when they open the web application</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)] gap-8">
+                        {/* Form */}
+                        <div className="rounded-[2rem] border border-gray-100 bg-gray-50/50 p-6 space-y-4 h-fit">
+                            <h3 className="text-sm font-black text-gray-900">{announcementForm.id ? "Edit Broadcast" : "Create New Broadcast"}</h3>
+                            <form onSubmit={handleSaveAnnouncement} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Heading</label>
+                                    <input
+                                        type="text"
+                                        value={announcementForm.heading}
+                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, heading: e.target.value }))}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm"
+                                        placeholder="e.g. A fresh semester begins"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Content</label>
+                                    <textarea
+                                        value={announcementForm.content}
+                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
+                                        className="w-full h-32 px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm resize-none"
+                                        placeholder="e.g. Respected {teacherName}, welcome to the new semester..."
+                                        required
+                                    />
+                                    <p className="mt-1.5 text-[9px] font-bold text-blue-500 uppercase tracking-wider">💡 Tip: Use {"{teacherName}"} to personalize content</p>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Footer Text</label>
+                                    <input
+                                        type="text"
+                                        value={announcementForm.footer}
+                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, footer: e.target.value }))}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm"
+                                        placeholder="e.g. If anything goes wrong, inform the developer."
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-gray-100">
+                                    <span className="text-xs font-black uppercase tracking-wider text-gray-500">Active Status</span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={announcementForm.active}
+                                            onChange={(e) => setAnnouncementForm(prev => ({ ...prev, active: e.target.checked }))}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        disabled={announcementBusy}
+                                        className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 disabled:opacity-50 transition-all"
+                                    >
+                                        {announcementForm.id ? "Save Changes" : "Publish Broadcast"}
+                                    </button>
+                                    {announcementForm.id && (
+                                        <button
+                                            type="button"
+                                            onClick={resetAnnouncementForm}
+                                            className="px-4 bg-gray-200 text-gray-700 py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-gray-300 transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* List */}
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-black text-gray-900">Broadcast History</h3>
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                                {announcements.map((ann) => (
+                                    <div key={ann.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-md transition-all">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${ann.active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {ann.active ? "Active" : "Inactive"}
+                                                    </span>
+                                                    <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest">
+                                                        👁️ Dismissed by {ann.dismissedCount || 0}
+                                                    </span>
+                                                </div>
+                                                <h4 className="mt-3 text-base font-black text-gray-900 truncate">{ann.heading}</h4>
+                                                <p className="mt-1 text-sm font-medium text-gray-600 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                                                {ann.footer && (
+                                                    <p className="mt-2 text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg w-fit border border-gray-100">
+                                                        📢 {ann.footer}
+                                                    </p>
+                                                )}
+                                                <p className="mt-3 text-[9px] font-bold text-gray-300 uppercase tracking-wider">
+                                                    Key: {ann.announcementKey} • Published {ann.createdAt}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col gap-2 shrink-0">
+                                                <button
+                                                    onClick={() => handleEditAnnouncement(ann)}
+                                                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-gray-50 transition-all"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleToggleAnnouncementActive(ann)}
+                                                    className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${ann.active ? 'border-amber-200 text-amber-600 hover:bg-amber-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
+                                                >
+                                                    {ann.active ? "Disable" : "Enable"}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteAnnouncement(ann)}
+                                                    className="px-3 py-1.5 rounded-lg border border-red-200 text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50 transition-all"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {announcements.length === 0 && (
+                                    <div className="rounded-2xl border border-dashed border-gray-200 p-8 text-center bg-gray-50/50">
+                                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">No broadcasts found</p>
+                                        <p className="mt-1 text-[10px] font-medium text-gray-400">Create one on the left to get started.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">

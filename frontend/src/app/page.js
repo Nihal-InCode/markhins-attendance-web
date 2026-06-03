@@ -19,14 +19,12 @@ import {
   getExtraClassesReport,
   getTeachersList,
   getTeacherRegisterReport,
-  getAnnouncementStatus,
+  getPendingAnnouncement,
   dismissAnnouncement
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
-
-const SEMESTER_ANNOUNCEMENT_KEY = "fresh-semester-start-v1";
 
 export default function DashboardPage() {
   const regularFormRef = useRef(null);
@@ -82,6 +80,7 @@ export default function DashboardPage() {
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
   const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
   const [teachers, setTeachers] = useState([]);
+  const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
   const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
 
@@ -134,8 +133,9 @@ export default function DashboardPage() {
     let cancelled = false;
     async function checkSemesterPopup() {
       try {
-        const status = await getAnnouncementStatus(SEMESTER_ANNOUNCEMENT_KEY);
-        if (!cancelled && status?.shouldShow) {
+        const announcement = await getPendingAnnouncement();
+        if (!cancelled && announcement?.announcementKey) {
+          setActiveAnnouncement(announcement);
           setSemesterPopupOpen(true);
         }
       } catch (err) {
@@ -605,10 +605,12 @@ export default function DashboardPage() {
   };
 
   const dismissSemesterPopup = async () => {
+    if (!activeAnnouncement?.announcementKey) return;
     setSemesterPopupSaving(true);
     try {
-      await dismissAnnouncement(SEMESTER_ANNOUNCEMENT_KEY);
+      await dismissAnnouncement(activeAnnouncement?.announcementKey);
       setSemesterPopupOpen(false);
+      setActiveAnnouncement(null);
     } catch (err) {
       console.error("Failed to dismiss announcement:", err);
       alert("Could not save this popup as dismissed. Please try again.");
@@ -722,29 +724,31 @@ export default function DashboardPage() {
                   >
                     السلام عليكم
                   </p>
-                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">A fresh semester begins</h2>
+                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">
+                    {activeAnnouncement?.heading || "Announcement"}
+                  </h2>
                   <p className="mt-3 text-sm font-semibold leading-6 text-cyan-50/90">
-                    Respected {user?.name || "Teacher"}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.
+                    {(activeAnnouncement?.content || "").replaceAll("{teacherName}", user?.name || "Teacher")}
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-5 px-6 py-6">
-              <div className="grid gap-3">
-                {[
-                  "If anything goes wrong or does not work correctly, please inform the developer."
-                ].map((item) => (
-                  <div key={item} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+              {activeAnnouncement?.footer && (
+                <div className="grid gap-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                     <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </span>
-                    <p className="text-sm font-bold leading-5 text-gray-700">{item}</p>
+                    <p className="text-sm font-bold leading-5 text-gray-700">
+                      {activeAnnouncement.footer.replaceAll("{teacherName}", user?.name || "Teacher")}
+                    </p>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <a

@@ -242,6 +242,33 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS announcement_broadcasts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                announcement_key TEXT UNIQUE NOT NULL,
+                heading TEXT NOT NULL,
+                content TEXT NOT NULL,
+                footer TEXT,
+                active INTEGER DEFAULT 1,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+
+        now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("""
+            INSERT OR IGNORE INTO announcement_broadcasts
+                (announcement_key, heading, content, footer, active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?, ?)
+        """, (
+            "fresh-semester-start-v1",
+            "A fresh semester begins",
+            "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.",
+            "If anything goes wrong or does not work correctly, please inform the developer.",
+            now_str,
+            now_str
+        ))
+
         # 2. MIGRATIONS & SCHEMA UPDATES
         
         # Ensure 'absent_rolls' and 'period' exist in extra_classes
@@ -4055,6 +4082,39 @@ if __name__ == "__main__":
                             }
                         }
 
+                elif action == "get_pending_teacher_announcement":
+                    teacher_id = str(data.get("teacher_id") or "").strip()
+
+                    if not teacher_id:
+                        result = {"success": False, "message": "Teacher is required."}
+                    else:
+                        c.execute("""
+                            SELECT id, announcement_key, heading, content, footer, active, created_at, updated_at
+                            FROM announcement_broadcasts ab
+                            WHERE active=1
+                              AND NOT EXISTS (
+                                  SELECT 1
+                                  FROM teacher_announcements ta
+                                  WHERE ta.teacher_id=? AND ta.announcement_key=ab.announcement_key
+                              )
+                            ORDER BY COALESCE(updated_at, created_at, '') DESC, id DESC
+                            LIMIT 1
+                        """, (teacher_id,))
+                        row = c.fetchone()
+                        result = {
+                            "success": True,
+                            "data": None if not row else {
+                                "id": row[0],
+                                "announcementKey": row[1],
+                                "heading": row[2],
+                                "content": row[3],
+                                "footer": row[4],
+                                "active": bool(row[5]),
+                                "createdAt": row[6],
+                                "updatedAt": row[7]
+                            }
+                        }
+
                 elif action == "get_teacher_profile_by_phone":
                     phone = str(data.get("phone", ""))
                     hardcoded_id = data.get("hardcoded_id")
@@ -4757,6 +4817,97 @@ if __name__ == "__main__":
                         row.pop("sortKey", None)
 
                     result = {"success": True, "data": {"activeUsers": active_users, "actions": actions[:80]}}
+
+                elif action == "get_admin_announcements":
+                    c.execute("""
+                        SELECT
+                            ab.id,
+                            ab.announcement_key,
+                            ab.heading,
+                            ab.content,
+                            ab.footer,
+                            ab.active,
+                            ab.created_at,
+                            ab.updated_at,
+                            COUNT(ta.teacher_id) AS dismissed_count
+                        FROM announcement_broadcasts ab
+                        LEFT JOIN teacher_announcements ta
+                            ON ta.announcement_key=ab.announcement_key
+                        GROUP BY ab.id
+                        ORDER BY COALESCE(ab.updated_at, ab.created_at, '') DESC, ab.id DESC
+                    """)
+                    rows = c.fetchall()
+                    result = {"success": True, "data": [
+                        {
+                            "id": r[0],
+                            "announcementKey": r[1],
+                            "heading": r[2],
+                            "content": r[3],
+                            "footer": r[4],
+                            "active": bool(r[5]),
+                            "createdAt": r[6],
+                            "updatedAt": r[7],
+                            "dismissedCount": r[8],
+                        }
+                        for r in rows
+                    ]}
+
+                elif action == "create_admin_announcement":
+                    heading = str(data.get("heading") or "").strip()
+                    content = str(data.get("content") or "").strip()
+                    footer = str(data.get("footer") or "").strip()
+                    active = 1 if data.get("active", True) else 0
+
+                    if not heading or not content:
+                        result = {"success": False, "message": "Heading and content are required."}
+                    else:
+                        import secrets
+                        now = get_ist_now()
+                        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+                        announcement_key = f"broadcast-{int(now.timestamp())}-{secrets.token_hex(4)}"
+                        c.execute("""
+                            INSERT INTO announcement_broadcasts
+                                (announcement_key, heading, content, footer, active, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (announcement_key, heading, content, footer, active, now_str, now_str))
+                        conn.commit()
+                        result = {"success": True, "message": "Broadcast created.", "data": {"id": c.lastrowid, "announcementKey": announcement_key}}
+
+                elif action == "update_admin_announcement":
+                    announcement_id = data.get("announcement_id")
+                    heading = str(data.get("heading") or "").strip()
+                    content = str(data.get("content") or "").strip()
+                    footer = str(data.get("footer") or "").strip()
+                    active = 1 if data.get("active", True) else 0
+
+                    if not announcement_id or not heading or not content:
+                        result = {"success": False, "message": "Announcement, heading and content are required."}
+                    else:
+                        now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                        c.execute("""
+                            UPDATE announcement_broadcasts
+                            SET heading=?, content=?, footer=?, active=?, updated_at=?
+                            WHERE id=?
+                        """, (heading, content, footer, active, now_str, announcement_id))
+                        conn.commit()
+                        result = {"success": c.rowcount > 0, "message": "Broadcast updated." if c.rowcount > 0 else "Broadcast not found."}
+
+                elif action == "delete_admin_announcement":
+                    announcement_id = data.get("announcement_id")
+
+                    if not announcement_id:
+                        result = {"success": False, "message": "Announcement is required."}
+                    else:
+                        c.execute("SELECT announcement_key FROM announcement_broadcasts WHERE id=?", (announcement_id,))
+                        row = c.fetchone()
+                        if not row:
+                            result = {"success": False, "message": "Broadcast not found."}
+                        else:
+                            announcement_key = row[0]
+                            c.execute("DELETE FROM teacher_announcements WHERE announcement_key=?", (announcement_key,))
+                            c.execute("DELETE FROM announcement_broadcasts WHERE id=?", (announcement_id,))
+                            conn.commit()
+                            result = {"success": True, "message": "Broadcast deleted."}
 
                 elif action == "get_admin_teachers":
                     c.execute("""

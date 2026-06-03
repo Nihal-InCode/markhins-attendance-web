@@ -192,11 +192,24 @@ export const updateCredentials = (data) => apiRequest('/profile/update-credentia
     body: JSON.stringify(data)
 });
 export const getAnnouncementStatus = (announcementKey) => apiRequest(`/announcements/${announcementKey}`);
+export const getPendingAnnouncement = () => apiRequest('/announcements/pending/current');
 export const dismissAnnouncement = (announcementKey) => apiRequest(`/announcements/${announcementKey}/dismiss`, {
     method: 'POST',
 });
 export const getTeachersList = () => apiRequest('/teachers');
 
+export const getAdminAnnouncements = () => apiRequest('/admin/announcements');
+export const createAdminAnnouncement = (data) => apiRequest('/admin/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+});
+export const updateAdminAnnouncement = (announcementId, data) => apiRequest(`/admin/announcements/${announcementId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+});
+export const deleteAdminAnnouncement = (announcementId) => apiRequest(`/admin/announcements/${announcementId}`, {
+    method: 'DELETE',
+});
 export const getAdminTeachers = () => apiRequest('/admin/teachers');
 export const createAdminTeacher = (data) => apiRequest('/admin/teachers', {
     method: 'POST',

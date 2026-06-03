@@ -744,6 +744,18 @@ app.get('/announcements/:announcementKey', authenticateToken, async (req, res) =
     }
 });
 
+app.get('/announcements/pending/current', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_pending_teacher_announcement",
+            teacher_id: req.user.id
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/announcements/:announcementKey/dismiss', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({
@@ -1094,6 +1106,58 @@ app.get('/admin/activity-log', authenticateToken, async (req, res) => {
         const result = await callPython({ action: "get_admin_activity_log", date: reportDate });
         const snapshot = buildAdminActivitySnapshot(reportDate, result?.data || {});
         res.json({ success: true, ...snapshot });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/announcements', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_admin_announcements" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/announcements', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { heading, content, footer, active } = req.body;
+        const result = await callPython({ action: "create_admin_announcement", heading, content, footer, active });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.put('/admin/announcements/:announcementId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const { heading, content, footer, active } = req.body;
+        const result = await callPython({
+            action: "update_admin_announcement",
+            announcement_id: req.params.announcementId,
+            heading,
+            content,
+            footer,
+            active
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/admin/announcements/:announcementId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({
+            action: "delete_admin_announcement",
+            announcement_id: req.params.announcementId
+        });
+        res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
