@@ -1163,6 +1163,19 @@ app.delete('/admin/announcements/:announcementId', authenticateToken, async (req
     }
 });
 
+app.get('/admin/announcements/:announcementKey/viewers', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({
+            action: "get_announcement_viewers",
+            announcement_key: req.params.announcementKey
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/admin/teachers', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');

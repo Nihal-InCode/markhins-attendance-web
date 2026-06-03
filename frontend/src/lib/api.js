@@ -210,6 +210,7 @@ export const updateAdminAnnouncement = (announcementId, data) => apiRequest(`/ad
 export const deleteAdminAnnouncement = (announcementId) => apiRequest(`/admin/announcements/${announcementId}`, {
     method: 'DELETE',
 });
+export const getAnnouncementViewers = (announcementKey) => apiRequest(`/admin/announcements/${announcementKey}/viewers`);
 export const getAdminTeachers = () => apiRequest('/admin/teachers');
 export const createAdminTeacher = (data) => apiRequest('/admin/teachers', {
     method: 'POST',

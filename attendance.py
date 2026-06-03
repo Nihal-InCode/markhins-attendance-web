@@ -4852,6 +4852,29 @@ if __name__ == "__main__":
                         for r in rows
                     ]}
 
+                elif action == "get_announcement_viewers":
+                    announcement_key = str(data.get("announcement_key") or "").strip()
+                    if not announcement_key:
+                        result = {"success": False, "message": "Announcement key is required."}
+                    else:
+                        c.execute("""
+                            SELECT t.id, t.name, t.username, ta.dismissed_at
+                            FROM teacher_announcements ta
+                            JOIN teachers t ON ta.teacher_id = t.id OR ta.teacher_id = CAST(t.id AS TEXT)
+                            WHERE ta.announcement_key = ?
+                            ORDER BY ta.dismissed_at DESC
+                        """, (announcement_key,))
+                        rows = c.fetchall()
+                        result = {"success": True, "data": [
+                            {
+                                "id": r[0],
+                                "name": r[1],
+                                "username": r[2],
+                                "dismissedAt": r[3],
+                            }
+                            for r in rows
+                        ]}
+
                 elif action == "create_admin_announcement":
                     heading = str(data.get("heading") or "").strip()
                     content = str(data.get("content") or "").strip()

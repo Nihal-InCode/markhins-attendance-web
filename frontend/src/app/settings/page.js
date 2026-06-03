@@ -11,6 +11,7 @@ import {
     deleteAdminTeacher,
     getAdminAnnouncements,
     getAdminActivityLog,
+    getAnnouncementViewers,
     getAdminTeachers,
     getAdminTimetable,
     getTeacherSubjectOptions,
@@ -77,6 +78,7 @@ export default function SettingsPage() {
         footer: "If anything goes wrong or does not work correctly, please inform the developer.",
         active: true,
     });
+    const [viewersModal, setViewersModal] = useState({ open: false, key: null, heading: "", list: [], loading: false });
     const { showLoader, hideLoader } = useLoading();
     const showLoaderRef = useRef(showLoader);
     const hideLoaderRef = useRef(hideLoader);
@@ -474,6 +476,27 @@ export default function SettingsPage() {
             setError(err.message);
         } finally {
             setAnnouncementBusy(false);
+        }
+    }
+
+    async function handleOpenViewers(announcement) {
+        setViewersModal({
+            open: true,
+            key: announcement.announcementKey,
+            heading: announcement.heading,
+            list: [],
+            loading: true
+        });
+        try {
+            const list = await getAnnouncementViewers(announcement.announcementKey);
+            setViewersModal(prev => ({
+                ...prev,
+                list: Array.isArray(list) ? list : [],
+                loading: false
+            }));
+        } catch (err) {
+            setError("Failed to fetch viewers: " + err.message);
+            setViewersModal(prev => ({ ...prev, open: false, loading: false }));
         }
     }
 
@@ -925,9 +948,13 @@ export default function SettingsPage() {
                                                     <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${ann.active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500'}`}>
                                                         {ann.active ? "Active" : "Inactive"}
                                                     </span>
-                                                    <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest">
+                                                    <button
+                                                        onClick={() => handleOpenViewers(ann)}
+                                                        className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest hover:bg-blue-100 hover:text-blue-700 transition-all flex items-center gap-1"
+                                                        title="Click to see who has viewed this broadcast"
+                                                    >
                                                         👁️ Dismissed by {ann.dismissedCount || 0}
-                                                    </span>
+                                                    </button>
                                                 </div>
                                                 <h4 className="mt-3 text-base font-black text-gray-900 truncate">{ann.heading}</h4>
                                                 <p className="mt-1 text-sm font-medium text-gray-600 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
@@ -1355,6 +1382,57 @@ export default function SettingsPage() {
                                     {teacherForm.id ? "Save Teacher" : "Create Teacher"}
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                )}
+                {viewersModal.open && (
+                    <div
+                        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) setViewersModal(prev => ({ ...prev, open: false }));
+                        }}
+                    >
+                        <div className="w-full max-w-xl rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-2xl">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Broadcast Viewers</p>
+                                    <h3 className="mt-2 text-xl font-black text-gray-900 leading-snug">{viewersModal.heading}</h3>
+                                </div>
+                                <button
+                                    onClick={() => setViewersModal(prev => ({ ...prev, open: false }))}
+                                    className="px-3 py-2 rounded-2xl bg-gray-100 text-xs font-black uppercase tracking-wider text-gray-500 hover:bg-gray-200 transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                            <div className="mt-6">
+                                {viewersModal.loading ? (
+                                    <div className="py-12 flex justify-center items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[350px] overflow-y-auto pr-1 space-y-3">
+                                        {viewersModal.list.map((viewer) => (
+                                            <div key={viewer.id} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-100 transition-all">
+                                                <div>
+                                                    <p className="text-sm font-black text-gray-800">{viewer.name}</p>
+                                                    <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mt-0.5">@{viewer.username}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold text-gray-700">{viewer.dismissedAt}</p>
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Seen Time</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {viewersModal.list.length === 0 && (
+                                            <div className="py-12 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                                                <p className="text-xs font-black uppercase tracking-widest text-gray-400">No one has seen this broadcast yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
