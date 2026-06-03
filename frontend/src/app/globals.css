@@ -411,3 +411,55 @@ button {
     opacity: 1;
   }
 }
+
+/* ── PREMIUM 3D BROADCAST POPUP STYLES ── */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.card-3d-broadcast {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.4s ease;
+}
+
+.card-3d-broadcast:hover {
+  transform: rotateX(4.5deg) rotateY(-2.5deg) translateZ(12px);
+  box-shadow: 
+    0 40px 80px rgba(0, 0, 0, 0.85),
+    0 0 60px rgba(99, 102, 241, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.animate-modal-in {
+  animation: modalIn 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(40px) rotateX(12deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0) rotateX(0deg);
+  }
+}
+
+/* Pulse glow effect for premium buttons */
+.btn-glow-emerald {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+  transition: all 0.3s ease;
+}
+.btn-glow-emerald:hover {
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.55), 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-glow-indigo {
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.35);
+  transition: all 0.3s ease;
+}
+.btn-glow-indigo:hover {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.65), 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+

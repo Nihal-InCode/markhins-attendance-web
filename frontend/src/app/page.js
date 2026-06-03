@@ -705,12 +705,14 @@ export default function DashboardPage() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      {semesterPopupOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 px-5 py-8 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-950/20 border border-white/80 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-br from-teal-600 via-cyan-700 to-slate-900 px-6 py-7 text-white">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/90 p-1.5 ring-1 ring-white/30">
+      {semesterPopupOpen && activeAnnouncement && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 px-5 py-8 backdrop-blur-md perspective-1000">
+          <div className="w-full max-w-md overflow-hidden rounded-[2.5rem] bg-slate-900/90 border border-slate-800/80 shadow-[0_30px_70px_rgba(0,0,0,0.75),_0_0_50px_rgba(99,102,241,0.15)] ring-1 ring-white/10 card-3d-broadcast animate-modal-in">
+            {/* Header Block */}
+            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 px-6 py-8 text-white relative overflow-hidden border-b border-slate-850">
+              <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/10 p-2.5 border border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.15)] anim-logo">
                   <img
                     src="/logo.png"
                     alt="Campus logo"
@@ -719,34 +721,33 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <p
-                    className="text-3xl font-black leading-tight text-cyan-50"
+                    className="text-4xl font-extrabold leading-none bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.35)]"
                     style={{ fontFamily: "'Amiri', 'Noto Naskh Arabic', 'Times New Roman', serif" }}
                   >
                     السلام عليكم
                   </p>
-                  <h2 className="mt-2 text-2xl font-black leading-tight tracking-tight">
-                    {activeAnnouncement?.heading || "Announcement"}
+                  <h2 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                    {activeAnnouncement.heading}
                   </h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-cyan-50/90">
-                    {(activeAnnouncement?.content || "").replaceAll("{teacherName}", user?.name || "Teacher")}
+                  <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-200">
+                    {activeAnnouncement.content.replaceAll("{teacherName}", user?.name || "Teacher")}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-5 px-6 py-6">
-              {activeAnnouncement?.footer && (
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </span>
-                    <p className="text-sm font-bold leading-5 text-gray-700">
-                      {activeAnnouncement.footer.replaceAll("{teacherName}", user?.name || "Teacher")}
-                    </p>
-                  </div>
+            {/* Bottom Content Area */}
+            <div className="space-y-6 bg-slate-950/90 px-6 py-7">
+              {activeAnnouncement.footer && (
+                <div className="flex items-start gap-3.5 rounded-2xl border border-indigo-500/20 bg-indigo-950/40 px-4 py-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(99,102,241,0.2)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </span>
+                  <p className="text-xs font-bold leading-relaxed text-slate-300">
+                    {activeAnnouncement.footer.replaceAll("{teacherName}", user?.name || "Teacher")}
+                  </p>
                 </div>
               )}
 
@@ -755,14 +756,14 @@ export default function DashboardPage() {
                   href={`https://wa.me/918123312736?text=${encodeURIComponent("السلام عليكم")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-4 text-center text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-emerald-100 transition-all hover:bg-emerald-700 active:scale-95"
+                  className="flex items-center justify-center rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-emerald-50 px-5 py-4 text-center text-xs font-black uppercase tracking-widest border border-emerald-500/30 btn-glow-emerald transition-all active:scale-[0.97]"
                 >
                   Contact Developer
                 </a>
                 <button
                   onClick={dismissSemesterPopup}
                   disabled={semesterPopupSaving}
-                  className="rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-slate-200 transition-all hover:bg-slate-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-5 py-4 text-xs font-black uppercase tracking-widest btn-glow-indigo transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {semesterPopupSaving ? "Saving..." : "Got it"}
                 </button>
