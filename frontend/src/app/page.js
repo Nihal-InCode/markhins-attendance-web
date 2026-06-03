@@ -134,9 +134,19 @@ export default function DashboardPage() {
     async function checkSemesterPopup() {
       try {
         const announcement = await getPendingAnnouncement();
-        if (!cancelled && announcement?.announcementKey) {
-          setActiveAnnouncement(announcement);
-          setSemesterPopupOpen(true);
+        if (!cancelled) {
+          if (announcement?.announcementKey) {
+            setActiveAnnouncement((prev) => {
+              if (prev?.announcementKey !== announcement.announcementKey) {
+                setSemesterPopupOpen(true);
+                return announcement;
+              }
+              return prev;
+            });
+          } else {
+            setActiveAnnouncement(null);
+            setSemesterPopupOpen(false);
+          }
         }
       } catch (err) {
         console.error("Failed to load announcement status:", err);
@@ -144,8 +154,11 @@ export default function DashboardPage() {
     }
 
     checkSemesterPopup();
+    const interval = setInterval(checkSemesterPopup, 30000); // Poll every 30 seconds for active announcements
+
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [user?.id, user?.role]);
 
@@ -158,8 +171,9 @@ export default function DashboardPage() {
       ? "max-w-6xl px-4 sm:px-6 lg:px-8"
       : "max-w-md px-6";
 
-  async function loadAbsenteesReport() {
-    if (!selectedClassForAnalysis || !selectedDate) return;
+  async function loadAbsenteesReport(customDate) {
+    const targetDate = customDate || selectedDate;
+    if (!selectedClassForAnalysis || !targetDate) return;
     setLoadingAbsentees(true);
     setReportError("");
     try {
@@ -168,7 +182,7 @@ export default function DashboardPage() {
         method: "POST",
         body: JSON.stringify({
           classId: selectedClassForAnalysis,
-          date: selectedDate,
+          date: targetDate,
           filter: normalizedFilter
         })
       });
@@ -235,22 +249,111 @@ export default function DashboardPage() {
     if (activeTab === 'attendance') {
       fetchLastAttendance();
     }
-
-    // Refresh data when window is focused (e.g. returning from another tab or mobile focus)
-    const onFocus = () => {
-      if (activeTab === 'attendance') {
-        fetchLastAttendance();
-        fetchMarked();
-      }
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
   }, [activeTab]);
 
-  async function fetchMarked() {
+  // ── APP RESUME AND DATE AUTO-SYNC Lifecycle ──
+  // Triggers when app is resumed from background (recent apps drawer) or window is focused
+  useEffect(() => {
+    if (!user?.id || user?.role === "admin") return;
+
+    const handleAppResume = async () => {
+      console.log("App resumed from background or focused. Checking dates and syncing data...");
+      const todayIst = getIstDateString();
+      
+      // 1. Check if date changed (e.g. overnight sleep) and update states
+      setAttendanceDate((prev) => (prev !== todayIst ? todayIst : prev));
+      setSelectedDate((prev) => (prev !== todayIst ? todayIst : prev));
+
+      const currentDayIndex = new Date().getDay() === 0 ? 0 : new Date().getDay() - 1;
+      setSelectedDay((prev) => (prev !== currentDayIndex ? currentDayIndex : prev));
+
+      // 2. Fetch/Refresh general app data
+      try {
+        // Refresh classes list
+        const classesRes = await getClasses();
+        setClasses(Array.isArray(classesRes) ? classesRes : []);
+      } catch (err) {
+        console.error("Failed to refresh classes on resume:", err);
+      }
+
+      // Recheck announcements (in case new alert is published while app was backgrounded)
+      try {
+        const announcement = await getPendingAnnouncement();
+        if (announcement?.announcementKey) {
+          setActiveAnnouncement(announcement);
+          setSemesterPopupOpen(true);
+        } else {
+          setActiveAnnouncement(null);
+          setSemesterPopupOpen(false);
+        }
+      } catch (err) {
+        console.error("Failed to recheck announcements on resume:", err);
+      }
+
+      // 3. Tab-specific data refresh
+      if (activeTab === 'attendance') {
+        try {
+          const lastAttRes = await getLastAttendance();
+          setLastAttendance(lastAttRes || null);
+        } catch (err) {
+          console.error("Failed to refresh last attendance on resume:", err);
+        }
+        
+        // Refresh marked periods list using the updated date string directly
+        fetchMarked(todayIst);
+        
+        if (selectedClass && selectedPeriod) {
+          handleResolvePeriod(selectedClass, selectedPeriod, todayIst);
+        }
+      } else if (activeTab === 'timetable') {
+        fetchFullTimetable(currentDayIndex);
+      } else if (activeTab === 'reports') {
+        fetchDailyReport(todayIst);
+        fetchWeeklyReport();
+        fetchSickLeaveOverview();
+        fetchAdminLog(todayIst);
+        fetchExtraClassesReport(todayIst);
+        fetchTeachers();
+        if (selectedClassForAnalysis) {
+          fetchBatchReport(selectedClassForAnalysis);
+          loadAbsenteesReport(todayIst);
+        }
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleAppResume();
+      }
+    };
+
+    const onFocus = () => {
+      handleAppResume();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [
+    user?.id,
+    user?.role,
+    activeTab,
+    selectedClass,
+    selectedPeriod,
+    selectedClassForAnalysis,
+    selectedTeacherForExtra,
+    selectedClassForExtra,
+  ]);
+
+  async function fetchMarked(customDate) {
+    const targetDate = customDate || attendanceDate;
     if (selectedClass && activeTab === 'attendance') {
       try {
-        const res = await getMarkedPeriods(selectedClass, attendanceDate);
+        const res = await getMarkedPeriods(selectedClass, targetDate);
         setMarkedPeriods(res?.marked_periods || []);
         setMarkedDetails(res?.marked_details || []);
       } catch (err) {
@@ -391,11 +494,12 @@ export default function DashboardPage() {
   };
 
 
-  async function fetchExtraClassesReport() {
+  async function fetchExtraClassesReport(customDate) {
+    const targetDate = customDate || selectedDate;
     setLoadingExtra(true);
     try {
       const data = await getExtraClassesReport({
-        date: selectedDate,
+        date: targetDate,
         teacherId: selectedTeacherForExtra,
         classId: selectedClassForExtra
       });
