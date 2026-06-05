@@ -20,7 +20,8 @@ import {
   getTeachersList,
   getTeacherRegisterReport,
   getPendingAnnouncement,
-  dismissAnnouncement
+  dismissAnnouncement,
+  getNamazAnalytics
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -80,6 +81,13 @@ export default function DashboardPage() {
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
   const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
   const [teachers, setTeachers] = useState([]);
+  const [namazAnalytics, setNamazAnalytics] = useState(null);
+  const [loadingNamaz, setLoadingNamaz] = useState(false);
+  const [namazFromDate, setNamazFromDate] = useState(getIstDateString());
+  const [namazToDate, setNamazToDate] = useState(getIstDateString());
+  const [selectedNamazClass, setSelectedNamazClass] = useState("");
+  const [selectedNamazStudent, setSelectedNamazStudent] = useState("");
+  const [selectedNamazSession, setSelectedNamazSession] = useState("");
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
   const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
@@ -424,6 +432,12 @@ export default function DashboardPage() {
     }
   }, [selectedClassForAnalysis, activeTab]);
 
+  useEffect(() => {
+    if (activeTab === "reports" && reportType === "namaz") {
+      fetchNamazAnalytics();
+    }
+  }, [activeTab, reportType, namazFromDate, namazToDate, selectedNamazClass, selectedNamazSession]);
+
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
     showLoader("Loading timetable...");
@@ -509,6 +523,85 @@ export default function DashboardPage() {
     } finally {
       setLoadingExtra(false);
     }
+  }
+
+  async function fetchNamazAnalytics() {
+    setLoadingNamaz(true);
+    setReportError("");
+    try {
+      const data = await getNamazAnalytics({
+        fromDate: namazFromDate,
+        toDate: namazToDate,
+        className: selectedNamazClass,
+        studentId: selectedNamazStudent.trim(),
+        sessionType: selectedNamazSession,
+      });
+      setNamazAnalytics(data || null);
+    } catch (err) {
+      setReportError("Namaz analytics failed: " + err.message);
+      setNamazAnalytics(null);
+    } finally {
+      setLoadingNamaz(false);
+    }
+  }
+
+  async function exportNamazExcel() {
+    if (!namazAnalytics) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Namaz Analytics");
+    sheet.addRow(["Namaz & Event Analytics"]);
+    sheet.addRow(["From", namazFromDate, "To", namazToDate, "Class", selectedNamazClass || "All", "Student", selectedNamazStudent || "All", "Session", selectedNamazSession || "All"]);
+    sheet.addRow([]);
+    sheet.addRow(["Metric", "Value"]);
+    Object.entries(namazAnalytics.cards || {}).forEach(([key, value]) => sheet.addRow([key, value]));
+    sheet.addRow([]);
+    sheet.addRow(["Roll No", "Name", "Present", "Total", "Percent"]);
+    (namazAnalytics.students || []).forEach((student) => {
+      sheet.addRow([student.rollNo, student.name, student.present, student.total, student.percent]);
+    });
+    sheet.columns.forEach((column) => { column.width = 18; });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `namaz_analytics_${namazFromDate}_${namazToDate}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  function exportNamazPdf() {
+    if (!namazAnalytics) return;
+    const rows = (namazAnalytics.students || []).map((student) => `
+      <tr><td>${student.rollNo}</td><td>${student.name}</td><td>${student.present}</td><td>${student.total}</td><td>${student.percent}%</td></tr>
+    `).join("");
+    const popup = window.open("", "_blank");
+    if (!popup) return;
+    popup.document.write(`
+      <html><head><title>Namaz Analytics</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:28px;color:#111827}
+        h1{margin:0 0 8px;font-size:24px} p{color:#4b5563}
+        table{width:100%;border-collapse:collapse;margin-top:20px}
+        th,td{border:1px solid #e5e7eb;padding:9px;text-align:left;font-size:12px}
+        th{background:#f3f4f6}
+        .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}
+        .card{border:1px solid #e5e7eb;border-radius:10px;padding:12px}
+        .label{font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:700}
+        .value{font-size:20px;font-weight:800;margin-top:4px}
+      </style></head><body>
+      <h1>Namaz & Event Analytics</h1>
+      <p>${namazFromDate} to ${namazToDate} | Class: ${selectedNamazClass || "All"} | Student: ${selectedNamazStudent || "All"} | Session: ${selectedNamazSession || "All"}</p>
+      <div class="cards">
+        ${Object.entries(namazAnalytics.cards || {}).map(([key, value]) => `<div class="card"><div class="label">${key}</div><div class="value">${value}</div></div>`).join("")}
+      </div>
+      <table><thead><tr><th>Roll No</th><th>Name</th><th>Present</th><th>Total</th><th>Percent</th></tr></thead><tbody>${rows}</tbody></table>
+      </body></html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
   }
 
   async function fetchDigitalRegister() {
@@ -1284,6 +1377,7 @@ export default function DashboardPage() {
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
               {[
                 { id: 'overview', label: 'Monitor', emoji: '📊' },
+                { id: 'namaz', label: 'Namaz & Event', emoji: '🕌' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈' },
                 { id: 'register', label: 'Register', emoji: '📒' },
@@ -1523,6 +1617,134 @@ export default function DashboardPage() {
                   )}
 
                 </>
+              )}
+
+              {reportType === "namaz" && (
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="font-black text-gray-900 text-lg">Namaz & Event Analytics</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Independent Android session analytics</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={exportNamazExcel} disabled={!namazAnalytics} className="rounded-2xl bg-green-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">Excel</button>
+                        <button onClick={exportNamazPdf} disabled={!namazAnalytics} className="rounded-2xl bg-gray-900 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">PDF</button>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                      <input type="date" value={namazFromDate} onChange={(e) => setNamazFromDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                      <input type="date" value={namazToDate} onChange={(e) => setNamazToDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                      <select value={selectedNamazClass} onChange={(e) => setSelectedNamazClass(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
+                        <option value="">All Classes</option>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <input value={selectedNamazStudent} onChange={(e) => setSelectedNamazStudent(e.target.value)} placeholder="Student Roll" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                      <select value={selectedNamazSession} onChange={(e) => setSelectedNamazSession(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
+                        <option value="">All Sessions</option>
+                        {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <button onClick={fetchNamazAnalytics} className="rounded-2xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700">Apply</button>
+                    </div>
+                  </div>
+
+                  {loadingNamaz ? (
+                    <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" /></div>
+                  ) : namazAnalytics ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                        {[
+                          ["Overall Attendance %", namazAnalytics.cards?.overallAttendance],
+                          ["Fajr %", namazAnalytics.cards?.fajrPercent],
+                          ["Dhuhr %", namazAnalytics.cards?.dhuhrPercent],
+                          ["Asr %", namazAnalytics.cards?.asrPercent],
+                          ["Maghrib %", namazAnalytics.cards?.maghribPercent],
+                          ["Isha %", namazAnalytics.cards?.ishaPercent],
+                          ["Total Sessions", namazAnalytics.cards?.totalSessions],
+                          ["Missing Session Data", namazAnalytics.cards?.missingSessionData],
+                          ["Students Above 90%", namazAnalytics.cards?.studentsAbove90],
+                          ["Students Below 50%", namazAnalytics.cards?.studentsBelow50],
+                        ].map(([label, value]) => (
+                          <div key={label} className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 leading-relaxed">{label}</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900">{value ?? 0}{label.includes("%") ? "%" : ""}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                          <h4 className="text-sm font-black text-gray-900">Class Analytics</h4>
+                          {namazAnalytics.classAnalytics ? (
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <div className="rounded-2xl bg-blue-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-blue-500">Class Average</p><p className="text-2xl font-black text-blue-900">{namazAnalytics.classAnalytics.classAverage}%</p></div>
+                              <div className="rounded-2xl bg-gray-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Total Sessions</p><p className="text-2xl font-black">{namazAnalytics.classAnalytics.totalSessions}</p></div>
+                              <div className="rounded-2xl bg-green-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-green-600">Best Student</p><p className="text-sm font-black text-green-900">{namazAnalytics.classAnalytics.bestStudent?.name || "-"}</p></div>
+                              <div className="rounded-2xl bg-red-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-red-500">Lowest Student</p><p className="text-sm font-black text-red-900">{namazAnalytics.classAnalytics.lowestStudent?.name || "-"}</p></div>
+                            </div>
+                          ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Select a class to view class analytics</p>}
+                        </div>
+
+                        <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                          <h4 className="text-sm font-black text-gray-900">Student Analytics</h4>
+                          {namazAnalytics.studentAnalytics ? (
+                            <div className="mt-4 space-y-4">
+                              <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
+                                <div><p className="font-black">{namazAnalytics.studentAnalytics.name}</p><p className="text-[10px] font-bold text-gray-400">Roll {namazAnalytics.studentAnalytics.rollNo}</p></div>
+                                <p className="text-3xl font-black text-blue-600">{namazAnalytics.studentAnalytics.overall}%</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <div className="rounded-2xl bg-green-50 p-3"><p className="text-[9px] font-black text-green-600 uppercase">Present</p><p className="font-black">{namazAnalytics.studentAnalytics.presentCount}</p></div>
+                                <div className="rounded-2xl bg-red-50 p-3"><p className="text-[9px] font-black text-red-500 uppercase">Absent</p><p className="font-black">{namazAnalytics.studentAnalytics.absentCount}</p></div>
+                                {Object.entries(namazAnalytics.studentAnalytics.sessions || {}).map(([name, row]) => <div key={name} className="rounded-2xl bg-blue-50 p-3"><p className="text-[9px] font-black text-blue-500 uppercase">{name}</p><p className="font-black">{row.percent}%</p></div>)}
+                              </div>
+                            </div>
+                          ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Enter a student roll number to view student analytics</p>}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-3">
+                        {[
+                          ["Attendance Trends", namazAnalytics.trends],
+                          ["Monthly Trends", namazAnalytics.monthlyTrends],
+                          ["Session Comparison", namazAnalytics.sessionComparison],
+                        ].map(([title, rows]) => (
+                          <div key={title} className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                            <h4 className="text-sm font-black text-gray-900">{title}</h4>
+                            <div className="mt-5 space-y-3">
+                              {(rows || []).slice(-8).map(row => (
+                                <div key={row.label} className="space-y-1.5">
+                                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400"><span>{row.label}</span><span>{row.percent}%</span></div>
+                                  <div className="h-2 rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.min(row.percent, 100)}%` }} /></div>
+                                </div>
+                              ))}
+                              {(!rows || rows.length === 0) && <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No uploaded session data</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
+                        <div className="p-5 border-b border-gray-50"><h4 className="text-sm font-black text-gray-900">Recent Sessions</h4></div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[680px] text-left">
+                            <thead className="bg-gray-50"><tr>{["Date", "Session", "Class", "Source", "Received"].map(h => <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>)}</tr></thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {(namazAnalytics.sessions || []).map(s => (
+                                <tr key={s.sessionId}><td className="px-5 py-4 text-xs font-bold">{s.date}</td><td className="px-5 py-4 text-xs font-black">{s.sessionName}</td><td className="px-5 py-4 text-xs font-bold">{s.className}</td><td className="px-5 py-4 text-xs text-gray-500">{s.source}</td><td className="px-5 py-4 text-xs text-gray-500">{s.createdAt}</td></tr>
+                              ))}
+                              {(!namazAnalytics.sessions || namazAnalytics.sessions.length === 0) && <tr><td colSpan="5" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No sessions received for these filters</td></tr>}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">Apply filters to load Namaz analytics</p>
+                    </div>
+                  )}
+                </div>
               )}
 
               {reportType === "analysis" && (

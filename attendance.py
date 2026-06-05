@@ -255,6 +255,45 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS namaz_sessions (
+                sessionId TEXT PRIMARY KEY,
+                sessionName TEXT NOT NULL,
+                className TEXT NOT NULL,
+                source TEXT,
+                date TEXT NOT NULL,
+                category TEXT DEFAULT 'namaz',
+                createdAt TEXT NOT NULL
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS namaz_attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessionId TEXT NOT NULL,
+                studentId TEXT NOT NULL,
+                status TEXT NOT NULL,
+                FOREIGN KEY (sessionId) REFERENCES namaz_sessions(sessionId),
+                UNIQUE(sessionId, studentId)
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS namaz_api_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL,
+                sessionId TEXT,
+                message TEXT,
+                source TEXT,
+                ip TEXT,
+                createdAt TEXT NOT NULL
+            )
+        """)
+
+        c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_sessions_date_class ON namaz_sessions(date, className)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_attendance_session ON namaz_attendance(sessionId)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_attendance_student ON namaz_attendance(studentId)")
+
         now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("""
             INSERT OR IGNORE INTO announcement_broadcasts
@@ -320,6 +359,306 @@ def run_migrations():
 
 # Run migrations on startup
 run_migrations()
+
+NAMAZ_SESSION_TYPES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+
+def _date_range_days(from_date, to_date):
+    start = dt.strptime(from_date, "%Y-%m-%d").date()
+    end = dt.strptime(to_date, "%Y-%m-%d").date()
+    if end < start:
+        start, end = end, start
+    days = []
+    current = start
+    while current <= end:
+        days.append(current.strftime("%Y-%m-%d"))
+        current += datetime.timedelta(days=1)
+    return days
+
+def _pct(present, total):
+    return round((present / total) * 100, 1) if total else 0
+
+def _namaz_filters(data):
+    today = get_ist_now().strftime("%Y-%m-%d")
+    return {
+        "fromDate": str(data.get("fromDate") or today).strip(),
+        "toDate": str(data.get("toDate") or today).strip(),
+        "className": str(data.get("className") or data.get("classId") or "").strip(),
+        "studentId": str(data.get("studentId") or "").strip(),
+        "sessionType": str(data.get("sessionType") or "").strip(),
+    }
+
+def _filtered_namaz_sessions(c, filters):
+    where = ["date BETWEEN ? AND ?"]
+    params = [filters["fromDate"], filters["toDate"]]
+    if filters["className"]:
+        where.append("className = ?")
+        params.append(filters["className"])
+    if filters["sessionType"]:
+        where.append("sessionName = ?")
+        params.append(filters["sessionType"])
+    if filters["studentId"]:
+        where.append("sessionId IN (SELECT sessionId FROM namaz_attendance WHERE studentId = ?)")
+        params.append(filters["studentId"])
+    c.execute(f"""
+        SELECT sessionId, sessionName, className, source, date, createdAt
+        FROM namaz_sessions
+        WHERE {' AND '.join(where)}
+        ORDER BY date DESC, createdAt DESC
+    """, params)
+    return [
+        {
+            "sessionId": row[0],
+            "sessionName": row[1],
+            "className": row[2],
+            "source": row[3],
+            "date": row[4],
+            "createdAt": row[5],
+        }
+        for row in c.fetchall()
+    ]
+
+def handle_namaz_api_event(c, data):
+    c.execute("""
+        INSERT INTO namaz_api_events (status, sessionId, message, source, ip, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        data.get("status") or "unknown",
+        data.get("sessionId"),
+        data.get("message"),
+        data.get("source"),
+        data.get("ip"),
+        get_ist_now().strftime("%Y-%m-%d %H:%M:%S"),
+    ))
+    return {"success": True}
+
+def handle_create_namaz_session(c, data):
+    required = ["sessionId", "sessionName", "date", "className", "presentStudents"]
+    missing = [key for key in required if data.get(key) in (None, "")]
+    if missing:
+        return {"success": False, "message": f"Missing fields: {', '.join(missing)}"}
+
+    session_id = str(data.get("sessionId")).strip()
+    session_name = str(data.get("sessionName")).strip()
+    class_name = str(data.get("className")).strip()
+    date = str(data.get("date")).strip()
+    source = str(data.get("source") or "").strip()
+    category = str(data.get("category") or "namaz").strip()
+    present_students = {str(s).strip() for s in data.get("presentStudents") or [] if str(s).strip()}
+
+    if session_name not in NAMAZ_SESSION_TYPES:
+        return {"success": False, "message": "Invalid sessionName"}
+
+    try:
+        dt.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return {"success": False, "message": "Invalid date. Use YYYY-MM-DD"}
+
+    c.execute("SELECT 1 FROM namaz_sessions WHERE sessionId=?", (session_id,))
+    if c.fetchone():
+        handle_namaz_api_event(c, {
+            "status": "duplicate",
+            "sessionId": session_id,
+            "message": "Session Already Exists",
+            "source": source,
+            "ip": data.get("ip"),
+        })
+        return {"success": True, "message": "Session Already Exists"}
+
+    c.execute("SELECT roll_no FROM students WHERE class=? ORDER BY roll_no", (class_name,))
+    class_rolls = [str(row[0]) for row in c.fetchall()]
+    if not class_rolls:
+        handle_namaz_api_event(c, {
+            "status": "rejected",
+            "sessionId": session_id,
+            "message": f"No students found for class {class_name}",
+            "source": source,
+            "ip": data.get("ip"),
+        })
+        return {"success": False, "message": f"No students found for class {class_name}"}
+
+    now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute("""
+        INSERT INTO namaz_sessions (sessionId, sessionName, className, source, date, category, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (session_id, session_name, class_name, source, date, category, now_str))
+
+    rows = [
+        (session_id, roll, "present" if roll in present_students else "absent")
+        for roll in class_rolls
+    ]
+    c.executemany("""
+        INSERT OR IGNORE INTO namaz_attendance (sessionId, studentId, status)
+        VALUES (?, ?, ?)
+    """, rows)
+    handle_namaz_api_event(c, {
+        "status": "received",
+        "sessionId": session_id,
+        "message": f"{len(present_students)} present of {len(class_rolls)} students",
+        "source": source,
+        "ip": data.get("ip"),
+    })
+    return {
+        "success": True,
+        "message": "Session Recorded",
+        "data": {
+            "sessionId": session_id,
+            "totalStudents": len(class_rolls),
+            "presentCount": sum(1 for _, _, status in rows if status == "present"),
+            "absentCount": sum(1 for _, _, status in rows if status == "absent"),
+        }
+    }
+
+def build_namaz_analytics(c, data):
+    filters = _namaz_filters(data)
+    sessions = _filtered_namaz_sessions(c, filters)
+    session_ids = [s["sessionId"] for s in sessions]
+
+    c.execute("SELECT DISTINCT class FROM students WHERE class IS NOT NULL AND class != '' ORDER BY class")
+    all_classes = [row[0] for row in c.fetchall()]
+    classes_scope = [filters["className"]] if filters["className"] else all_classes
+    if filters["studentId"] and not filters["className"]:
+        c.execute("SELECT class FROM students WHERE roll_no=?", (filters["studentId"],))
+        row = c.fetchone()
+        classes_scope = [row[0]] if row else []
+
+    session_types_scope = [filters["sessionType"]] if filters["sessionType"] else NAMAZ_SESSION_TYPES
+    try:
+        day_count = len(_date_range_days(filters["fromDate"], filters["toDate"]))
+    except ValueError:
+        day_count = 0
+    expected_sessions = day_count * len(classes_scope) * len(session_types_scope)
+    missing_session_data = max(expected_sessions - len(set(session_ids)), 0)
+
+    attendance_rows = []
+    if session_ids:
+        placeholders = ",".join("?" for _ in session_ids)
+        params = session_ids[:]
+        student_clause = ""
+        if filters["studentId"]:
+            student_clause = " AND a.studentId=?"
+            params.append(filters["studentId"])
+        c.execute(f"""
+            SELECT a.studentId, a.status, s.sessionName, s.className, s.date, st.name
+            FROM namaz_attendance a
+            JOIN namaz_sessions s ON s.sessionId = a.sessionId
+            LEFT JOIN students st ON st.roll_no = a.studentId
+            WHERE a.sessionId IN ({placeholders}){student_clause}
+        """, params)
+        attendance_rows = c.fetchall()
+
+    total_marked = len(attendance_rows)
+    total_present = sum(1 for row in attendance_rows if row[1] == "present")
+    by_session_type = {}
+    for session_type in NAMAZ_SESSION_TYPES:
+        rows = [row for row in attendance_rows if row[2] == session_type]
+        by_session_type[session_type] = {
+            "present": sum(1 for row in rows if row[1] == "present"),
+            "total": len(rows),
+            "percent": _pct(sum(1 for row in rows if row[1] == "present"), len(rows)),
+        }
+
+    student_totals = {}
+    for roll, status, _stype, _cls, _date, name in attendance_rows:
+        item = student_totals.setdefault(roll, {"rollNo": roll, "name": name or roll, "present": 0, "total": 0})
+        item["total"] += 1
+        if status == "present":
+            item["present"] += 1
+    student_rows = []
+    for item in student_totals.values():
+        item["percent"] = _pct(item["present"], item["total"])
+        student_rows.append(item)
+
+    class_analytics = None
+    if filters["className"]:
+        class_students = [item for item in student_rows]
+        class_students.sort(key=lambda x: x["percent"], reverse=True)
+        class_analytics = {
+            "className": filters["className"],
+            "classAverage": _pct(total_present, total_marked),
+            "bestStudent": class_students[0] if class_students else None,
+            "lowestStudent": class_students[-1] if class_students else None,
+            "totalSessions": len(set(session_ids)),
+            "missingSessions": missing_session_data,
+        }
+
+    student_analytics = None
+    if filters["studentId"]:
+        student_item = student_totals.get(filters["studentId"], {"rollNo": filters["studentId"], "name": filters["studentId"], "present": 0, "total": 0})
+        student_analytics = {
+            "rollNo": student_item["rollNo"],
+            "name": student_item["name"],
+            "overall": _pct(student_item["present"], student_item["total"]),
+            "presentCount": student_item["present"],
+            "absentCount": max(student_item["total"] - student_item["present"], 0),
+            "sessions": by_session_type,
+        }
+
+    def grouped_trend(index):
+        groups = {}
+        for _roll, status, stype, _cls, date, _name in attendance_rows:
+            key = date[:7] if index == "month" else (stype if index == "session" else date)
+            item = groups.setdefault(key, {"label": key, "present": 0, "total": 0})
+            item["total"] += 1
+            if status == "present":
+                item["present"] += 1
+        return [
+            {**item, "percent": _pct(item["present"], item["total"])}
+            for item in sorted(groups.values(), key=lambda x: x["label"])
+        ]
+
+    return {
+        "success": True,
+        "data": {
+            "filters": filters,
+            "cards": {
+                "overallAttendance": _pct(total_present, total_marked),
+                "totalSessions": len(set(session_ids)),
+                "missingSessionData": missing_session_data,
+                "studentsAbove90": sum(1 for item in student_rows if item["percent"] >= 90),
+                "studentsBelow50": sum(1 for item in student_rows if item["percent"] < 50),
+                **{f"{name.lower()}Percent": by_session_type[name]["percent"] for name in NAMAZ_SESSION_TYPES},
+            },
+            "sessionTypes": by_session_type,
+            "classAnalytics": class_analytics,
+            "studentAnalytics": student_analytics,
+            "trends": grouped_trend("date"),
+            "monthlyTrends": grouped_trend("month"),
+            "sessionComparison": grouped_trend("session"),
+            "sessions": sessions[:100],
+            "students": sorted(student_rows, key=lambda x: x["rollNo"]),
+        }
+    }
+
+def build_namaz_api_monitor(c):
+    today = get_ist_now().strftime("%Y-%m-%d")
+    c.execute("SELECT sessionId, sessionName, className, source, date, createdAt FROM namaz_sessions ORDER BY createdAt DESC LIMIT 1")
+    last = c.fetchone()
+    c.execute("SELECT COUNT(*) FROM namaz_sessions WHERE date=?", (today,))
+    today_count = c.fetchone()[0]
+    c.execute("SELECT createdAt FROM namaz_api_events ORDER BY createdAt DESC LIMIT 1")
+    sync = c.fetchone()
+    c.execute("SELECT status, sessionId, message, source, ip, createdAt FROM namaz_api_events ORDER BY createdAt DESC LIMIT 20")
+    events = [
+        {"status": r[0], "sessionId": r[1], "message": r[2], "source": r[3], "ip": r[4], "createdAt": r[5]}
+        for r in c.fetchall()
+    ]
+    return {
+        "success": True,
+        "data": {
+            "lastSessionReceived": {
+                "sessionId": last[0],
+                "sessionName": last[1],
+                "className": last[2],
+                "source": last[3],
+                "date": last[4],
+                "createdAt": last[5],
+            } if last else None,
+            "lastSyncTime": sync[0] if sync else None,
+            "sessionsReceivedToday": today_count,
+            "apiStatus": "Online",
+            "recentEvents": events,
+        }
+    }
 
 
 # ================================
@@ -3586,7 +3925,21 @@ if __name__ == "__main__":
             result = {"success": False}
 
             try:
-                if action == "login":
+                if action == "create_namaz_session":
+                    result = handle_create_namaz_session(c, data)
+                    conn.commit()
+
+                elif action == "log_namaz_api_event":
+                    result = handle_namaz_api_event(c, data)
+                    conn.commit()
+
+                elif action == "get_namaz_analytics":
+                    result = build_namaz_analytics(c, data)
+
+                elif action == "get_namaz_api_monitor":
+                    result = build_namaz_api_monitor(c)
+
+                elif action == "login":
                     username = data.get("username", "").lower().strip()
                     password = str(data.get("password", ""))  # phone number entered by user
 

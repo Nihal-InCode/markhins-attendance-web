@@ -34,6 +34,7 @@ function getLocalIp() {
 
 // --- Configuration ---
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
+const NAMAZ_API_KEY = (process.env.NAMAZ_API_KEY || process.env.API_KEY || '').trim();
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
@@ -572,6 +573,45 @@ app.get('/validate-token', authenticateToken, (req, res) => {
     res.json({ success: true, user: req.user });
 });
 
+app.post('/api/namaz-session', async (req, res) => {
+    const providedKey = String(req.headers['x-api-key'] || '').trim();
+    const source = req.body?.source || 'unknown';
+    const sessionId = req.body?.sessionId || null;
+
+    if (!NAMAZ_API_KEY || providedKey !== NAMAZ_API_KEY) {
+        console.warn(`[Namaz API] Unauthorized request from ${req.ip || 'unknown'} for session ${sessionId || '-'}`);
+        try {
+            await callPython({
+                action: "log_namaz_api_event",
+                status: "unauthorized",
+                sessionId,
+                source,
+                ip: req.ip || '',
+                message: NAMAZ_API_KEY ? "Invalid X-API-KEY" : "NAMAZ_API_KEY is not configured"
+            });
+        } catch (error) {
+            console.error('[Namaz API] Failed to log unauthorized attempt:', error.message);
+        }
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    try {
+        const result = await callPython({
+            action: "create_namaz_session",
+            ...req.body,
+            ip: req.ip || '',
+        });
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        return res.json(result);
+    } catch (error) {
+        console.error('[Namaz API] Session processing failed:', error.message);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // --- Data Routes ---
 app.get('/classes', authenticateToken, async (req, res) => {
     try {
@@ -715,6 +755,22 @@ app.get('/extra-classes-report', authenticateToken, async (req, res) => {
         const { date, teacherId, classId } = req.query;
         const result = await callPython({ action: 'get_extra_classes_report', date, teacherId, classId });
         recordWebActivity(req.user, req);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/namaz-analytics', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_namaz_analytics",
+            fromDate: req.query.fromDate,
+            toDate: req.query.toDate,
+            className: req.query.className,
+            studentId: req.query.studentId,
+            sessionType: req.query.sessionType,
+        });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1106,6 +1162,19 @@ app.get('/admin/activity-log', authenticateToken, async (req, res) => {
         const result = await callPython({ action: "get_admin_activity_log", date: reportDate });
         const snapshot = buildAdminActivitySnapshot(reportDate, result?.data || {});
         res.json({ success: true, ...snapshot });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/namaz-api-monitor', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_namaz_api_monitor" });
+        if (result?.data) {
+            result.data.apiStatus = NAMAZ_API_KEY ? result.data.apiStatus : 'Not Configured';
+        }
+        res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

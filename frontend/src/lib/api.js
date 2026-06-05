@@ -171,6 +171,16 @@ export const getExtraClassesReport = (params = {}) => {
     return apiRequest(url);
 };
 
+export const getNamazAnalytics = (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value) search.set(key, value);
+    });
+    return apiRequest(`/namaz-analytics?${search.toString()}`);
+};
+
+export const getNamazApiMonitor = () => apiRequest('/admin/namaz-api-monitor');
+
 export const markExtraAttendance = (data) =>
     apiRequest('/attendance/extra', {
         method: 'POST',

@@ -11,6 +11,7 @@ import {
     deleteAdminTeacher,
     getAdminAnnouncements,
     getAdminActivityLog,
+    getNamazApiMonitor,
     getAnnouncementViewers,
     getAdminTeachers,
     getAdminTimetable,
@@ -61,6 +62,7 @@ export default function SettingsPage() {
     const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "" });
     const [photoBusyTeacherId, setPhotoBusyTeacherId] = useState(null);
     const [adminActivityLog, setAdminActivityLog] = useState({ activeUsers: [], liveUsers: [], actions: [], summary: {}, featureUsage: [] });
+    const [namazApiMonitor, setNamazApiMonitor] = useState(null);
     const [activityDate, setActivityDate] = useState(getIstDateString());
     const [selectedWeekday, setSelectedWeekday] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1);
     const [timetableRows, setTimetableRows] = useState([]);
@@ -105,13 +107,14 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Fetching system settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, activityRes, announcementRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, activityRes, announcementRes, namazMonitorRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
                 getAdminTimetable(selectedWeekday),
                 getAdminActivityLog(activityDate),
                 getAdminAnnouncements(),
+                getNamazApiMonitor(),
             ]);
 
             // apiRequest already unwraps .data if it exists
@@ -127,6 +130,7 @@ export default function SettingsPage() {
                 summary: activityRes?.summary || {},
                 featureUsage: Array.isArray(activityRes?.featureUsage) ? activityRes.featureUsage : [],
             });
+            setNamazApiMonitor(namazMonitorRes || null);
         } catch (err) {
             console.error(err);
             setError("Failed to load admin data: " + err.message);
@@ -170,6 +174,15 @@ export default function SettingsPage() {
     async function handleRefreshAdminActivity() {
         try {
             await refreshAdminActivity(activityDate);
+        } catch (err) {
+            setError(err.message);
+        }
+    }
+
+    async function refreshNamazApiMonitor() {
+        try {
+            const monitor = await getNamazApiMonitor();
+            setNamazApiMonitor(monitor || null);
         } catch (err) {
             setError(err.message);
         }
@@ -632,6 +645,76 @@ export default function SettingsPage() {
                         </div>
                     </div>
                     <p className="mt-4 text-[10px] font-bold text-gray-400">DB PATH: {systemInfo?.dbPath}</p>
+                </section>
+
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900">Namaz API Monitor</h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Android session ingestion status</p>
+                        </div>
+                        <button
+                            onClick={refreshNamazApiMonitor}
+                            className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-black transition-all"
+                        >
+                            Refresh API
+                        </button>
+                    </div>
+                    <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+                        <div className="rounded-[1.75rem] border border-emerald-100 bg-emerald-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">API Status</p>
+                            <p className="mt-2 text-2xl font-black text-emerald-900">{namazApiMonitor?.apiStatus || "Unknown"}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-blue-100 bg-blue-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Sessions Today</p>
+                            <p className="mt-2 text-2xl font-black text-blue-900">{namazApiMonitor?.sessionsReceivedToday ?? 0}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-purple-100 bg-purple-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-500">Last Sync Time</p>
+                            <p className="mt-2 text-sm font-black text-purple-900 break-words">{namazApiMonitor?.lastSyncTime || "No sync yet"}</p>
+                        </div>
+                        <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Last Session Received</p>
+                            <p className="mt-2 text-sm font-black text-amber-950 break-words">
+                                {namazApiMonitor?.lastSessionReceived
+                                    ? `${namazApiMonitor.lastSessionReceived.sessionName} ${namazApiMonitor.lastSessionReceived.className}`
+                                    : "No sessions"}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] text-left">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        {["Time", "Status", "Session", "Source", "Message"].map((heading) => (
+                                            <th key={heading} className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">{heading}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {(namazApiMonitor?.recentEvents || []).map((event, idx) => (
+                                        <tr key={`${event.createdAt}-${idx}`}>
+                                            <td className="px-5 py-4 text-xs font-bold text-gray-500">{event.createdAt}</td>
+                                            <td className="px-5 py-4">
+                                                <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${event.status === "received" ? "bg-green-50 text-green-700" : event.status === "unauthorized" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>
+                                                    {event.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-xs font-black text-gray-800">{event.sessionId || "-"}</td>
+                                            <td className="px-5 py-4 text-xs font-bold text-gray-500">{event.source || "-"}</td>
+                                            <td className="px-5 py-4 text-xs font-medium text-gray-600">{event.message || "-"}</td>
+                                        </tr>
+                                    ))}
+                                    {(!namazApiMonitor?.recentEvents || namazApiMonitor.recentEvents.length === 0) && (
+                                        <tr>
+                                            <td colSpan="5" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No API activity recorded</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </section>
 
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
