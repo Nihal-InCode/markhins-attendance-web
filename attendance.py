@@ -615,7 +615,7 @@ def build_namaz_analytics(c, data):
                 "totalSessions": len(set(session_ids)),
                 "missingSessionData": missing_session_data,
                 "studentsAbove90": sum(1 for item in student_rows if item["percent"] >= 90),
-                "studentsBelow50": sum(1 for item in student_rows if item["percent"] < 50),
+                "studentsBelow80": sum(1 for item in student_rows if item["percent"] < 80),
                 **{f"{name.lower()}Percent": by_session_type[name]["percent"] for name in NAMAZ_SESSION_TYPES},
             },
             "sessionTypes": by_session_type,

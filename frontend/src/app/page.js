@@ -1663,7 +1663,7 @@ export default function DashboardPage() {
                           ["Total Sessions", namazAnalytics.cards?.totalSessions],
                           ["Missing Session Data", namazAnalytics.cards?.missingSessionData],
                           ["Students Above 90%", namazAnalytics.cards?.studentsAbove90],
-                          ["Students Below 50%", namazAnalytics.cards?.studentsBelow50],
+                          ["Students Below 80%", namazAnalytics.cards?.studentsBelow80],
                         ].map(([label, value]) => (
                           <div key={label} className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm min-w-0">
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 leading-relaxed">{label}</p>
@@ -1723,6 +1723,82 @@ export default function DashboardPage() {
                           </div>
                         ))}
                       </div>
+
+                      {selectedNamazClass && namazAnalytics?.students && namazAnalytics.students.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between px-1">
+                            <div>
+                              <h4 className="text-sm font-black text-gray-900 uppercase tracking-wider">Student Performance</h4>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Overall Namaz attendance rate by student</p>
+                            </div>
+                            <span className="text-[9px] font-black text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 uppercase tracking-widest">
+                              {namazAnalytics.students.length} Students
+                            </span>
+                          </div>
+                          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" style={{ perspective: "1000px" }}>
+                            {namazAnalytics.students.map((student) => {
+                              // Professional color codes
+                              let statusColor = "from-emerald-500/10 to-emerald-500/5 border-emerald-100 text-emerald-700 shadow-emerald-500/10 hover:border-emerald-300";
+                              let progressBg = "bg-emerald-500";
+                              if (student.percent < 80) {
+                                statusColor = "from-rose-500/10 to-rose-500/5 border-rose-100 text-rose-700 shadow-rose-500/10 hover:border-rose-300";
+                                progressBg = "bg-rose-500";
+                              } else if (student.percent < 90) {
+                                statusColor = "from-amber-500/10 to-amber-500/5 border-amber-100 text-amber-700 shadow-amber-500/10 hover:border-amber-300";
+                                progressBg = "bg-amber-500";
+                              }
+
+                              return (
+                                <div
+                                  key={student.rollNo}
+                                  className="group relative bg-white rounded-3xl border border-gray-150 p-5 transition-all duration-300 ease-out cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1.5 flex items-center justify-between overflow-hidden"
+                                  style={{
+                                    transformStyle: "preserve-3d",
+                                    transition: "transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), shadow 0.4s ease-out, border-color 0.3s",
+                                  }}
+                                  onMouseMove={(e) => {
+                                    const card = e.currentTarget;
+                                    const rect = card.getBoundingClientRect();
+                                    const x = e.clientX - rect.left - rect.width / 2;
+                                    const y = e.clientY - rect.top - rect.height / 2;
+                                    card.style.transform = `translateY(-6px) rotateY(${x / 10}deg) rotateX(${-y / 10}deg)`;
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    const card = e.currentTarget;
+                                    card.style.transform = "translateY(0px) rotateY(0deg) rotateX(0deg)";
+                                  }}
+                                >
+                                  {/* Hover overlay glow */}
+                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                  
+                                  {/* Left Info Panel */}
+                                  <div className="space-y-1 relative z-10">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Roll {student.rollNo}</p>
+                                    <h5 className="font-black text-gray-800 text-sm leading-snug group-hover:text-blue-600 transition-colors duration-200 truncate max-w-[155px]" title={student.name}>
+                                      {student.name}
+                                    </h5>
+                                    <p className="text-[10px] font-bold text-gray-400">{student.present} of {student.total} sessions</p>
+                                  </div>
+
+                                  {/* Right 3D Percentage Ring/Pill */}
+                                  <div 
+                                    className={`flex items-center justify-center rounded-2xl border px-3 py-2.5 font-black text-base bg-gradient-to-br transition-all duration-300 ${statusColor}`}
+                                    style={{
+                                      transform: "translateZ(30px)",
+                                      boxShadow: "0 10px 20px -5px rgba(0,0,0,0.05)",
+                                    }}
+                                  >
+                                    {student.percent}%
+                                  </div>
+                                  
+                                  {/* Bottom Accent Line */}
+                                  <div className={`absolute bottom-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5 ${progressBg}`} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
                         <div className="p-5 border-b border-gray-50"><h4 className="text-sm font-black text-gray-900">Recent Sessions</h4></div>
