@@ -777,6 +777,17 @@ app.get('/namaz-analytics', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/event-attendance', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_event_attendance"
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Profile and Teacher list
 app.get('/profile/me', authenticateToken, async (req, res) => {
     try {

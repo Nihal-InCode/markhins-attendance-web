@@ -180,6 +180,7 @@ export const getNamazAnalytics = (params = {}) => {
 };
 
 export const getNamazApiMonitor = () => apiRequest('/admin/namaz-api-monitor');
+export const getEventAttendance = () => apiRequest('/event-attendance');
 
 export const markExtraAttendance = (data) =>
     apiRequest('/attendance/extra', {

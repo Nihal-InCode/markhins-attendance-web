@@ -21,11 +21,225 @@ import {
   getTeacherRegisterReport,
   getPendingAnnouncement,
   dismissAnnouncement,
-  getNamazAnalytics
+  getNamazAnalytics,
+  getEventAttendance
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
+
+function EventStackCard({ eventGroup }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [expandedSessionId, setExpandedSessionId] = useState(null);
+
+  const history = eventGroup.history || [];
+  const latestRun = history[0] || {};
+  const historyCount = history.length;
+
+  const handleMouseMove = (e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    card.style.transform = `scale(1.02) rotateY(${x / 12}deg) rotateX(${-y / 12}deg)`;
+  };
+
+  const handleMouseLeave = (e) => {
+    setIsHovered(false);
+    const card = e.currentTarget;
+    card.style.transform = `scale(1) rotateY(0deg) rotateX(0deg)`;
+  };
+
+  const formatDate = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  if (isExpanded) {
+    return (
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 p-6 shadow-md transition-all space-y-6 md:col-span-2">
+        <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setIsExpanded(false);
+                setExpandedSessionId(null);
+              }}
+              className="p-3 rounded-2xl bg-gray-50 hover:bg-gray-150 transition-colors text-gray-500 font-bold text-xs uppercase tracking-wider"
+            >
+              ← Back
+            </button>
+            <div>
+              <h4 className="font-black text-gray-905 text-lg">{eventGroup.eventName}</h4>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
+                {historyCount} {historyCount === 1 ? "session" : "sessions"} in history
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-3 py-1 uppercase tracking-widest">
+            Special Program
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {history.map((session) => {
+            const isSessionExpanded = expandedSessionId === session.sessionId;
+            const presentStudents = (session.students || []).filter(s => s.status === "present");
+
+            return (
+              <div
+                key={session.sessionId}
+                className="bg-gray-55/50 rounded-3xl border border-gray-100 p-5 transition-all space-y-4"
+              >
+                <div 
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setExpandedSessionId(isSessionExpanded ? null : session.sessionId)}
+                >
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-gray-400">{formatDate(session.date)}</p>
+                    <h5 className="font-black text-gray-800 text-base leading-tight">
+                      Class: {session.className}
+                    </h5>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-black text-gray-800">{presentStudents.length} / {session.totalCount}</p>
+                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Attended</p>
+                    </div>
+                    <span className="text-lg text-gray-400">
+                      {isSessionExpanded ? "▼" : "▶"}
+                    </span>
+                  </div>
+                </div>
+
+                {isSessionExpanded && (
+                  <div className="pt-4 border-t border-gray-150/50 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      Attendees List ({presentStudents.length})
+                    </p>
+                    {presentStudents.length > 0 ? (
+                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+                        {presentStudents.map((student) => (
+                          <div
+                            key={student.rollNo}
+                            className="bg-white rounded-2xl border border-emerald-100 p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-emerald-300 flex items-center justify-between"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-black text-gray-800 text-xs truncate" title={student.name}>
+                                {student.name}
+                              </p>
+                              <p className="text-[9px] font-bold text-gray-400 mt-0.5">Roll {student.rollNo}</p>
+                            </div>
+                            <span className="text-xs">✅</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs font-bold text-gray-400">No students attended this session</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full" style={{ perspective: "1000px" }}>
+      {/* Stack card 2 (backmost) */}
+      {historyCount > 2 && (
+        <div 
+          className="absolute inset-0 bg-white rounded-[2rem] border border-gray-150 shadow-sm transition-all duration-300"
+          style={{
+            transform: isHovered 
+              ? "translateY(24px) translateX(24px) rotate(6deg) translateZ(-20px)" 
+              : "translateY(12px) translateX(12px) rotate(3deg) translateZ(-20px)",
+            opacity: isHovered ? 0.7 : 0.5,
+            zIndex: 1,
+            pointerEvents: "none"
+          }}
+        />
+      )}
+      {/* Stack card 1 (middle) */}
+      {historyCount > 1 && (
+        <div 
+          className="absolute inset-0 bg-white rounded-[2rem] border border-gray-150 shadow-sm transition-all duration-300"
+          style={{
+            transform: isHovered 
+              ? "translateY(12px) translateX(12px) rotate(-4deg) translateZ(-10px)" 
+              : "translateY(6px) translateX(6px) rotate(-2deg) translateZ(-10px)",
+            opacity: isHovered ? 0.95 : 0.8,
+            zIndex: 2,
+            pointerEvents: "none"
+          }}
+        />
+      )}
+      {/* Main Card (front) */}
+      <div
+        className="relative bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer overflow-hidden group"
+        style={{
+          transformStyle: "preserve-3d",
+          transition: "transform 0.3s ease-out, shadow 0.3s ease-out, border-color 0.3s",
+          zIndex: 3
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={() => setIsExpanded(true)}
+      >
+        {/* Hover overlay glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+        <div className="flex justify-between items-start mb-6">
+          <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+            🎉 Event Program
+          </span>
+          <div className="text-right">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              {historyCount} {historyCount === 1 ? "run" : "runs"}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="font-black text-gray-900 text-lg group-hover:text-blue-600 transition-colors leading-tight">
+            {eventGroup.eventName}
+          </h4>
+
+          <div className="pt-4 border-t border-gray-50 flex items-end justify-between">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Latest Session</p>
+              <p className="text-xs font-bold text-gray-700">{formatDate(latestRun.date)}</p>
+              <p className="text-[10px] font-bold text-gray-400">Class {latestRun.className}</p>
+            </div>
+            <div 
+              className="bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-2xl px-4 py-2 text-center"
+              style={{ transform: "translateZ(20px)" }}
+            >
+              <p className="text-lg font-black leading-none">{latestRun.presentCount}</p>
+              <p className="text-[8px] font-black text-emerald-700/60 uppercase tracking-widest mt-1">Attended</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bottom indicator bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-purple-500 transition-all duration-300 group-hover:h-1.5" />
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const regularFormRef = useRef(null);
@@ -88,6 +302,8 @@ export default function DashboardPage() {
   const [selectedNamazClass, setSelectedNamazClass] = useState("");
   const [selectedNamazStudent, setSelectedNamazStudent] = useState("");
   const [selectedNamazSession, setSelectedNamazSession] = useState("");
+  const [eventAttendance, setEventAttendance] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
   const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
@@ -438,6 +654,12 @@ export default function DashboardPage() {
     }
   }, [activeTab, reportType, namazFromDate, namazToDate, selectedNamazClass, selectedNamazSession]);
 
+  useEffect(() => {
+    if (activeTab === "reports" && reportType === "events") {
+      fetchEventAttendance();
+    }
+  }, [activeTab, reportType]);
+
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
     showLoader("Loading timetable...");
@@ -542,6 +764,20 @@ export default function DashboardPage() {
       setNamazAnalytics(null);
     } finally {
       setLoadingNamaz(false);
+    }
+  }
+
+  async function fetchEventAttendance() {
+    setLoadingEvents(true);
+    setReportError("");
+    try {
+      const data = await getEventAttendance();
+      setEventAttendance(data || []);
+    } catch (err) {
+      setReportError("Failed to fetch event attendance: " + err.message);
+      setEventAttendance([]);
+    } finally {
+      setLoadingEvents(false);
     }
   }
 
@@ -1377,7 +1613,8 @@ export default function DashboardPage() {
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
               {[
                 { id: 'overview', label: 'Monitor', emoji: '📊' },
-                { id: 'namaz', label: 'Namaz & Event', emoji: '🕌' },
+                { id: 'namaz', label: 'Namaz', emoji: '🕌' },
+                { id: 'events', label: 'Events History', emoji: '🎉' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈' },
                 { id: 'register', label: 'Register', emoji: '📒' },
@@ -1818,6 +2055,44 @@ export default function DashboardPage() {
                   ) : (
                     <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
                       <p className="text-xs font-black uppercase tracking-widest text-gray-400">Apply filters to load Namaz analytics</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {reportType === "events" && (
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-black text-gray-905 text-lg">Events History</h3>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">
+                        Historical record of special program and event attendances
+                      </p>
+                    </div>
+                    <button 
+                      onClick={fetchEventAttendance}
+                      className="rounded-2xl bg-blue-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-100"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+
+                  {loadingEvents ? (
+                    <div className="flex justify-center p-12">
+                      <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
+                    </div>
+                  ) : eventAttendance && eventAttendance.length > 0 ? (
+                    <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
+                      {eventAttendance.map((eventGroup) => (
+                        <EventStackCard key={eventGroup.eventName} eventGroup={eventGroup} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🎉</div>
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                        No Event/Program attendance records found
+                      </p>
                     </div>
                   )}
                 </div>

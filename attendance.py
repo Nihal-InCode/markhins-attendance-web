@@ -388,7 +388,7 @@ def _namaz_filters(data):
     }
 
 def _filtered_namaz_sessions(c, filters):
-    where = ["date BETWEEN ? AND ?"]
+    where = ["date BETWEEN ? AND ?", "category = 'namaz'"]
     params = [filters["fromDate"], filters["toDate"]]
     if filters["className"]:
         where.append("className = ?")
@@ -445,7 +445,7 @@ def handle_create_namaz_session(c, data):
     category = str(data.get("category") or "namaz").strip()
     present_students = {str(s).strip() for s in data.get("presentStudents") or [] if str(s).strip()}
 
-    if session_name not in NAMAZ_SESSION_TYPES:
+    if category == "namaz" and session_name not in NAMAZ_SESSION_TYPES:
         return {"success": False, "message": "Invalid sessionName"}
 
     try:
@@ -659,6 +659,53 @@ def build_namaz_api_monitor(c):
             "recentEvents": events,
         }
     }
+
+def get_event_attendance(c):
+    c.execute("""
+        SELECT sessionId, sessionName, className, date, createdAt
+        FROM namaz_sessions
+        WHERE category = 'program' OR category = 'event'
+        ORDER BY date DESC, createdAt DESC
+    """)
+    sessions = c.fetchall()
+    
+    events_map = {}
+    for session_id, event_name, class_name, date, created_at in sessions:
+        # Fetch students for this session
+        c.execute("""
+            SELECT a.studentId, a.status, s.name
+            FROM namaz_attendance a
+            LEFT JOIN students s ON s.roll_no = a.studentId
+            WHERE a.sessionId = ?
+            ORDER BY a.studentId
+        """, (session_id,))
+        att_rows = c.fetchall()
+        
+        students_list = [
+            {"rollNo": row[0], "status": row[1], "name": row[2] or row[0]}
+            for row in att_rows
+        ]
+        
+        present_count = sum(1 for s in students_list if s["status"] == "present")
+        
+        item = {
+            "sessionId": session_id,
+            "date": date,
+            "className": class_name,
+            "createdAt": created_at,
+            "presentCount": present_count,
+            "totalCount": len(students_list),
+            "students": students_list
+        }
+        
+        events_map.setdefault(event_name, []).append(item)
+        
+    result_list = [
+        {"eventName": name, "history": history}
+        for name, history in events_map.items()
+    ]
+    
+    return {"success": True, "data": result_list}
 
 
 # ================================
@@ -3938,6 +3985,9 @@ if __name__ == "__main__":
 
                 elif action == "get_namaz_api_monitor":
                     result = build_namaz_api_monitor(c)
+
+                elif action == "get_event_attendance":
+                    result = get_event_attendance(c)
 
                 elif action == "login":
                     username = data.get("username", "").lower().strip()
