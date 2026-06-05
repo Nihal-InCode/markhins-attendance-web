@@ -342,6 +342,12 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # Ensure 'category' exists in namaz_sessions
+        try:
+            c.execute("ALTER TABLE namaz_sessions ADD COLUMN category TEXT DEFAULT 'namaz'")
+        except sqlite3.OperationalError:
+            pass
+
         # === SESSION SYSTEM MIGRATION ===
         try:
             c.execute("ALTER TABLE teachers ADD COLUMN active_session_token TEXT")
@@ -706,6 +712,55 @@ def get_event_attendance(c):
     ]
     
     return {"success": True, "data": result_list}
+
+def handle_reset_namaz_data(c, data):
+    category = str(data.get("category") or "all").strip().lower()
+    class_name = str(data.get("className") or "all").strip()
+    date = str(data.get("date") or "all").strip()
+
+    where_clauses = []
+    params = []
+
+    if category == "namaz":
+        where_clauses.append("category = 'namaz'")
+    elif category == "program":
+        where_clauses.append("category = 'program'")
+
+    if class_name != "all":
+        where_clauses.append("className = ?")
+        params.append(class_name)
+
+    if date != "all":
+        where_clauses.append("date = ?")
+        params.append(date)
+
+    where_str = ""
+    if where_clauses:
+        where_str = "WHERE " + " AND ".join(where_clauses)
+
+    c.execute(f"SELECT sessionId FROM namaz_sessions {where_str}", params)
+    session_ids = [row[0] for row in c.fetchall()]
+
+    if not session_ids:
+        return {"success": True, "message": "No matching sessions found to delete.", "deletedCount": 0}
+
+    # Delete from namaz_attendance
+    placeholders = ",".join("?" for _ in session_ids)
+    c.execute(f"DELETE FROM namaz_attendance WHERE sessionId IN ({placeholders})", session_ids)
+    attendance_deleted = c.rowcount
+
+    # Delete from namaz_sessions
+    c.execute(f"DELETE FROM namaz_sessions WHERE sessionId IN ({placeholders})", session_ids)
+    sessions_deleted = c.rowcount
+
+    # Delete associated api events
+    c.execute(f"DELETE FROM namaz_api_events WHERE sessionId IN ({placeholders})", session_ids)
+
+    return {
+        "success": True,
+        "message": f"Successfully reset data. Deleted {sessions_deleted} sessions and {attendance_deleted} student attendance records.",
+        "deletedCount": sessions_deleted
+    }
 
 
 # ================================
@@ -3988,6 +4043,10 @@ if __name__ == "__main__":
 
                 elif action == "get_event_attendance":
                     result = get_event_attendance(c)
+
+                elif action == "reset_namaz_data":
+                    result = handle_reset_namaz_data(c, data)
+                    conn.commit()
 
                 elif action == "login":
                     username = data.get("username", "").lower().strip()

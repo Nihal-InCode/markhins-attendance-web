@@ -798,6 +798,25 @@ app.get('/profile/me', authenticateToken, async (req, res) => {
     }
 });
 
+
+
+// Admin Route: Reset Namaz & Event Data
+app.post('/admin/reset-namaz-data', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { category, className, date } = req.body;
+        const result = await callPython({
+            action: "reset_namaz_data",
+            category: category || "all",
+            className: className || "all",
+            date: date || "all"
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({

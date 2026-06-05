@@ -49,6 +49,8 @@ export default function SettingsPage() {
     const [sessions, setSessions] = useState([]);
     const [systemInfo, setSystemInfo] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [resetConfig, setResetConfig] = useState({ category: "all", className: "all", dateMode: "all", date: "all" });
+    const [resettingData, setResettingData] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [msg, setMsg] = useState("");
     const [error, setError] = useState("");
@@ -298,6 +300,46 @@ export default function SettingsPage() {
             setError(err.message);
         } finally {
             setUpdatingPassword(false);
+            hideLoader();
+        }
+    }
+
+    async function handleResetData() {
+        const confirmMsg = `WARNING: Are you sure you want to reset the selected data?\n` +
+            `- Category: ${resetConfig.category.toUpperCase()}\n` +
+            `- Class: ${resetConfig.className.toUpperCase()}\n` +
+            `- Date: ${resetConfig.date.toUpperCase()}\n` +
+            `This action CANNOT be undone. Proceed?`;
+            
+        if (!confirm(confirmMsg)) return;
+
+        setResettingData(true);
+        setError("");
+        setMsg("");
+        showLoader("Resetting database records...");
+
+        try {
+            const res = await apiRequest("/admin/reset-namaz-data", {
+                method: "POST",
+                body: JSON.stringify({
+                    category: resetConfig.category,
+                    className: resetConfig.className,
+                    date: resetConfig.date
+                })
+            });
+
+            if (res.success) {
+                playSound('success');
+                setMsg(res.message || "Data reset successfully.");
+                await fetchData();
+            } else {
+                throw new Error(res.message || "Failed to reset data");
+            }
+        } catch (err) {
+            playSound('error');
+            setError("Reset Error: " + err.message);
+        } finally {
+            setResettingData(false);
             hideLoader();
         }
     }
@@ -717,236 +759,99 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
+                {/* Reset Namaz & Event Data Section */}
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
                         <div>
-                            <h2 className="text-xl font-black text-gray-900">Live Operations</h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Realtime visibility into teacher activity, feature usage and attendance work</p>
+                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span>⚠️</span> Reset Namaz & Event Data
+                            </h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                                Delete attendance database records selectively or fully
+                            </p>
                         </div>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <input
-                                type="date"
-                                value={activityDate}
-                                onChange={(e) => setActivityDate(e.target.value)}
-                                className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            />
-                            <button
-                                onClick={handleRefreshAdminActivity}
-                                className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-black transition-all"
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Category
+                            </label>
+                            <select
+                                value={resetConfig.category}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
                             >
-                                Refresh Feed
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-6">
-                        <div className="rounded-[1.75rem] border border-blue-100 bg-blue-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Active Sessions</p>
-                            <p className="mt-3 text-2xl font-black text-blue-900">{adminActivityLog.summary?.activeSessions || 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-emerald-100 bg-emerald-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Interacting Now</p>
-                            <p className="mt-3 text-2xl font-black text-emerald-900">{adminActivityLog.summary?.currentlyInteracting || 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Periods Taken</p>
-                            <p className="mt-3 text-2xl font-black text-amber-900">{adminActivityLog.summary?.periodsTakenToday || 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-purple-100 bg-purple-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-500">Report Views</p>
-                            <p className="mt-3 text-2xl font-black text-purple-900">{adminActivityLog.summary?.reportViewsToday || 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-pink-100 bg-pink-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-pink-500">Feature Actions</p>
-                            <p className="mt-3 text-2xl font-black text-pink-900">{adminActivityLog.summary?.featureActionsToday || 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Unique Users</p>
-                            <p className="mt-3 text-2xl font-black text-slate-900">{adminActivityLog.summary?.uniqueActorsToday || 0}</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-                        <div className="space-y-6">
-                            <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <h3 className="text-sm font-black text-gray-900">Currently Interacting</h3>
-                                        <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Last 15 minutes</p>
-                                    </div>
-                                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                                        {adminActivityLog.liveUsers?.length || 0} live
-                                    </span>
-                                </div>
-                                <div className="mt-4 space-y-3">
-                                    {(adminActivityLog.liveUsers || []).slice(0, 8).map((person, idx) => (
-                                        <div key={`${person.username || person.name}-${idx}`} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-black text-gray-800">{person.name}</p>
-                                                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                                        {person.role || "Teacher"}{person.username ? ` • @${person.username}` : ""}
-                                                    </p>
-                                                </div>
-                                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600">
-                                                    Live
-                                                </span>
-                                            </div>
-                                            <p className="mt-3 text-sm font-semibold text-gray-700">{person.lastAction || "Working in the app"}</p>
-                                            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{person.lastSeen || ""}</p>
-                                        </div>
-                                    ))}
-                                    {(!adminActivityLog.liveUsers || adminActivityLog.liveUsers.length === 0) && (
-                                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-6 text-center">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No live interactions in the last 15 minutes</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
-                                <h3 className="text-sm font-black text-gray-900">Feature Usage</h3>
-                                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">What teachers are using today</p>
-                                <div className="mt-4 space-y-3">
-                                    {(adminActivityLog.featureUsage || []).slice(0, 6).map((entry) => (
-                                        <div key={entry.type} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <p className="text-sm font-black text-gray-800">{entry.type}</p>
-                                                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600">
-                                                    {entry.count} actions
-                                                </span>
-                                            </div>
-                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">{entry.users} user{entry.users === 1 ? "" : "s"}</p>
-                                        </div>
-                                    ))}
-                                    {(!adminActivityLog.featureUsage || adminActivityLog.featureUsage.length === 0) && (
-                                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-6 text-center">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No tracked feature usage for this date yet</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                <option value="all">All (Namaz & Events)</option>
+                                <option value="namaz">Namaz Sessions Only</option>
+                                <option value="program">Special Events Only</option>
+                            </select>
                         </div>
 
-                        <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-5">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <h3 className="text-sm font-black text-gray-900">Activity Feed</h3>
-                                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Who did what and when</p>
-                                </div>
-                                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-100">
-                                    {(adminActivityLog.actions || []).length} entries
-                                </span>
-                            </div>
-                            <div className="mt-4 space-y-3 max-h-[46rem] overflow-auto pr-1">
-                                {(adminActivityLog.actions || []).map((action, idx) => (
-                                    <div key={`${action.timestamp || action.time || idx}-${action.actor || 'system'}-${idx}`} className="rounded-[1.5rem] border border-gray-100 bg-white p-4">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                            <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600">
-                                                        {action.type || "Activity"}
-                                                    </span>
-                                                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${action.source === "Web" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                                                        {action.source || "Log"}
-                                                    </span>
-                                                </div>
-                                                <p className="mt-3 text-sm font-black text-gray-800">{action.summary}</p>
-                                                <p className="mt-2 text-xs font-semibold text-gray-600">
-                                                    {action.actor || "System"}{action.username ? ` (@${action.username})` : ""}
-                                                </p>
-                                                {action.meta ? (
-                                                    <p className="mt-1 text-[11px] font-medium text-gray-500">{action.meta}</p>
-                                                ) : null}
-                                            </div>
-                                            <div className="shrink-0 text-left sm:text-right">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{action.time || action.timestamp || ""}</p>
-                                                {action.timestamp ? (
-                                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-300">{action.timestamp.split(" ")[0]}</p>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {(!adminActivityLog.actions || adminActivityLog.actions.length === 0) && (
-                                    <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-white p-10 text-center">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No activity recorded for this date</p>
-                                    </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Class
+                            </label>
+                            <select
+                                value={resetConfig.className}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">All Classes</option>
+                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
+                                    .filter(Boolean)
+                                    .map(cls => (
+                                        <option key={cls} value={cls}>{cls}</option>
+                                    ))
+                                }
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Date Filter
+                            </label>
+                            <div className="flex gap-2">
+                                <select
+                                    value={resetConfig.dateMode}
+                                    onChange={(e) => {
+                                        const mode = e.target.value;
+                                        setResetConfig(prev => ({
+                                            ...prev,
+                                            dateMode: mode,
+                                            date: mode === "all" ? "all" : getIstDateString()
+                                        }));
+                                    }}
+                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="single">Select Date</option>
+                                </select>
+                                {resetConfig.dateMode === "single" && (
+                                    <input
+                                        type="date"
+                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
+                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
+                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    />
                                 )}
                             </div>
                         </div>
-                    </div>
-                </section>
 
-                {/* Database Management */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>💾</span> Database Management</h2>
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <button
-                            onClick={handleDownload}
-                            className="flex-1 bg-gray-900 text-white py-4 rounded-3xl font-black hover:bg-black transition-all"
-                        >
-                            Download Database (.db)
-                        </button>
-                        <div className="flex-1 relative">
-                            <input
-                                type="file"
-                                accept=".db"
-                                onChange={handleUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                disabled={uploading}
-                            />
-                            <div className="bg-blue-600 text-white py-4 rounded-3xl font-black text-center hover:bg-blue-700 transition-all">
-                                {uploading ? "Uploading..." : "Upload & Replace DB"}
-                            </div>
+                        <div>
+                            <button
+                                onClick={handleResetData}
+                                disabled={resettingData}
+                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
+                            >
+                                {resettingData ? "Resetting..." : "Reset Data"}
+                            </button>
                         </div>
                     </div>
                 </section>
 
-                {/* System Security */}
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>🔐</span> System Security</h2>
-                    <p className="text-xs text-gray-400 mb-6 font-bold uppercase tracking-wider">Change System Administrative Password</p>
-                    <form onSubmit={handlePasswordChange} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">New Password</label>
-                                <input
-                                    type="password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full px-6 py-4 rounded-2xl border border-gray-50 bg-gray-50/50 outline-none focus:ring-4 focus:ring-blue-100/50 focus:bg-white font-bold transition-all text-sm"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Confirm Password</label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full px-6 py-4 rounded-2xl border border-gray-50 bg-gray-50/50 outline-none focus:ring-4 focus:ring-blue-100/50 focus:bg-white font-bold transition-all text-sm"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={updatingPassword}
-                            className="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50"
-                        >
-                            Update Security Password
-                        </button>
-                    </form>
-                </section>
-
-                {/* Popup Broadcasts */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="mb-6">
-                        <h2 className="text-xl font-black flex items-center gap-2"><span>📢</span> Popup Broadcasts</h2>
-                        <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Create and manage alerts shown to teachers when they open the web application</p>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)] gap-8">
@@ -1084,6 +989,97 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
+                {/* Reset Namaz & Event Data Section */}
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span>⚠️</span> Reset Namaz & Event Data
+                            </h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                                Delete attendance database records selectively or fully
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Category
+                            </label>
+                            <select
+                                value={resetConfig.category}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">All (Namaz & Events)</option>
+                                <option value="namaz">Namaz Sessions Only</option>
+                                <option value="program">Special Events Only</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Class
+                            </label>
+                            <select
+                                value={resetConfig.className}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">All Classes</option>
+                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
+                                    .filter(Boolean)
+                                    .map(cls => (
+                                        <option key={cls} value={cls}>{cls}</option>
+                                    ))
+                                }
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Date Filter
+                            </label>
+                            <div className="flex gap-2">
+                                <select
+                                    value={resetConfig.dateMode}
+                                    onChange={(e) => {
+                                        const mode = e.target.value;
+                                        setResetConfig(prev => ({
+                                            ...prev,
+                                            dateMode: mode,
+                                            date: mode === "all" ? "all" : getIstDateString()
+                                        }));
+                                    }}
+                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="single">Select Date</option>
+                                </select>
+                                {resetConfig.dateMode === "single" && (
+                                    <input
+                                        type="date"
+                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
+                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
+                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                onClick={handleResetData}
+                                disabled={resettingData}
+                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
+                            >
+                                {resettingData ? "Resetting..." : "Reset Data"}
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
                 <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
@@ -1201,6 +1197,97 @@ export default function SettingsPage() {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Reset Namaz & Event Data Section */}
+                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                                <span>⚠️</span> Reset Namaz & Event Data
+                            </h2>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                                Delete attendance database records selectively or fully
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Category
+                            </label>
+                            <select
+                                value={resetConfig.category}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">All (Namaz & Events)</option>
+                                <option value="namaz">Namaz Sessions Only</option>
+                                <option value="program">Special Events Only</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Class
+                            </label>
+                            <select
+                                value={resetConfig.className}
+                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">All Classes</option>
+                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
+                                    .filter(Boolean)
+                                    .map(cls => (
+                                        <option key={cls} value={cls}>{cls}</option>
+                                    ))
+                                }
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Date Filter
+                            </label>
+                            <div className="flex gap-2">
+                                <select
+                                    value={resetConfig.dateMode}
+                                    onChange={(e) => {
+                                        const mode = e.target.value;
+                                        setResetConfig(prev => ({
+                                            ...prev,
+                                            dateMode: mode,
+                                            date: mode === "all" ? "all" : getIstDateString()
+                                        }));
+                                    }}
+                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="single">Select Date</option>
+                                </select>
+                                {resetConfig.dateMode === "single" && (
+                                    <input
+                                        type="date"
+                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
+                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
+                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <button
+                                onClick={handleResetData}
+                                disabled={resettingData}
+                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
+                            >
+                                {resettingData ? "Resetting..." : "Reset Data"}
+                            </button>
                         </div>
                     </div>
                 </section>
