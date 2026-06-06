@@ -28,214 +28,149 @@ import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 
-function EventStackCard({ eventGroup }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [expandedSessionId, setExpandedSessionId] = useState(null);
-
-  const history = eventGroup.history || [];
-  const latestRun = history[0] || {};
-  const historyCount = history.length;
-
-  const handleMouseMove = (e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    card.style.transform = `scale(1.02) rotateY(${x / 12}deg) rotateX(${-y / 12}deg)`;
-  };
-
-  const handleMouseLeave = (e) => {
-    setIsHovered(false);
-    const card = e.currentTarget;
-    card.style.transform = `scale(1) rotateY(0deg) rotateX(0deg)`;
-  };
-
-  const formatDate = (dateStr) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch (e) {
-      return dateStr;
+const formatTime = (createdAtStr) => {
+  if (!createdAtStr) return "";
+  try {
+    const parts = createdAtStr.split(" ");
+    if (parts.length === 2) {
+      const timeParts = parts[1].split(":");
+      if (timeParts.length >= 2) {
+        const hour = parseInt(timeParts[0], 10);
+        const minute = timeParts[1];
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minute} ${ampm}`;
+      }
     }
-  };
-
-  if (isExpanded) {
-    return (
-      <div className="bg-white rounded-[2.5rem] border border-gray-100 p-6 shadow-md transition-all space-y-6 md:col-span-2">
-        <div className="flex items-center justify-between border-b border-gray-50 pb-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setIsExpanded(false);
-                setExpandedSessionId(null);
-              }}
-              className="p-3 rounded-2xl bg-gray-50 hover:bg-gray-150 transition-colors text-gray-500 font-bold text-xs uppercase tracking-wider"
-            >
-              ← Back
-            </button>
-            <div>
-              <h4 className="font-black text-gray-905 text-lg">{eventGroup.eventName}</h4>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
-                {historyCount} {historyCount === 1 ? "session" : "sessions"} in history
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-3 py-1 uppercase tracking-widest">
-            Special Program
-          </span>
-        </div>
-
-        <div className="space-y-4">
-          {history.map((session) => {
-            const isSessionExpanded = expandedSessionId === session.sessionId;
-            const presentStudents = (session.students || []).filter(s => s.status === "present");
-
-            return (
-              <div
-                key={session.sessionId}
-                className="bg-gray-55/50 rounded-3xl border border-gray-100 p-5 transition-all space-y-4"
-              >
-                <div 
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setExpandedSessionId(isSessionExpanded ? null : session.sessionId)}
-                >
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-gray-400">{formatDate(session.date)}</p>
-                    <h5 className="font-black text-gray-800 text-base leading-tight">
-                      Class: {session.className}
-                    </h5>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-black text-gray-800">{presentStudents.length} / {session.totalCount}</p>
-                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Attended</p>
-                    </div>
-                    <span className="text-lg text-gray-400">
-                      {isSessionExpanded ? "▼" : "▶"}
-                    </span>
-                  </div>
-                </div>
-
-                {isSessionExpanded && (
-                  <div className="pt-4 border-t border-gray-150/50 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Attendees List ({presentStudents.length})
-                    </p>
-                    {presentStudents.length > 0 ? (
-                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-                        {presentStudents.map((student) => (
-                          <div
-                            key={student.rollNo}
-                            className="bg-white rounded-2xl border border-emerald-100 p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-emerald-300 flex items-center justify-between"
-                          >
-                            <div className="min-w-0">
-                              <p className="font-black text-gray-800 text-xs truncate" title={student.name}>
-                                {student.name}
-                              </p>
-                              <p className="text-[9px] font-bold text-gray-400 mt-0.5">Roll {student.rollNo}</p>
-                            </div>
-                            <span className="text-xs">✅</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs font-bold text-gray-400">No students attended this session</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
+    const date = new Date(createdAtStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      });
+    }
+    return createdAtStr;
+  } catch (e) {
+    return createdAtStr;
   }
+};
+
+const formatDate = (dateStr) => {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+function EventOccurrenceRow({ occurrence }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const presentStudents = (occurrence.students || []).filter(s => s.status === "present");
 
   return (
-    <div className="relative w-full" style={{ perspective: "1000px" }}>
-      {/* Stack card 2 (backmost) */}
-      {historyCount > 2 && (
-        <div 
-          className="absolute inset-0 bg-white rounded-[2rem] border border-gray-150 shadow-sm transition-all duration-300"
-          style={{
-            transform: isHovered 
-              ? "translateY(24px) translateX(24px) rotate(6deg) translateZ(-20px)" 
-              : "translateY(12px) translateX(12px) rotate(3deg) translateZ(-20px)",
-            opacity: isHovered ? 0.7 : 0.5,
-            zIndex: 1,
-            pointerEvents: "none"
-          }}
-        />
-      )}
-      {/* Stack card 1 (middle) */}
-      {historyCount > 1 && (
-        <div 
-          className="absolute inset-0 bg-white rounded-[2rem] border border-gray-150 shadow-sm transition-all duration-300"
-          style={{
-            transform: isHovered 
-              ? "translateY(12px) translateX(12px) rotate(-4deg) translateZ(-10px)" 
-              : "translateY(6px) translateX(6px) rotate(-2deg) translateZ(-10px)",
-            opacity: isHovered ? 0.95 : 0.8,
-            zIndex: 2,
-            pointerEvents: "none"
-          }}
-        />
-      )}
-      {/* Main Card (front) */}
-      <div
-        className="relative bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer overflow-hidden group"
-        style={{
-          transformStyle: "preserve-3d",
-          transition: "transform 0.3s ease-out, shadow 0.3s ease-out, border-color 0.3s",
-          zIndex: 3
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onClick={() => setIsExpanded(true)}
+    <div className="bg-gray-55/40 rounded-2xl border border-gray-100 p-4 hover:border-blue-200 hover:bg-white transition-all shadow-xs duration-200">
+      <div 
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* Hover overlay glow */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-        <div className="flex justify-between items-start mb-6">
-          <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-            🎉 Event Program
-          </span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-black text-gray-800">{formatDate(occurrence.date)}</span>
+            {occurrence.createdAt && (
+              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 rounded-md px-1.5 py-0.5">
+                {formatTime(occurrence.createdAt)}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] font-bold text-gray-500">
+            Class: <span className="text-blue-600 font-black">{occurrence.className}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-4 self-end sm:self-auto">
           <div className="text-right">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              {historyCount} {historyCount === 1 ? "run" : "runs"}
-            </span>
+            <p className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1">
+              {presentStudents.length} / {occurrence.totalCount} Attended
+            </p>
           </div>
+          <span className="text-xs text-gray-400 font-bold w-4 text-center">
+            {isExpanded ? "▼" : "▶"}
+          </span>
         </div>
+      </div>
 
-        <div className="space-y-4">
-          <h4 className="font-black text-gray-900 text-lg group-hover:text-blue-600 transition-colors leading-tight">
-            {eventGroup.eventName}
-          </h4>
-
-          <div className="pt-4 border-t border-gray-50 flex items-end justify-between">
-            <div className="space-y-1">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Latest Session</p>
-              <p className="text-xs font-bold text-gray-700">{formatDate(latestRun.date)}</p>
-              <p className="text-[10px] font-bold text-gray-400">Class {latestRun.className}</p>
+      {isExpanded && (
+        <div className="mt-4 pt-4 border-t border-gray-150/50 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+            Attendees List ({presentStudents.length})
+          </p>
+          {presentStudents.length > 0 ? (
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {presentStudents.map((student) => (
+                <div
+                  key={student.rollNo}
+                  className="bg-white rounded-xl border border-emerald-100 p-2.5 shadow-xs flex items-center justify-between hover:border-emerald-300 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
+                      {student.name}
+                    </p>
+                    <p className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</p>
+                  </div>
+                  <span className="text-xs">✅</span>
+                </div>
+              ))}
             </div>
-            <div 
-              className="bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-2xl px-4 py-2 text-center"
-              style={{ transform: "translateZ(20px)" }}
-            >
-              <p className="text-lg font-black leading-none">{latestRun.presentCount}</p>
-              <p className="text-[8px] font-black text-emerald-700/60 uppercase tracking-widest mt-1">Attended</p>
-            </div>
-          </div>
+          ) : (
+            <p className="text-xs font-bold text-gray-400">No students attended this session</p>
+          )}
         </div>
-        
-        {/* Bottom indicator bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-purple-500 transition-all duration-300 group-hover:h-1.5" />
+      )}
+    </div>
+  );
+}
+
+function EventGroupCard({ group }) {
+  const occurrences = group.occurrences || [];
+  const totalRuns = occurrences.length;
+
+  return (
+    <div className="bg-white rounded-[2.5rem] border border-gray-100 p-6 shadow-sm space-y-6">
+      <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+        <div className="space-y-1">
+          <h4 className="font-black text-gray-900 text-lg leading-tight">{group.eventName}</h4>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            {totalRuns} {totalRuns === 1 ? "session" : "sessions"} in history
+          </p>
+        </div>
+        <span className="text-[9px] font-black text-purple-700 bg-purple-50 border border-purple-100 rounded-full px-3 py-1 uppercase tracking-widest">
+          🎉 Special Program
+        </span>
+      </div>
+
+      <div className="relative pl-1">
+        {occurrences.map((occurrence, idx) => {
+          const isLast = idx === occurrences.length - 1;
+          return (
+            <div key={occurrence.sessionId} className="relative pl-6 pb-2 last:pb-0">
+              {/* Vertical connector line segment */}
+              {!isLast && (
+                <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-gray-150" />
+              )}
+              {/* Horizontal branch line segment */}
+              <div className="absolute left-[7px] top-[20px] w-4.5 h-[2px] bg-gray-150" />
+              {/* Node indicator dot */}
+              <div className="absolute left-[4px] top-[17px] w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white shadow-xs z-10" />
+
+              <EventOccurrenceRow occurrence={occurrence} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -304,6 +239,8 @@ export default function DashboardPage() {
   const [selectedNamazSession, setSelectedNamazSession] = useState("");
   const [eventAttendance, setEventAttendance] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [expandedNamaz, setExpandedNamaz] = useState(null);
+  const [expandedClasses, setExpandedClasses] = useState({});
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
   const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
@@ -1889,24 +1826,258 @@ export default function DashboardPage() {
                     <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" /></div>
                   ) : namazAnalytics ? (
                     <>
-                      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                        {[
-                          ["Overall Attendance %", namazAnalytics.cards?.overallAttendance],
-                          ["Fajr %", namazAnalytics.cards?.fajrPercent],
-                          ["Dhuhr %", namazAnalytics.cards?.dhuhrPercent],
-                          ["Asr %", namazAnalytics.cards?.asrPercent],
-                          ["Maghrib %", namazAnalytics.cards?.maghribPercent],
-                          ["Isha %", namazAnalytics.cards?.ishaPercent],
-                          ["Total Sessions", namazAnalytics.cards?.totalSessions],
-                          ["Missing Session Data", namazAnalytics.cards?.missingSessionData],
-                          ["Students Above 90%", namazAnalytics.cards?.studentsAbove90],
-                          ["Students Below 80%", namazAnalytics.cards?.studentsBelow80],
-                        ].map(([label, value]) => (
-                          <div key={label} className="rounded-[1.75rem] border border-gray-100 bg-white p-4 shadow-sm min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 leading-relaxed">{label}</p>
-                            <p className="mt-2 text-2xl font-black text-gray-900">{value ?? 0}{label.includes("%") ? "%" : ""}</p>
+                      {/* Section 1: TOP KPI cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        {/* Card 1: Overall Attendance % */}
+                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#8d6e63]" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Overall Attendance</p>
+                              <p className="mt-2 text-3xl font-black text-[#5d4037]">{namazAnalytics.cards?.overallAttendance ?? 0}%</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-2xl bg-[#efebe9] flex items-center justify-center text-xl text-[#795548]">📊</div>
                           </div>
-                        ))}
+                        </div>
+                        
+                        {/* Card 2: Students Below 80% */}
+                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#d84315]" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Below 80%</p>
+                              <p className="mt-2 text-3xl font-black text-[#d84315]">{namazAnalytics.cards?.studentsBelow80 ?? 0}</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-2xl bg-[#fbe9e7] flex items-center justify-center text-xl text-[#d84315]">⚠️</div>
+                          </div>
+                        </div>
+
+                        {/* Card 3: Students Above 90% */}
+                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#2e7d32]" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Above 90%</p>
+                              <p className="mt-2 text-3xl font-black text-[#2e7d32]">{namazAnalytics.cards?.studentsAbove90 ?? 0}</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-2xl bg-[#e8f5e9] flex items-center justify-center text-xl text-[#2e7d32]">⭐</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 3: Today's Recorded Sessions */}
+                      {(() => {
+                        const todayStr = getIstDateString();
+                        const todaySessions = (namazAnalytics.sessions || []).filter(s => s.date === todayStr);
+                        
+                        if (todaySessions.length === 0) return null;
+
+                        // Group sessions by sessionName (Fajr, Dhuhr, etc.)
+                        const grouped = {};
+                        todaySessions.forEach(s => {
+                          if (!grouped[s.sessionName]) {
+                            grouped[s.sessionName] = [];
+                          }
+                          grouped[s.sessionName].push(s);
+                        });
+
+                        return (
+                          <div className="mb-6 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+                            <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Today's Recorded Sessions</h4>
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {Object.entries(grouped).map(([namazName, list]) => {
+                                const isNamazExpanded = expandedNamaz === namazName;
+                                const totalStudentCount = list.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
+                                
+                                return (
+                                  <div key={namazName} className="col-span-full">
+                                    <div 
+                                      onClick={() => setExpandedNamaz(isNamazExpanded ? null : namazName)}
+                                      className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                                        isNamazExpanded 
+                                          ? 'border-amber-300 bg-amber-50/30' 
+                                          : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-200'
+                                      }`}
+                                    >
+                                      <div>
+                                        <h5 className="font-black text-stone-800 text-sm">{namazName}</h5>
+                                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 inline-block">
+                                          ✓ Recorded
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-xs font-black text-stone-600">
+                                          {totalStudentCount} Students
+                                        </span>
+                                        <span className="text-stone-400 text-xs">
+                                          {isNamazExpanded ? "▼" : "▶"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Section 4: Expandable details */}
+                                    {isNamazExpanded && (
+                                      <div className="mt-2 pl-4 pr-2 py-3 border-l-2 border-dashed border-amber-200 space-y-3 bg-amber-50/10 rounded-r-xl">
+                                        {list.map(session => {
+                                          const classKey = `${namazName}-${session.className}`;
+                                          const isClassExpanded = !!expandedClasses[classKey];
+                                          const sList = session.students || [];
+                                          const presentList = sList.filter(st => st.status === "present");
+                                          const absentList = sList.filter(st => st.status === "absent");
+
+                                          return (
+                                            <div key={session.sessionId} className="border border-stone-100 rounded-xl bg-white overflow-hidden shadow-xs">
+                                              <div 
+                                                onClick={() => setExpandedClasses(prev => ({ ...prev, [classKey]: !isClassExpanded }))}
+                                                className="p-3 bg-stone-50/50 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                                              >
+                                                <span className="text-xs font-black text-stone-700">🏫 {session.className}</span>
+                                                <div className="flex items-center gap-3">
+                                                  <span className="text-[10px] font-bold text-stone-500">
+                                                    Present: {presentList.length} | Absent: {absentList.length}
+                                                  </span>
+                                                  <span className="text-stone-400 text-[10px]">
+                                                    {isClassExpanded ? "▼" : "▶"}
+                                                  </span>
+                                                </div>
+                                              </div>
+
+                                              {isClassExpanded && (
+                                                <div className="p-3 border-t border-stone-50 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                                  {/* Present Column */}
+                                                  <div>
+                                                    <p className="font-black text-emerald-700 mb-2">Present ({presentList.length})</p>
+                                                    {presentList.length > 0 ? (
+                                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                        {presentList.map(st => (
+                                                          <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
+                                                            <span className="text-emerald-500 font-bold">✓</span>
+                                                            <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    ) : (
+                                                      <p className="text-stone-400 italic text-[10px]">No students present</p>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Absent Column */}
+                                                  <div>
+                                                    <p className="font-black text-rose-700 mb-2">Absent ({absentList.length})</p>
+                                                    {absentList.length > 0 ? (
+                                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                        {absentList.map(st => (
+                                                          <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
+                                                            <span className="text-rose-500 font-bold">✗</span>
+                                                            <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    ) : (
+                                                      <p className="text-stone-400 italic text-[10px]">No students absent</p>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section 5: Stats breakdown grid */}
+                      <div className="mb-6">
+                        <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Attendance Breakdown</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {/* Fajr */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                            <div>
+                              <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌅 Fajr</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.fajrPercent ?? 0}%</p>
+                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full bg-blue-500" style={{ width: `${namazAnalytics.cards?.fajrPercent ?? 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Dhuhr */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                            <div>
+                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md uppercase tracking-wider">☀️ Dhuhr</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.dhuhrPercent ?? 0}%</p>
+                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full bg-amber-500" style={{ width: `${namazAnalytics.cards?.dhuhrPercent ?? 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Asr */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                            <div>
+                              <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌤️ Asr</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.asrPercent ?? 0}%</p>
+                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full bg-orange-500" style={{ width: `${namazAnalytics.cards?.asrPercent ?? 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Maghrib */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                            <div>
+                              <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌆 Maghrib</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.maghribPercent ?? 0}%</p>
+                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full bg-indigo-500" style={{ width: `${namazAnalytics.cards?.maghribPercent ?? 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Isha */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                            <div>
+                              <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌌 Isha</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.ishaPercent ?? 0}%</p>
+                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full bg-purple-500" style={{ width: `${namazAnalytics.cards?.ishaPercent ?? 0}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Total Sessions */}
+                          <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40 text-white border border-stone-800">
+                            <div>
+                              <span className="text-[10px] font-black text-stone-300 bg-stone-700/50 px-2 py-0.5 rounded-md uppercase tracking-wider">📊 Stats</span>
+                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Total Sessions</h5>
+                            </div>
+                            <div className="flex items-end justify-between">
+                              <p className="text-3xl font-black text-white">{namazAnalytics.cards?.totalSessions ?? 0}</p>
+                              <span className="text-xl">🕌</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="grid gap-4 xl:grid-cols-2">
@@ -2082,11 +2253,49 @@ export default function DashboardPage() {
                       <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
                     </div>
                   ) : eventAttendance && eventAttendance.length > 0 ? (
-                    <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
-                      {eventAttendance.map((eventGroup) => (
-                        <EventStackCard key={eventGroup.eventName} eventGroup={eventGroup} />
-                      ))}
-                    </div>
+                    (() => {
+                      const flatEvents = [];
+                      eventAttendance.forEach((group) => {
+                        if (Array.isArray(group.history)) {
+                          group.history.forEach((session) => {
+                            flatEvents.push({
+                              ...session,
+                              eventName: group.eventName
+                            });
+                          });
+                        }
+                      });
+
+                      flatEvents.sort((a, b) => {
+                        const dateCompare = b.date.localeCompare(a.date);
+                        if (dateCompare !== 0) return dateCompare;
+                        return (b.createdAt || "").localeCompare(a.createdAt || "");
+                      });
+
+                      const groupedEvents = [];
+                      let currentGroup = null;
+
+                      flatEvents.forEach((event) => {
+                        if (currentGroup && currentGroup.eventName === event.eventName) {
+                          currentGroup.occurrences.push(event);
+                        } else {
+                          currentGroup = {
+                            id: `${event.eventName}-${event.sessionId}-${event.createdAt}`,
+                            eventName: event.eventName,
+                            occurrences: [event]
+                          };
+                          groupedEvents.push(currentGroup);
+                        }
+                      });
+
+                      return (
+                        <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
+                          {groupedEvents.map((group) => (
+                            <EventGroupCard key={group.id} group={group} />
+                          ))}
+                        </div>
+                      );
+                    })()
                   ) : (
                     <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
                       <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🎉</div>

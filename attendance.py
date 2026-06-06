@@ -411,17 +411,32 @@ def _filtered_namaz_sessions(c, filters):
         WHERE {' AND '.join(where)}
         ORDER BY date DESC, createdAt DESC
     """, params)
-    return [
-        {
+    
+    sessions_list = []
+    c2 = c.connection.cursor()
+    for row in c.fetchall():
+        s_id = row[0]
+        c2.execute("""
+            SELECT a.studentId, a.status, s.name
+            FROM namaz_attendance a
+            LEFT JOIN students s ON s.roll_no = a.studentId
+            WHERE a.sessionId = ?
+            ORDER BY a.studentId
+        """, (s_id,))
+        students = [
+            {"rollNo": r[0], "status": r[1], "name": r[2] or r[0]}
+            for r in c2.fetchall()
+        ]
+        sessions_list.append({
             "sessionId": row[0],
             "sessionName": row[1],
             "className": row[2],
             "source": row[3],
             "date": row[4],
             "createdAt": row[5],
-        }
-        for row in c.fetchall()
-    ]
+            "students": students
+        })
+    return sessions_list
 
 def handle_namaz_api_event(c, data):
     c.execute("""
