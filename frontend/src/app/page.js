@@ -157,7 +157,7 @@ function EventGroupCard({ group }) {
         {occurrences.map((occurrence, idx) => {
           const isLast = idx === occurrences.length - 1;
           return (
-            <div key={occurrence.sessionId} className="relative pl-6 pb-2 last:pb-0">
+            <div key={occurrence.recordKey || `${occurrence.sessionId || "event"}-${idx}`} className="relative pl-6 pb-2 last:pb-0">
               {/* Vertical connector line segment */}
               {!isLast && (
                 <div className="absolute left-[7px] top-[20px] bottom-0 w-[2px] bg-gray-150" />
@@ -2208,18 +2208,151 @@ export default function DashboardPage() {
                         </div>
                       )}
 
-                      <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
-                        <div className="p-5 border-b border-gray-50"><h4 className="text-sm font-black text-gray-900">Recent Sessions</h4></div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[680px] text-left">
-                            <thead className="bg-gray-50"><tr>{["Date", "Session", "Class", "Source", "Received"].map(h => <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>)}</tr></thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {(namazAnalytics.sessions || []).map(s => (
-                                <tr key={s.sessionId}><td className="px-5 py-4 text-xs font-bold">{s.date}</td><td className="px-5 py-4 text-xs font-black">{s.sessionName}</td><td className="px-5 py-4 text-xs font-bold">{s.className}</td><td className="px-5 py-4 text-xs text-gray-500">{s.source}</td><td className="px-5 py-4 text-xs text-gray-500">{s.createdAt}</td></tr>
-                              ))}
-                              {(!namazAnalytics.sessions || namazAnalytics.sessions.length === 0) && <tr><td colSpan="5" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No sessions received for these filters</td></tr>}
-                            </tbody>
-                          </table>
+                      <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 shadow-lg shadow-stone-200/40 backdrop-blur-xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-amber-50/80 via-white/30 to-blue-50/60 pointer-events-none" />
+                        <div className="relative p-5 border-b border-white/80">
+                          <h4 className="text-sm font-black text-gray-900">Recent Sessions</h4>
+                        </div>
+                        <div className="relative p-4 sm:p-5">
+                          <div className="space-y-4">
+                            {(namazAnalytics.sessions || []).map(s => {
+                              const prayerStyles = {
+                                Fajr: {
+                                  accent: "from-sky-400 to-cyan-500",
+                                  border: "border-l-sky-400",
+                                  badge: "bg-sky-50 text-sky-700 ring-sky-100",
+                                  glow: "group-hover:shadow-sky-100/80",
+                                },
+                                Dhuhr: {
+                                  accent: "from-amber-400 to-yellow-500",
+                                  border: "border-l-amber-400",
+                                  badge: "bg-amber-50 text-amber-700 ring-amber-100",
+                                  glow: "group-hover:shadow-amber-100/80",
+                                },
+                                Asr: {
+                                  accent: "from-orange-400 to-amber-500",
+                                  border: "border-l-orange-400",
+                                  badge: "bg-orange-50 text-orange-700 ring-orange-100",
+                                  glow: "group-hover:shadow-orange-100/80",
+                                },
+                                Maghrib: {
+                                  accent: "from-violet-400 to-fuchsia-500",
+                                  border: "border-l-violet-400",
+                                  badge: "bg-violet-50 text-violet-700 ring-violet-100",
+                                  glow: "group-hover:shadow-violet-100/80",
+                                },
+                                Isha: {
+                                  accent: "from-indigo-500 to-blue-700",
+                                  border: "border-l-indigo-500",
+                                  badge: "bg-indigo-50 text-indigo-700 ring-indigo-100",
+                                  glow: "group-hover:shadow-indigo-100/80",
+                                },
+                              };
+                              const visual = prayerStyles[s.sessionName] || {
+                                accent: "from-blue-400 to-indigo-500",
+                                border: "border-l-blue-400",
+                                badge: "bg-blue-50 text-blue-700 ring-blue-100",
+                                glow: "group-hover:shadow-blue-100/80",
+                              };
+                              const displayDate = (() => {
+                                if (!s.date) return "-";
+                                const dateParts = String(s.date).split("-");
+                                const date = dateParts.length === 3
+                                  ? new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2]))
+                                  : new Date(s.date);
+                                if (isNaN(date.getTime())) return s.date;
+                                return date.toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                });
+                              })();
+                              const timeParts = (() => {
+                                const source = s.createdAt || s.date;
+                                if (!source) return { hour: "--", minute: "--", second: "--", period: "" };
+                                const match = String(source).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+                                let date;
+
+                                if (match) {
+                                  const hour24 = Number(match[1]);
+                                  const displayHour = hour24 % 12 || 12;
+                                  return {
+                                    hour: String(displayHour).padStart(2, "0"),
+                                    minute: match[2],
+                                    second: match[3] || "00",
+                                    period: hour24 >= 12 ? "PM" : "AM",
+                                  };
+                                }
+
+                                date = new Date(source);
+                                if (isNaN(date.getTime())) return { hour: source, minute: "", second: "", period: "" };
+                                const formatted = new Intl.DateTimeFormat("en-IN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                  hour12: true,
+                                }).formatToParts(date);
+                                return {
+                                  hour: formatted.find(part => part.type === "hour")?.value || "--",
+                                  minute: formatted.find(part => part.type === "minute")?.value || "--",
+                                  second: formatted.find(part => part.type === "second")?.value || "--",
+                                  period: formatted.find(part => part.type === "dayPeriod")?.value || "",
+                                };
+                              })();
+
+                              return (
+                                <div
+                                  key={s.sessionId}
+                                  className={`group relative overflow-hidden rounded-[1.25rem] border border-white/80 border-l-4 ${visual.border} bg-white/70 p-5 shadow-md shadow-stone-200/45 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white hover:bg-white/85 hover:shadow-xl ${visual.glow}`}
+                                >
+                                  <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${visual.accent}`} />
+                                  <div className="absolute right-4 top-4 h-16 w-16 rounded-full bg-white/60 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-50" />
+                                  <div className="relative space-y-5">
+                                    <div className="flex items-center gap-3">
+                                      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${visual.badge}`}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.25 14.15A7.5 7.5 0 1110.1 3.75 6 6 0 0020.25 14.15z" />
+                                        </svg>
+                                      </span>
+                                      <h5 className="text-xl font-black leading-tight text-stone-900 sm:text-2xl">
+                                        {s.sessionName || "Session"}
+                                      </h5>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                      <div className="flex items-center gap-2 text-xs font-bold text-stone-500">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span>{displayDate}</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 text-sm font-black tabular-nums sm:text-base">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-400 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                                        </svg>
+                                        <span className="text-blue-700">{timeParts.hour}</span>
+                                        {timeParts.minute && <span className="text-stone-300">:</span>}
+                                        {timeParts.minute && <span className="text-amber-600">{timeParts.minute}</span>}
+                                        {timeParts.second && <span className="text-stone-300">:</span>}
+                                        {timeParts.second && <span className="text-stone-500">{timeParts.second}</span>}
+                                        {timeParts.period && (
+                                          <span className="ml-1 rounded-full border border-stone-200 bg-white/80 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-stone-600 shadow-sm">
+                                            {timeParts.period}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {(!namazAnalytics.sessions || namazAnalytics.sessions.length === 0) && (
+                              <div className="rounded-[1.25rem] border border-dashed border-stone-200 bg-white/65 px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">
+                                No sessions received for these filters
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </>
@@ -2255,12 +2388,19 @@ export default function DashboardPage() {
                   ) : eventAttendance && eventAttendance.length > 0 ? (
                     (() => {
                       const flatEvents = [];
-                      eventAttendance.forEach((group) => {
+                      eventAttendance.forEach((group, groupIndex) => {
                         if (Array.isArray(group.history)) {
-                          group.history.forEach((session) => {
+                          group.history.forEach((session, sessionIndex) => {
                             flatEvents.push({
                               ...session,
-                              eventName: group.eventName
+                              eventName: group.eventName,
+                              recordKey: [
+                                groupIndex,
+                                sessionIndex,
+                                session.sessionId || "no-session-id",
+                                session.date || "no-date",
+                                session.createdAt || "no-created-at",
+                              ].join("::")
                             });
                           });
                         }
@@ -2280,7 +2420,7 @@ export default function DashboardPage() {
                           currentGroup.occurrences.push(event);
                         } else {
                           currentGroup = {
-                            id: `${event.eventName}-${event.sessionId}-${event.createdAt}`,
+                            id: `event-group-${groupedEvents.length}-${event.recordKey}`,
                             eventName: event.eventName,
                             occurrences: [event]
                           };
