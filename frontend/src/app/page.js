@@ -69,6 +69,14 @@ const formatDate = (dateStr) => {
   }
 };
 
+const canManageHealthStatus = (user) => {
+  return user?.role === 'Principal'
+    || user?.role === 'Vice Principal'
+    || user?.role === 'Class Teacher'
+    || user?.role === 'Urdu Principal'
+    || user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
+};
+
 function EventOccurrenceRow({ occurrence }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const presentStudents = (occurrence.students || []).filter(s => s.status === "present");
@@ -1418,7 +1426,7 @@ export default function DashboardPage() {
         )}
 
         {/* ── Feature: Health & Leave Management ── */}
-        {activeTab === "attendance" && user && (user.role === 'Principal' || user.role === 'Vice Principal' || user.role === 'Class Teacher') && (
+        {activeTab === "attendance" && user && canManageHealthStatus(user) && (
           <div
             className="mx-auto max-w-md mt-6"
             style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.4s' }}
