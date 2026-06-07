@@ -1068,11 +1068,11 @@ export default function DashboardPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight tracking-tight text-white sm:text-xl">MARKHINS HUB</h1>
-              <div className="mt-1 flex min-w-0 items-center gap-2">
-                <p className="max-w-[135px] truncate text-[11px] font-bold uppercase tracking-wider text-teal-200 sm:max-w-none">
+              <div className="mt-1 flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <p className="max-w-[150px] truncate text-[11px] font-bold uppercase tracking-wider text-teal-200 sm:max-w-none">
                   {user?.name || 'Teacher'}
                 </p>
-                <span className={`inline-flex max-w-[130px] shrink-0 items-center truncate rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm backdrop-blur-sm sm:max-w-none ${roleBadge.className}`}>
+                <span className={`inline-flex max-w-[150px] items-center truncate rounded-full border px-2.5 py-0.5 text-[8px] font-black uppercase tracking-widest shadow-sm backdrop-blur-sm sm:max-w-none sm:py-1 sm:text-[9px] ${roleBadge.className}`}>
                   {roleBadge.label}
                 </span>
               </div>
