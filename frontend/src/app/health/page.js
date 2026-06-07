@@ -40,13 +40,15 @@ export default function HealthPage() {
 
     // Role-based logic
     const isPrincipal = user?.role === 'Principal' || user?.role === 'Vice Principal';
+    const isUrduPrincipal = user?.role === 'Urdu Principal' || user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
+    const canManageMultipleClasses = isPrincipal || isUrduPrincipal;
     const isClassTeacher = user?.role === 'Class Teacher';
     const assignedClass = user?.class_teacher_of;
 
     // Initial load: Classes
     useEffect(() => {
         // If Class Teacher, auto-select their class and stop
-        if (isClassTeacher && assignedClass && !isPrincipal) {
+        if (isClassTeacher && assignedClass && !canManageMultipleClasses) {
             setSelectedClass(assignedClass);
             return;
         }
@@ -55,7 +57,10 @@ export default function HealthPage() {
             showLoader("Loading classes...");
             try {
                 const data = await getClasses();
-                setClasses(data);
+                const visibleClasses = isUrduPrincipal
+                    ? data.filter(c => String(c.id || c.name || '').toLowerCase().includes('u'))
+                    : data;
+                setClasses(visibleClasses);
             } catch (err) {
                 setError("Failed to load classes.");
             } finally {
@@ -63,7 +68,7 @@ export default function HealthPage() {
             }
         }
         fetchClasses();
-    }, [isClassTeacher, assignedClass, isPrincipal]);
+    }, [isClassTeacher, assignedClass, canManageMultipleClasses, isUrduPrincipal]);
 
     const fetchStudents = async () => {
         if (!selectedClass) {
@@ -267,7 +272,7 @@ export default function HealthPage() {
                     )}
 
                     {/* CAMPUS HEALTH OVERVIEW (ANALYTICS) - Only for Principal/CT */}
-                    {(isPrincipal || isClassTeacher) && (
+                    {(canManageMultipleClasses || isClassTeacher) && (
                         <section className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
                                 Campus Health Overview
@@ -300,10 +305,10 @@ export default function HealthPage() {
                     )}
 
                     {/* 1. SELECT CLASS */}
-                    {(isPrincipal || !isClassTeacher) ? (
+                    {(canManageMultipleClasses || !isClassTeacher) ? (
                         <section className="space-y-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                                Step 1: Select Class {isPrincipal && "(Admin View)"}
+                                Step 1: Select Class {isPrincipal && "(Admin View)"} {isUrduPrincipal && "(Urdu Section)"}
                             </label>
                             <select
                                 value={selectedClass}

@@ -148,8 +148,18 @@ function getUserRoleLabel(user = {}) {
     if (user.role === 'admin') return 'Admin';
     if (user.role === 'Principal') return 'Principal';
     if (user.role === 'Vice Principal') return 'Vice Principal';
+    if (user.role === 'Urdu Principal') return 'Urdu Principal';
     if (user.role === 'Class Teacher') return 'Class Teacher';
     return 'Subject Teacher';
+}
+
+function isUrduClass(classId) {
+    return String(classId || '').toLowerCase().includes('u');
+}
+
+function isUrduPrincipal(user = {}) {
+    return String(user.name || '').trim().toUpperCase() === 'MAHROOF QADIRI'
+        || user.role === 'Urdu Principal';
 }
 
 function getRequestActivityDescriptor(req) {
@@ -965,12 +975,18 @@ app.get('/health/:listType(sick-list|leave-list)', authenticateToken, async (req
         const user_role = req.user.role || 'Subject Teacher';
         const assigned_class = req.user.class_teacher_of;
         const isPrincipal = user_role === 'Principal' || user_role === 'Vice Principal';
+        const isScopedUrduPrincipal = isUrduPrincipal(req.user);
 
-        if (!isPrincipal && user_role !== 'Class Teacher') {
+        if (!isPrincipal && !isScopedUrduPrincipal && user_role !== 'Class Teacher') {
             return res.status(403).json({ success: false, error: 'Unauthorized: Only Class Teachers and Admin can view health lists.' });
         }
 
         const result = await callPython({ action: "get_health_list", status: targetStatus });
+
+        if (isScopedUrduPrincipal && !isPrincipal && Array.isArray(result.health_list)) {
+            result.health_list = result.health_list.filter(group => isUrduClass(group.class));
+            result.total_count = result.health_list.reduce((total, group) => total + (group.students?.length || 0), 0);
+        }
 
         // Remove the Class Teacher filter to allow whole campus view
         res.json(result);
@@ -992,7 +1008,22 @@ app.post('/health/:type', authenticateToken, async (req, res) => {
 
     // Permission Check: Class Teacher restriction
     const isPrincipal = user_role === 'Principal' || user_role === 'Vice Principal';
-    if (!isPrincipal && user_role === 'Class Teacher') {
+    const isScopedUrduPrincipal = isUrduPrincipal(req.user);
+    if (isScopedUrduPrincipal && !isPrincipal && !isUrduClass(classId)) {
+        return res.status(403).json({
+            success: false,
+            error: 'Unauthorized: Urdu Principal can manage Sick/Leave only for Urdu classes.'
+        });
+    }
+
+    if (!isPrincipal && !isScopedUrduPrincipal && user_role !== 'Class Teacher') {
+        return res.status(403).json({
+            success: false,
+            error: 'Unauthorized: Only Principal, Urdu Principal, Vice Principal, and Class Teachers can manage health status.'
+        });
+    }
+
+    if (!isPrincipal && !isScopedUrduPrincipal && user_role === 'Class Teacher') {
         if (assigned_class && classId && String(assigned_class) !== String(classId)) {
             console.warn(`[Permission Denied] Class Teacher ${req.user.name} tried to modify class ${classId} (Assigned: ${assigned_class})`);
             return res.status(403).json({

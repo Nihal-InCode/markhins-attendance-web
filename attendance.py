@@ -861,6 +861,17 @@ def get_student_current_status(c, sid):
             return stat
     return None
 
+def is_urdu_class(class_name):
+    return 'u' in str(class_name or '').lower()
+
+def is_urdu_principal_name(name):
+    return str(name or '').strip().upper() == 'MAHROOF QADIRI'
+
+def can_manage_health_for_class(class_teacher_of, student_class, teacher_name=None):
+    if class_teacher_of == student_class or class_teacher_of == "PRINCIPAL":
+        return True
+    return is_urdu_principal_name(teacher_name) and is_urdu_class(student_class)
+
 def get_active_sl_emoji(c, sid, date):
     """
     Returns ' 💊', ' 🛖' or '' for active health status.
@@ -2148,7 +2159,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
 
             student_id, student_name, student_class, parent_phone = student
 
-            if class_teacher_of != student_class and class_teacher_of != "PRINCIPAL":
+            if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
                 unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                 continue
 
@@ -2283,7 +2294,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
 
-                if class_teacher_of != student_class and class_teacher_of != "PRINCIPAL":
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -2435,7 +2446,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
 
-                if class_teacher_of != student_class and class_teacher_of != "PRINCIPAL":
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -2581,7 +2592,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
                 
-                if class_teacher_of != student_class and class_teacher_of != "PRINCIPAL":
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -4104,7 +4115,9 @@ if __name__ == "__main__":
                             role = "Subject Teacher"
                             upper_cto = str(tcto or "").upper()
                             upper_name = str(tname or "").upper()
-                            if "PRINCIPAL" in upper_name or "PRINCIPAL" in upper_cto:
+                            if is_urdu_principal_name(tname):
+                                role = "Urdu Principal"
+                            elif "PRINCIPAL" in upper_name or "PRINCIPAL" in upper_cto:
                                 role = "Vice Principal" if ("VICE" in upper_name or "VICE" in upper_cto) else "Principal"
                             elif tcto and str(tcto) not in ("None", "", "DEVELOPER"):
                                 role = "Class Teacher"
@@ -4124,7 +4137,7 @@ if __name__ == "__main__":
                                 "id": tid,
                                 "name": tname,
                                 "role": role,
-                                "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal") else None,
+                                "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal", "Urdu Principal") else None,
                                 "subject": tsubj,
                                 "sessionId": session_id
                             }
