@@ -77,6 +77,25 @@ const canManageHealthStatus = (user) => {
     || user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
 };
 
+const getDashboardRoleBadge = (user) => {
+  const role = user?.role || 'Teacher';
+  const isMahroof = user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
+  const displayRole = isMahroof && role !== 'Urdu Principal' ? 'Urdu Principal' : role;
+
+  const styles = {
+    Principal: 'border-amber-300/60 bg-amber-300/15 text-amber-100',
+    'Urdu Principal': 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100',
+    'Vice Principal': 'border-sky-300/60 bg-sky-300/15 text-sky-100',
+    admin: 'border-violet-300/60 bg-violet-300/15 text-violet-100',
+    'Class Teacher': 'border-cyan-300/50 bg-cyan-300/10 text-cyan-100',
+  };
+
+  return {
+    label: displayRole,
+    className: styles[displayRole] || styles[role] || 'border-white/20 bg-white/10 text-white/80',
+  };
+};
+
 function EventOccurrenceRow({ occurrence }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const presentStudents = (occurrence.students || []).filter(s => s.status === "present");
@@ -1031,50 +1050,59 @@ export default function DashboardPage() {
 
   if (loading) return <PencilLoader />;
 
+  const roleBadge = getDashboardRoleBadge(user);
+
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
-      <header className="anim-header px-6 py-4" style={{ background: 'linear-gradient(135deg, #0f1f2e 0%, #0d3347 50%, #0a4a4a 100%)', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-1.5">
+      <header className="anim-header border-b border-white/10 px-4 py-3 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] p-1.5 shadow-sm">
               <img
                 src="/logo.png"
                 alt="MARKHINS HUB Logo"
-                className="anim-logo h-16 w-16 object-contain"
+                className="h-full w-full object-contain"
               />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight leading-tight text-white">MARKHINS HUB</h1>
-              <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: '#5eead4' }}>Hello, {user?.name || 'Teacher'}</p>
+            <div className="min-w-0">
+              <h1 className="text-lg font-black leading-tight tracking-tight text-white sm:text-xl">MARKHINS HUB</h1>
+              <div className="mt-1 flex min-w-0 items-center gap-2">
+                <p className="max-w-[135px] truncate text-[11px] font-bold uppercase tracking-wider text-teal-200 sm:max-w-none">
+                  {user?.name || 'Teacher'}
+                </p>
+                <span className={`inline-flex max-w-[130px] shrink-0 items-center truncate rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm backdrop-blur-sm sm:max-w-none ${roleBadge.className}`}>
+                  {roleBadge.label}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             {user?.role === 'admin' && (
               <button
                 onClick={() => router.push("/settings")}
-                className="p-2 text-white/70 hover:text-white transition-all bg-white/10 rounded-xl"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
                 title="System Settings"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
             )}
-            <VolumeToggle />
+            <VolumeToggle className="h-10 w-10 border border-white/10 bg-white/10 text-white/80 hover:bg-white/15" />
             <button
               onClick={() => router.push("/profile")}
-              className="p-2 text-white/70 hover:text-white transition-all bg-white/10 rounded-xl"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
               title="My Profile"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </button>
-            <button onClick={logout} className="p-2 text-white/50 hover:text-red-300 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button onClick={logout} className="flex h-10 w-10 items-center justify-center rounded-2xl text-white/45 transition-all hover:bg-red-400/10 hover:text-red-200" title="Log out">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
