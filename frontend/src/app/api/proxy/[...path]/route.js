@@ -36,7 +36,7 @@ async function proxy(request, params) {
             cache: 'no-store'
         });
 
-        const data = await response.text();
+        const data = await response.arrayBuffer();
         
         // Forward response headers (except some problematic ones)
         const responseHeaders = new Headers(response.headers);
