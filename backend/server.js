@@ -808,6 +808,15 @@ app.get('/profile/me', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/profile/teaching-stats', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({ action: "get_teaching_stats", teacher_id: req.user.id });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 
 // Admin Route: Reset Namaz & Event Data

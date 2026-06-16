@@ -4686,6 +4686,155 @@ if __name__ == "__main__":
                             }
                         }
 
+                elif action == "get_teaching_stats":
+                    teacher_id = data.get("teacher_id")
+                    c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))
+                    t_row = c.fetchone()
+                    if not t_row:
+                        result = {"success": False, "error": "Teacher not found."}
+                    else:
+                        teacher_name = t_row[0]
+                        
+                        # Get regular classes
+                        c.execute("""
+                            SELECT date, class, period 
+                            FROM period_attendance 
+                            WHERE teacher_id=? 
+                            GROUP BY date, class, period
+                        """, (teacher_id,))
+                        reg_rows = c.fetchall()
+                        
+                        # Get extra classes
+                        c.execute("""
+                            SELECT date, class, period 
+                            FROM extra_classes 
+                            WHERE teacher=? 
+                            GROUP BY date, class, period
+                        """, (teacher_name,))
+                        extra_rows = c.fetchall()
+                        
+                        combined = []
+                        for r in reg_rows:
+                            combined.append({"date": r[0], "class": r[1], "period": r[2], "type": "regular"})
+                        for r in extra_rows:
+                            combined.append({"date": r[0], "class": r[1], "period": r[2], "type": "extra"})
+                        
+                        now_ist = get_ist_now()
+                        today_str = now_ist.strftime("%Y-%m-%d")
+                        current_year, current_week, _ = now_ist.isocalendar()
+                        
+                        today_count = 0
+                        week_count = 0
+                        month_count = 0
+                        year_count = 0
+                        all_time_count = len(combined)
+                        
+                        reg_count = 0
+                        extra_count = 0
+                        
+                        class_counts = {}
+                        day_counts = {}
+                        
+                        for item in combined:
+                            c_date = item["date"]
+                            c_class = item["class"]
+                            c_type = item["type"]
+                            
+                            # Increment type counts
+                            if c_type == "regular":
+                                reg_count += 1
+                            else:
+                                extra_count += 1
+                                
+                            # Class name counts
+                            class_counts[c_class] = class_counts.get(c_class, 0) + 1
+                            
+                            # Parse date for calculations
+                            try:
+                                c_dt = dt.strptime(c_date, "%Y-%m-%d")
+                                # Today
+                                if c_date == today_str:
+                                    today_count += 1
+                                # Week
+                                c_year, c_week, _ = c_dt.isocalendar()
+                                if c_year == current_year and c_week == current_week:
+                                    week_count += 1
+                                # Month
+                                if c_date.startswith(now_ist.strftime("%Y-%m-")):
+                                    month_count += 1
+                                # Year
+                                if c_date.startswith(now_ist.strftime("%Y-")):
+                                    year_count += 1
+                                
+                                # Weekday name
+                                day_name = c_dt.strftime("%A")
+                                day_counts[day_name] = day_counts.get(day_name, 0) + 1
+                            except Exception as e:
+                                pass
+                        
+                        # Most taught class
+                        most_taught = "-"
+                        if class_counts:
+                            most_taught = max(class_counts, key=class_counts.get)
+                            
+                        # Most active day
+                        most_active_day = "-"
+                        if day_counts:
+                            most_active_day = max(day_counts, key=day_counts.get)
+                            
+                        # Last class conducted
+                        last_class_str = "-"
+                        if combined:
+                            def sort_key(c_item):
+                                p = c_item["period"]
+                                p_num = 0
+                                if p.startswith("P") and p[1:].isdigit():
+                                    p_num = int(p[1:])
+                                elif p == "Extra":
+                                    p_num = 8
+                                elif p == "Web":
+                                    p_num = 9
+                                return (c_item["date"], p_num)
+                            
+                            sorted_combined = sorted(combined, key=sort_key)
+                            last_item = sorted_combined[-1]
+                            
+                            l_date = last_item["date"]
+                            l_period = last_item["period"]
+                            
+                            period_display = l_period
+                            if l_period.startswith("P") and l_period[1:].isdigit():
+                                period_display = f"Period {l_period[1:]}"
+                                
+                            if l_date == today_str:
+                                last_class_str = f"Today {period_display}"
+                            else:
+                                yesterday_str = (now_ist - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+                                if l_date == yesterday_str:
+                                    last_class_str = f"Yesterday {period_display}"
+                                else:
+                                    try:
+                                        parsed_l = dt.strptime(l_date, "%Y-%m-%d")
+                                        last_class_str = f"{parsed_l.strftime('%b %d, %Y')} {period_display}"
+                                    except:
+                                        last_class_str = f"{l_date} {period_display}"
+                        
+                        result = {
+                            "success": True,
+                            "data": {
+                                "today": today_count,
+                                "thisWeek": week_count,
+                                "thisMonth": month_count,
+                                "thisYear": year_count,
+                                "allTime": all_time_count,
+                                "regularClasses": reg_count,
+                                "extraClasses": extra_count,
+                                "lastClassConducted": last_class_str,
+                                "mostTaughtClass": most_taught,
+                                "mostActiveDay": most_active_day
+                            }
+                        }
+
                 elif action == "get_teachers_list":
                     # Fetch all teachers
                     c.execute("SELECT id, name, username, class_teacher_of, subject FROM teachers ORDER BY name")

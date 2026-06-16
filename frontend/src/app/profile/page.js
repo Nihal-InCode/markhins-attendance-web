@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { getMyProfile, updateCredentials } from "@/lib/api";
+import { getMyProfile, updateCredentials, getTeachingStats } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
@@ -10,6 +10,8 @@ import PencilLoader from "@/components/PencilLoader";
 export default function ProfilePage() {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(true);
     const { user } = useAuth();
     const router = useRouter();
     const { showLoader, hideLoader } = useLoading();
@@ -39,7 +41,20 @@ export default function ProfilePage() {
                 hideLoaderRef.current();
             }
         }
+
+        async function fetchStats() {
+            try {
+                const data = await getTeachingStats();
+                setStats(data);
+            } catch (err) {
+                console.error("Failed to load teaching statistics:", err);
+            } finally {
+                setStatsLoading(false);
+            }
+        }
+
         fetchProfile();
+        fetchStats();
     }, []);
 
     const handleUpdate = async (e) => {
@@ -193,6 +208,110 @@ export default function ProfilePage() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Teaching Statistics Section */}
+                        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm anim-fade-up">
+                            <div>
+                                <h3 className="text-lg font-black text-gray-900">Teaching Statistics</h3>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Class activity metrics & analytics dashboard</p>
+                            </div>
+
+                            {statsLoading ? (
+                                <div className="mt-6 grid gap-4 grid-cols-2 sm:grid-cols-5 animate-pulse">
+                                    {[...Array(5)].map((_, i) => (
+                                        <div key={i} className="h-24 rounded-3xl bg-gray-100"></div>
+                                    ))}
+                                </div>
+                            ) : !stats ? (
+                                <div className="mt-6 rounded-[2rem] border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No statistics available</p>
+                                </div>
+                            ) : (
+                                <div className="mt-6 space-y-6">
+                                    {/* Primary Counter Row */}
+                                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                                        <div className="rounded-[1.75rem] border border-blue-50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 p-4 transition-all hover:scale-[1.02]">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">Today</p>
+                                            <p className="mt-2 text-3xl font-black text-blue-900">{stats.today}</p>
+                                        </div>
+                                        <div className="rounded-[1.75rem] border border-teal-50 bg-gradient-to-br from-teal-50/50 to-emerald-50/50 p-4 transition-all hover:scale-[1.02]">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-teal-600">This Week</p>
+                                            <p className="mt-2 text-3xl font-black text-teal-900">{stats.thisWeek}</p>
+                                        </div>
+                                        <div className="rounded-[1.75rem] border border-indigo-50 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 p-4 transition-all hover:scale-[1.02]">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">This Month</p>
+                                            <p className="mt-2 text-3xl font-black text-indigo-900">{stats.thisMonth}</p>
+                                        </div>
+                                        <div className="rounded-[1.75rem] border border-violet-50 bg-gradient-to-br from-violet-50/50 to-fuchsia-50/50 p-4 transition-all hover:scale-[1.02]">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-violet-500">This Year</p>
+                                            <p className="mt-2 text-3xl font-black text-violet-900">{stats.thisYear}</p>
+                                        </div>
+                                        <div className="rounded-[1.75rem] border border-slate-100 bg-gradient-to-br from-slate-50 to-gray-50 p-4 transition-all hover:scale-[1.02] col-span-2 sm:col-span-1">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">All Time</p>
+                                            <p className="mt-2 text-3xl font-black text-slate-900">{stats.allTime}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Secondary Analytics Row */}
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {/* Regular vs Extra classes chart/summary */}
+                                        <div className="rounded-[2rem] border border-gray-100 bg-gray-50/50 p-5">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Class Classification</p>
+                                            <div className="mt-4 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-gray-600">📚 Regular Classes</span>
+                                                    <span className="text-sm font-black text-gray-800">{stats.regularClasses}</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                                    <div 
+                                                        className="bg-indigo-600 h-2 rounded-full transition-all duration-500" 
+                                                        style={{ width: stats.allTime > 0 ? `${(stats.regularClasses / stats.allTime) * 100}%` : '0%' }}
+                                                    ></div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between pt-1">
+                                                    <span className="text-xs font-bold text-gray-600">✨ Extra Classes</span>
+                                                    <span className="text-sm font-black text-gray-800">{stats.extraClasses}</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                                    <div 
+                                                        className="bg-amber-500 h-2 rounded-full transition-all duration-500" 
+                                                        style={{ width: stats.allTime > 0 ? `${(stats.extraClasses / stats.allTime) * 100}%` : '0%' }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Activity & Performance Analytics */}
+                                        <div className="grid gap-3 grid-cols-2">
+                                            <div className="rounded-[1.75rem] border border-gray-50 bg-gray-50/50 p-4 flex flex-col justify-between">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Most Taught Class</p>
+                                                <div>
+                                                    <p className="mt-2 text-sm font-black text-indigo-950 truncate">{stats.mostTaughtClass}</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Top Target Class</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-[1.75rem] border border-gray-50 bg-gray-50/50 p-4 flex flex-col justify-between">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Most Active Day</p>
+                                                <div>
+                                                    <p className="mt-2 text-sm font-black text-emerald-950 truncate">{stats.mostActiveDay}</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Peak Activity Weekday</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-[1.75rem] border border-indigo-100 bg-indigo-50/30 p-4 col-span-2 flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Last Class Conducted</p>
+                                                    <p className="mt-1 text-xs font-black text-slate-800">{stats.lastClassConducted}</p>
+                                                </div>
+                                                <span className="text-xl">⏱️</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
