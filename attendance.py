@@ -474,16 +474,51 @@ def handle_create_namaz_session(c, data):
     except ValueError:
         return {"success": False, "message": "Invalid date. Use YYYY-MM-DD"}
 
+    now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+
     c.execute("SELECT 1 FROM namaz_sessions WHERE sessionId=?", (session_id,))
     if c.fetchone():
+        c.execute("DELETE FROM namaz_attendance WHERE sessionId=?", (session_id,))
+        c.execute("UPDATE namaz_sessions SET createdAt=? WHERE sessionId=?", (now_str, session_id))
+        
+        c.execute("SELECT roll_no FROM students WHERE class=? ORDER BY roll_no", (class_name,))
+        class_rolls = [str(row[0]) for row in c.fetchall()]
+        if not class_rolls:
+            handle_namaz_api_event(c, {
+                "status": "rejected",
+                "sessionId": session_id,
+                "message": f"No students found for class {class_name}",
+                "source": source,
+                "ip": data.get("ip"),
+            })
+            return {"success": False, "message": f"No students found for class {class_name}"}
+
+        rows = [
+            (session_id, roll, "present" if roll in present_students else "absent")
+            for roll in class_rolls
+        ]
+        c.executemany("""
+            INSERT OR IGNORE INTO namaz_attendance (sessionId, studentId, status)
+            VALUES (?, ?, ?)
+        """, rows)
+        
         handle_namaz_api_event(c, {
-            "status": "duplicate",
+            "status": "updated",
             "sessionId": session_id,
-            "message": "Session Already Exists",
+            "message": f"Updated: {len(present_students)} present of {len(class_rolls)} students",
             "source": source,
             "ip": data.get("ip"),
         })
-        return {"success": True, "message": "Session Already Exists"}
+        return {
+            "success": True,
+            "message": "Session Updated",
+            "data": {
+                "sessionId": session_id,
+                "totalStudents": len(class_rolls),
+                "presentCount": sum(1 for _, _, status in rows if status == "present"),
+                "absentCount": sum(1 for _, _, status in rows if status == "absent"),
+            }
+        }
 
     c.execute("SELECT roll_no FROM students WHERE class=? ORDER BY roll_no", (class_name,))
     class_rolls = [str(row[0]) for row in c.fetchall()]
