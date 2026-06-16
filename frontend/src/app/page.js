@@ -1947,7 +1947,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Filter fields */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <div>
                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
                         <select
@@ -1958,16 +1958,6 @@ export default function DashboardPage() {
                           <option value="">All Classes</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Fiqh"
-                          value={selectedSyllabusSubjectFilter}
-                          onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
-                        />
                       </div>
                       <div>
                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
@@ -2107,11 +2097,7 @@ export default function DashboardPage() {
                                   <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
                                   <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
                                 </div>
-                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages / Week</p>
-                                  <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek}</p>
-                                </div>
-                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
                                   <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion</p>
                                   <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
                                 </div>
@@ -3477,7 +3463,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div>
                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
                   <select
@@ -3488,16 +3474,6 @@ export default function DashboardPage() {
                     <option value="">All Classes</option>
                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Fiqh"
-                    value={selectedSyllabusSubjectFilter}
-                    onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
-                  />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
@@ -3653,7 +3629,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Filters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
                       <select
@@ -3664,16 +3640,6 @@ export default function DashboardPage() {
                         <option value="">All Classes</option>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Fiqh"
-                        value={selectedSyllabusSubjectFilter}
-                        onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
-                      />
                     </div>
                     <div>
                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher (By Selected Class)</label>
@@ -3823,14 +3789,6 @@ export default function DashboardPage() {
                                   {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
                                 </p>
                               </div>
-                              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Week</p>
-                                <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek || 0}</p>
-                              </div>
-                              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Month</p>
-                                <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerMonth || 0}</p>
-                              </div>
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
                                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
                                 <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
@@ -3939,7 +3897,7 @@ export default function DashboardPage() {
                           })()}
 
                           {/* Advanced Analytics Grid */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
                             <div>
                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
                               <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
@@ -3954,15 +3912,7 @@ export default function DashboardPage() {
                                 {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
                               </p>
                             </div>
-                            <div>
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Week</p>
-                              <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek || 0}</p>
-                            </div>
-                            <div>
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Month</p>
-                              <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerMonth || 0}</p>
-                            </div>
-                            <div className="col-span-2">
+                            <div className="col-span-2 sm:col-span-3">
                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
                               <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                             </div>
@@ -4098,7 +4048,7 @@ export default function DashboardPage() {
                       })()}
 
                       {/* Advanced Analytics Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
                         <div>
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
                           <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
@@ -4113,15 +4063,7 @@ export default function DashboardPage() {
                             {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Week</p>
-                          <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Month</p>
-                          <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerMonth || 0}</p>
-                        </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 sm:col-span-3">
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
                           <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                         </div>

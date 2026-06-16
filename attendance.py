@@ -11,6 +11,25 @@ def get_ist_now():
     # Use UTC then add 5:30 for India
     return dt.utcnow() + datetime.timedelta(hours=5, minutes=30)
 
+def get_remaining_days_excluding_friday():
+    """Returns the count of days left in the current month, excluding Fridays."""
+    now_ist = get_ist_now()
+    if now_ist.month == 12:
+        next_month = now_ist.replace(year=now_ist.year + 1, month=1, day=1)
+    else:
+        next_month = now_ist.replace(month=now_ist.month + 1, day=1)
+    last_day = next_month - datetime.timedelta(days=1)
+    
+    remaining_days = 0
+    curr = now_ist.date()
+    end = last_day.date()
+    while curr <= end:
+        if curr.weekday() != 4:  # Friday is 4
+            remaining_days += 1
+        curr += datetime.timedelta(days=1)
+    return remaining_days
+
+
 def escape_html(text):
     if not isinstance(text, str):
         return str(text)
@@ -4137,8 +4156,9 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
     curr_month = now_ist.strftime("%B").lower()
     target_page = targets.get(curr_month, None)
     
+    days_left = get_remaining_days_excluding_friday()
     status = "On Track"
-    status_msg = "On Schedule"
+    status_msg = f"On Schedule ({days_left} days left)"
     status_color = "Yellow" # Green = Ahead, Yellow = On Track, Red = Behind
     diff = 0
     
@@ -4146,23 +4166,23 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
         diff = current_page - target_page
         if diff > 0:
             status = "Ahead"
-            status_msg = f"Ahead of Schedule by {diff} pages"
+            status_msg = f"Ahead of Schedule by {diff} pages ({days_left} days left)"
             status_color = "Green"
         elif diff < 0:
             status = "Behind"
-            status_msg = f"Behind Schedule by {abs(diff)} pages"
+            status_msg = f"Behind Schedule by {abs(diff)} pages ({days_left} days left)"
             status_color = "Red"
         else:
             status = "On Track"
-            status_msg = "On Schedule"
+            status_msg = f"On Schedule ({days_left} days left)"
             status_color = "Yellow"
     elif current_page is not None:
         status = "On Track"
-        status_msg = "On Schedule"
+        status_msg = f"On Schedule ({days_left} days left)"
         status_color = "Yellow"
     else:
         status = "Behind"
-        status_msg = "No Progress Recorded"
+        status_msg = f"No Progress Recorded ({days_left} days left)"
         status_color = "Red"
 
     # Calculate averages
