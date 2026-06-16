@@ -49,7 +49,7 @@ def get_teacher_image_url(teacher_id):
         file_path = os.path.join(teachers_dir, filename)
         if os.path.exists(file_path):
             version = int(os.path.getmtime(file_path))
-            return f"/teachers/{filename}?v={version}"
+            return f"/api/proxy/teachers/{filename}?v={version}"
 
     return None
 

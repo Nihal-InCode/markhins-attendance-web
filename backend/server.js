@@ -371,6 +371,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+app.use('/teachers', express.static(TEACHER_PHOTO_DIR));
 
 // Console Middleware for Debugging
 app.use((req, res, next) => {
@@ -1447,7 +1448,7 @@ app.post('/admin/teachers/:teacherId/photo', authenticateToken, teacherPhotoUplo
         return res.json({
             success: true,
             message: 'Teacher photo uploaded successfully.',
-            imageUrl: `/teachers/${filename}?v=${version}`
+            imageUrl: `/api/proxy/teachers/${filename}?v=${version}`
         });
     } catch (error) {
         console.error('[Teacher Photo Upload Error]:', error);
