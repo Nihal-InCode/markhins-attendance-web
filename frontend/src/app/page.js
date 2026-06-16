@@ -656,6 +656,7 @@ export default function DashboardPage() {
     const isSyllabusTab = activeTab === "syllabus_management" || activeTab === "syllabus_overview" || activeTab === "my_syllabus" || (activeTab === "reports" && reportType === "syllabus");
     if (isSyllabusTab) {
       fetchSyllabusConfigs();
+      fetchTeachers();
     }
   }, [activeTab, reportType, selectedSyllabusClassFilter, selectedSyllabusTeacherFilter, selectedSyllabusSubjectFilter]);
 
