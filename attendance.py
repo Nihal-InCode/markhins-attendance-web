@@ -367,12 +367,17 @@ def run_migrations():
                 teacher_id INTEGER NOT NULL,
                 academic_year TEXT,
                 semester TEXT,
+                book_name TEXT,
                 start_page INTEGER,
                 end_page INTEGER,
                 created_at TEXT DEFAULT (datetime('now', 'localtime')),
                 FOREIGN KEY (teacher_id) REFERENCES teachers (id)
             )
         """)
+        try:
+            c.execute("ALTER TABLE syllabus_configs ADD COLUMN book_name TEXT")
+        except sqlite3.OperationalError:
+            pass
         c.execute("""
             CREATE TABLE IF NOT EXISTS syllabus_monthly_targets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4992,7 +4997,7 @@ if __name__ == "__main__":
                     # Fetch configurations
                     query = """
                         SELECT sc.id, sc.class, sc.subject, sc.teacher_id, t.name as teacher_name,
-                               sc.academic_year, sc.semester, sc.start_page, sc.end_page, sc.created_at
+                               sc.academic_year, sc.semester, sc.book_name, sc.start_page, sc.end_page, sc.created_at
                         FROM syllabus_configs sc
                         JOIN teachers t ON sc.teacher_id = t.id
                         WHERE 1=1
@@ -5014,7 +5019,7 @@ if __name__ == "__main__":
                     
                     configs = []
                     for r in rows:
-                        config_id, cls, subj, t_id, t_name, acad_yr, sem, start_p, end_p, created_at = r
+                        config_id, cls, subj, t_id, t_name, acad_yr, sem, bk_name, start_p, end_p, created_at = r
                         
                         # Get latest progress
                         c.execute("SELECT current_page FROM syllabus_progress WHERE syllabus_config_id=? ORDER BY id DESC LIMIT 1", (config_id,))
@@ -5031,6 +5036,7 @@ if __name__ == "__main__":
                             "teacherName": t_name,
                             "academicYear": acad_yr,
                             "semester": sem,
+                            "bookName": bk_name or "",
                             **analytics
                         })
                         
@@ -5043,6 +5049,7 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacher_id")
                     academic_year = data.get("academic_year")
                     semester = data.get("semester")
+                    book_name = data.get("book_name")
                     start_page = int(data.get("start_page", 1))
                     end_page = int(data.get("end_page", 1))
                     targets = data.get("targets", []) # list of {"month": str, "target_end_page": int}
@@ -5050,14 +5057,14 @@ if __name__ == "__main__":
                     if config_id:
                         c.execute("""
                             UPDATE syllabus_configs 
-                            SET class=?, subject=?, teacher_id=?, academic_year=?, semester=?, start_page=?, end_page=?
+                            SET class=?, subject=?, teacher_id=?, academic_year=?, semester=?, book_name=?, start_page=?, end_page=?
                             WHERE id=?
-                        """, (cls, subj, teacher_id, academic_year, semester, start_page, end_page, config_id))
+                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page, config_id))
                     else:
                         c.execute("""
-                            INSERT INTO syllabus_configs (class, subject, teacher_id, academic_year, semester, start_page, end_page)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (cls, subj, teacher_id, academic_year, semester, start_page, end_page))
+                            INSERT INTO syllabus_configs (class, subject, teacher_id, academic_year, semester, book_name, start_page, end_page)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page))
                         config_id = c.lastrowid
                         
                     # Delete existing targets

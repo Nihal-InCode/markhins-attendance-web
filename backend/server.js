@@ -935,9 +935,9 @@ app.get('/api/syllabus', authenticateToken, async (req, res) => {
 
 app.post('/api/syllabus/config', authenticateToken, async (req, res) => {
     try {
-        // Only managers (admin/principal) can manage configurations
-        const isManager = req.user.role === 'admin' || req.user.role === 'Principal' || req.user.role === 'Vice Principal';
-        if (!isManager) {
+        // Only admin can manage configurations
+        const isAdmin = req.user.role === 'admin';
+        if (!isAdmin) {
             return res.status(403).json({ success: false, message: "Unauthorized to save syllabus configuration." });
         }
         const result = await callPython({
@@ -966,8 +966,8 @@ app.post('/api/syllabus/progress', authenticateToken, async (req, res) => {
 
 app.delete('/api/syllabus/config/:id', authenticateToken, async (req, res) => {
     try {
-        const isManager = req.user.role === 'admin' || req.user.role === 'Principal' || req.user.role === 'Vice Principal';
-        if (!isManager) {
+        const isAdmin = req.user.role === 'admin';
+        if (!isAdmin) {
             return res.status(403).json({ success: false, message: "Unauthorized to delete syllabus configuration." });
         }
         const result = await callPython({

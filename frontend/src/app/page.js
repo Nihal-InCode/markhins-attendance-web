@@ -297,6 +297,7 @@ export default function DashboardPage() {
     teacher_id: "",
     academic_year: new Date().getFullYear().toString(),
     semester: "Semester 1",
+    book_name: "",
     start_page: "",
     end_page: "",
   });
@@ -652,13 +653,14 @@ export default function DashboardPage() {
   }, [activeTab, reportType]);
 
   useEffect(() => {
-    if (activeTab === "reports" && reportType === "syllabus") {
+    const isSyllabusTab = activeTab === "syllabus_management" || activeTab === "syllabus_overview" || activeTab === "my_syllabus" || (activeTab === "reports" && reportType === "syllabus");
+    if (isSyllabusTab) {
       fetchSyllabusConfigs();
     }
   }, [activeTab, reportType, selectedSyllabusClassFilter, selectedSyllabusTeacherFilter, selectedSyllabusSubjectFilter]);
 
   useEffect(() => {
-    if (activeTab === "attendance" && user && user.role !== "admin") {
+    if ((activeTab === "attendance" || activeTab === "my_syllabus") && user && user.role !== "admin") {
       fetchSyllabusConfigs();
     }
   }, [activeTab, user]);
@@ -1900,6 +1902,7 @@ export default function DashboardPage() {
                               teacher_id: "",
                               academic_year: new Date().getFullYear().toString(),
                               semester: "Semester 1",
+                              book_name: "",
                               start_page: "",
                               end_page: "",
                             });
@@ -2097,6 +2100,7 @@ export default function DashboardPage() {
                                         teacher_id: config.teacherId,
                                         academic_year: config.academicYear || new Date().getFullYear().toString(),
                                         semester: config.semester || "Semester 1",
+                                        book_name: config.bookName || "",
                                         start_page: config.startPage,
                                         end_page: config.endPage,
                                       });
@@ -3385,6 +3389,488 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+
+        {/* ── SYLLABUS MANAGEMENT TAB (ADMIN ONLY) ── */}
+        {activeTab === "syllabus_management" && user?.role === 'admin' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-black text-gray-900">📚 Syllabus Management</h4>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Configure academic year syllabus ranges and targets</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSyllabusFormData({
+                      id: null,
+                      class: "",
+                      subject: "",
+                      teacher_id: "",
+                      academic_year: new Date().getFullYear().toString(),
+                      semester: "Semester 1",
+                      book_name: "",
+                      start_page: "",
+                      end_page: "",
+                    });
+                    setSyllabusMonthTargets({
+                      June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                      January: "", February: "", March: "", April: "", May: ""
+                    });
+                    setSyllabusPopupOpen(true);
+                  }}
+                  className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
+                >
+                  ➕ Add Target Config
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
+                  <select
+                    value={selectedSyllabusClassFilter}
+                    onChange={(e) => setSelectedSyllabusClassFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  >
+                    <option value="">All Classes</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Fiqh"
+                    value={selectedSyllabusSubjectFilter}
+                    onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
+                  <select
+                    value={selectedSyllabusTeacherFilter}
+                    onChange={(e) => setSelectedSyllabusTeacherFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  >
+                    <option value="">All Teachers</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Config List */}
+            {loadingSyllabus ? (
+              <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
+            ) : syllabusConfigs.length === 0 ? (
+              <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
+                <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations found.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {syllabusConfigs.map(config => (
+                  <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
+                        <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
+                        <span className="px-3 py-1 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black uppercase tracking-wider">{config.academicYear}</span>
+                      </div>
+                      <h4 className="font-black text-gray-900 text-base mt-3">{config.subject}</h4>
+                      {config.bookName && (
+                        <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 {config.bookName}</p>
+                      )}
+                      <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
+                      
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
+                        <div>Start Page: <span className="font-black text-gray-800">{config.startPage}</span></div>
+                        <div>End Page: <span className="font-black text-gray-800">{config.endPage}</span></div>
+                        <div className="col-span-2">Total Pages: <span className="font-black text-gray-800">{config.totalPages}</span></div>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Monthly Target Pages</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {config.targets.map(t => (
+                            <span key={t.month} className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-150 text-gray-600">
+                              {t.month}: {t.targetPage}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-2 border-t border-gray-50">
+                      <button
+                        onClick={() => {
+                          setSyllabusFormData({
+                            id: config.id,
+                            class: config.class,
+                            subject: config.subject,
+                            teacher_id: config.teacherId,
+                            academic_year: config.academicYear || new Date().getFullYear().toString(),
+                            semester: config.semester || "Semester 1",
+                            book_name: config.bookName || "",
+                            start_page: config.startPage,
+                            end_page: config.endPage,
+                          });
+                          
+                          const targetsMap = {};
+                          config.targets.forEach(t => {
+                            targetsMap[t.month] = t.targetPage;
+                          });
+                          setSyllabusMonthTargets(prev => ({
+                            June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                            January: "", February: "", March: "", April: "", May: "",
+                            ...targetsMap
+                          }));
+                          
+                          setSyllabusPopupOpen(true);
+                        }}
+                        className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                        title="Edit Config"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSyllabusConfig(config.id)}
+                        className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
+                        title="Delete Config"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SYLLABUS OVERVIEW TAB (ADMIN/PRINCIPAL/VP ONLY) ── */}
+        {activeTab === "syllabus_overview" && (user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* Heatmap summary cards */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div>
+                <h4 className="text-lg font-black text-gray-900">📊 Syllabus Overview Heatmap</h4>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Instant status tracking and syllabus performance health</p>
+              </div>
+
+              {/* Counts */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 p-4 rounded-3xl">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500">🟢 Ahead</p>
+                  <p className="text-2xl font-black mt-1">
+                    {syllabusConfigs.filter(c => c.statusColor === "Green").length}
+                  </p>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 text-amber-700 p-4 rounded-3xl">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">🟡 On Track</p>
+                  <p className="text-2xl font-black mt-1">
+                    {syllabusConfigs.filter(c => c.statusColor === "Yellow").length}
+                  </p>
+                </div>
+                <div className="bg-red-50 border border-red-100 text-red-700 p-4 rounded-3xl">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-red-500">🔴 Behind</p>
+                  <p className="text-2xl font-black mt-1">
+                    {syllabusConfigs.filter(c => c.statusColor === "Red").length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
+                  <select
+                    value={selectedSyllabusClassFilter}
+                    onChange={(e) => setSelectedSyllabusClassFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  >
+                    <option value="">All Classes</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Fiqh"
+                    value={selectedSyllabusSubjectFilter}
+                    onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
+                  <select
+                    value={selectedSyllabusTeacherFilter}
+                    onChange={(e) => setSelectedSyllabusTeacherFilter(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                  >
+                    <option value="">All Teachers</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Heatmap Grid monitor */}
+            {syllabusConfigs.length > 0 && (
+              <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+                <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Quick Visual Heath Grid</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {syllabusConfigs.map(config => {
+                    const indicatorColors = {
+                      Green: { bg: "bg-emerald-500", text: "text-white" },
+                      Yellow: { bg: "bg-amber-400", text: "text-gray-900" },
+                      Red: { bg: "bg-red-500", text: "text-white" }
+                    }[config.statusColor] || { bg: "bg-gray-400", text: "text-white" };
+                    
+                    return (
+                      <div key={config.id} className={`${indicatorColors.bg} ${indicatorColors.text} p-4 rounded-[1.75rem] flex flex-col justify-between h-28 shadow-sm transition-all hover:scale-[1.02]`}>
+                        <div>
+                          <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">{config.class}</span>
+                          <h5 className="font-black text-xs mt-2 line-clamp-1">{config.subject}</h5>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold opacity-90 line-clamp-1">{config.statusMessage}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* List with Detail Analytics */}
+            {loadingSyllabus ? (
+              <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configs...</div>
+            ) : syllabusConfigs.length === 0 ? (
+              <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
+                <p className="text-xs font-bold text-gray-400 italic">No configurations found.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {syllabusConfigs.map(config => {
+                  const pct = config.completionPercentage;
+                  const statusColors = {
+                    Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
+                    Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
+                    Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
+                  }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
+
+                  return (
+                    <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
+                              <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
+                            </div>
+                            <h4 className="font-black text-gray-900 text-base mt-3">{config.subject}</h4>
+                            {config.bookName && (
+                              <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 {config.bookName}</p>
+                            )}
+                            <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
+                          </div>
+
+                          <div className="relative flex items-center justify-center h-14 w-14 shrink-0">
+                            <svg className="absolute w-full h-full transform -rotate-90">
+                              <circle cx="28" cy="28" r="22" stroke="#f3f4f6" strokeWidth="5" fill="transparent" />
+                              <circle cx="28" cy="28" r="22" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="5" fill="transparent"
+                                strokeDasharray={2 * Math.PI * 22}
+                                strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min(100, pct) / 100)}
+                              />
+                            </svg>
+                            <span className="text-xs font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
+                          </div>
+                        </div>
+
+                        <div className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                          <span>{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                          <span>{config.statusMessage}</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                            <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
+                            <span>{config.remainingPages} left</span>
+                          </div>
+                        </div>
+
+                        {/* Detailed analytics */}
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50 text-left">
+                          <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Month Target</p>
+                            <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Pages needed for Target</p>
+                            <p className="mt-1 text-sm font-black text-gray-800">
+                              {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Week</p>
+                            <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek || 0}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Month</p>
+                            <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerMonth || 0}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
+                            <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── MY SYLLABUS TAB (TEACHERS ONLY) ── */}
+        {activeTab === "my_syllabus" && user?.role && user?.role !== 'admin' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-[2.5rem] text-white shadow-xl shadow-blue-100/20">
+              <h4 className="text-lg font-black tracking-tight">📚 My Syllabus Dashboard</h4>
+              <p className="text-[10px] font-bold text-blue-200 mt-1 uppercase tracking-widest">Logged in as: {user?.name}</p>
+            </div>
+
+            {loadingSyllabus ? (
+              <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
+            ) : syllabusConfigs.filter(c => c.teacherId === user?.id).length === 0 ? (
+              <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
+                <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations assigned to you.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {syllabusConfigs.filter(c => c.teacherId === user?.id).map(config => {
+                  const pct = config.completionPercentage;
+                  const progressValue = syllabusPageProgressData[config.id] || "";
+                  const statusColors = {
+                    Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
+                    Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
+                    Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
+                  }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
+
+                  return (
+                    <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+                      <div className="flex items-start justify-between gap-3 border-b border-gray-50 pb-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
+                            <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
+                            <span className="px-3 py-1 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black uppercase tracking-wider">{config.academicYear}</span>
+                          </div>
+                          <h4 className="font-black text-gray-900 text-lg mt-3">{config.subject}</h4>
+                          {config.bookName && (
+                            <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 Book: {config.bookName}</p>
+                          )}
+                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages)</p>
+                        </div>
+
+                        <div className="relative flex items-center justify-center h-16 w-16 shrink-0">
+                          <svg className="absolute w-full h-full transform -rotate-90">
+                            <circle cx="32" cy="32" r="26" stroke="#f3f4f6" strokeWidth="6" fill="transparent" />
+                            <circle cx="32" cy="32" r="26" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="6" fill="transparent"
+                              strokeDasharray={2 * Math.PI * 26}
+                              strokeDashoffset={2 * Math.PI * 26 * (1 - Math.min(100, pct) / 100)}
+                            />
+                          </svg>
+                          <span className="text-sm font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
+                        </div>
+                      </div>
+
+                      {/* Status Message */}
+                      <div className={`px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border flex items-center gap-2.5 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                        <span className="text-base">{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                        <span>{config.statusMessage}</span>
+                      </div>
+
+                      {/* Large Modern Progress Bar */}
+                      <div className="space-y-2.5">
+                        <div className="w-full bg-gray-100 rounded-full h-3">
+                          <div className={`h-3 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest px-1">
+                          <span>{config.completedPages} of {config.totalPages} Pages Completed ({Math.round(pct)}%)</span>
+                          <span>{config.remainingPages} Pages Remaining</span>
+                        </div>
+                      </div>
+
+                      {/* Advanced Analytics Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
+                        <div>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
+                          <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Month Target</p>
+                          <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Pages needed for Target</p>
+                          <p className="mt-1 text-sm font-black text-gray-800">
+                            {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Week</p>
+                          <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek || 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages/Month</p>
+                          <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerMonth || 0}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
+                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                        </div>
+                      </div>
+
+                      {/* Current Page Update Input */}
+                      <div className="pt-4 border-t border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Update Current Page Number</label>
+                          <p className="text-[9px] font-bold text-gray-400">Log your active classroom book progress</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            min={config.startPage}
+                            max={config.endPage}
+                            placeholder="e.g. 187"
+                            value={progressValue}
+                            onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
+                            className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-black w-24 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all"
+                          >
+                            Update
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* ══════════════════════════════════════════════
@@ -3603,6 +4089,17 @@ export default function DashboardPage() {
                 </div>
 
                 <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Book Name (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Fiqh Al-Sunnah"
+                    value={syllabusFormData.book_name}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, book_name: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Academic Year</label>
                   <input
                     required
@@ -3710,36 +4207,62 @@ export default function DashboardPage() {
           minHeight: 'var(--bottom-nav-height)'
         }}
       >
-        <div className="mx-auto flex max-w-md items-center justify-around px-4 pt-2 pb-1">
-          {[
-            {
-              id: 'attendance', label: 'Attendance',
-              icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)
-            },
-            {
-              id: 'timetable', label: 'Timetable',
-              icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>)
-            },
-            {
-              id: 'reports', label: 'Reports',
-              icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
+        <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-2 pb-1">
+          {(() => {
+            const tabs = [
+              {
+                id: 'attendance', label: 'Attendance',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)
+              },
+              {
+                id: 'timetable', label: 'Timetable',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>)
+              },
+              {
+                id: 'reports', label: 'Reports',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
+              }
+            ];
+
+            const role = user?.role;
+            if (role === 'admin') {
+              tabs.push({
+                id: 'syllabus_management', label: 'Syllabus Config',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>)
+              });
+              tabs.push({
+                id: 'syllabus_overview', label: 'Overview',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
+              });
+            } else if (role === 'Principal' || role === 'Vice Principal') {
+              tabs.push({
+                id: 'syllabus_overview', label: 'Syllabus Overview',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
+              });
+            } else if (role && role !== 'admin') {
+              tabs.push({
+                id: 'my_syllabus', label: 'My Syllabus',
+                icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>)
+              });
             }
-          ].map(({ id, label, icon }) => (
-            <button
-              key={id}
-              onClick={() => switchTab(id)}
-              className="flex flex-col items-center gap-1 px-5 py-1 rounded-2xl transition-all active:scale-90"
-              style={{ color: activeTab === id ? '#0d3347' : '#9ca3af' }}
-            >
-              <div className={`transition-all duration-200 ${activeTab === id ? 'scale-110' : 'scale-100'}`}>
-                {icon}
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-              {activeTab === id && (
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0a4a4a' }} />
-              )}
-            </button>
-          ))}
+
+            return tabs.map(({ id, label, icon }) => (
+              <button
+                key={id}
+                onClick={() => switchTab(id)}
+                className="flex flex-col items-center gap-1 px-2.5 py-1 rounded-2xl transition-all active:scale-90"
+                style={{ color: activeTab === id ? '#0d3347' : '#9ca3af' }}
+              >
+                <div className={`transition-all duration-200 ${activeTab === id ? 'scale-110' : 'scale-100'}`}>
+                  {icon}
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-center">{label}</span>
+                {activeTab === id && (
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0a4a4a' }} />
+                )}
+              </button>
+            ));
+          })()}
         </div>
       </nav>
 
