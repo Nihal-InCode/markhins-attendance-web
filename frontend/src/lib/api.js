@@ -199,6 +199,24 @@ export const getLeaveList = () => apiRequest('/health/leave-list');
 
 export const getMyProfile = () => apiRequest('/profile/me');
 export const getTeachingStats = () => apiRequest('/profile/teaching-stats');
+export const getSyllabusConfigs = (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        if (v) search.set(k, v);
+    });
+    return apiRequest(`/api/syllabus?${search.toString()}`);
+};
+export const saveSyllabusConfig = (data) => apiRequest('/api/syllabus/config', {
+    method: 'POST',
+    body: JSON.stringify(data)
+});
+export const updateSyllabusProgress = (data) => apiRequest('/api/syllabus/progress', {
+    method: 'POST',
+    body: JSON.stringify(data)
+});
+export const deleteSyllabusConfig = (id) => apiRequest(`/api/syllabus/config/${id}`, {
+    method: 'DELETE'
+});
 export const updateCredentials = (data) => apiRequest('/profile/update-credentials', {
     method: 'POST',
     body: JSON.stringify(data)

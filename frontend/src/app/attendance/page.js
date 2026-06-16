@@ -110,6 +110,7 @@ export default function AttendancePage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [showConfirm, setShowConfirm] = useState(false);
+    const [currentLessonPage, setCurrentLessonPage] = useState("");
     const { showLoader, hideLoader } = useLoading();
     const router = useRouter();
 
@@ -211,6 +212,7 @@ export default function AttendancePage() {
                     periods: params.periods,
                     date: params.date,
                     records,
+                    currentLessonPage: currentLessonPage ? Number(currentLessonPage) : undefined,
                 });
 
                 if (result.duplicate) {
@@ -330,6 +332,27 @@ export default function AttendancePage() {
                         );
                     })}
                 </div>
+
+                {/* Optional Syllabus tracker lesson page */}
+                {!params?.isEdit && (
+                    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-3">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">
+                            Syllabus Progress (Optional)
+                        </label>
+                        <div>
+                            <input
+                                type="number"
+                                placeholder="Current Lesson Page Number (e.g. 187)"
+                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all text-gray-800"
+                                value={currentLessonPage}
+                                onChange={(e) => setCurrentLessonPage(e.target.value)}
+                            />
+                            <p className="text-[9px] font-bold text-gray-400 px-1 mt-1.5 italic">
+                                * Entering a page updates the syllabus completion stats automatically.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Submit */}
                 <div className="pt-4">

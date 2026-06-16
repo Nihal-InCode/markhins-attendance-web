@@ -358,6 +358,43 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # === SYLLABUS TRACKER MIGRATIONS ===
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS syllabus_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                class TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                teacher_id INTEGER NOT NULL,
+                academic_year TEXT,
+                semester TEXT,
+                start_page INTEGER,
+                end_page INTEGER,
+                created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (teacher_id) REFERENCES teachers (id)
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS syllabus_monthly_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                syllabus_config_id INTEGER NOT NULL,
+                month TEXT NOT NULL,
+                target_end_page INTEGER NOT NULL,
+                FOREIGN KEY (syllabus_config_id) REFERENCES syllabus_configs (id),
+                UNIQUE(syllabus_config_id, month)
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS syllabus_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                syllabus_config_id INTEGER NOT NULL,
+                current_page INTEGER NOT NULL,
+                updated_by INTEGER NOT NULL,
+                updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (syllabus_config_id) REFERENCES syllabus_configs (id),
+                FOREIGN KEY (updated_by) REFERENCES teachers (id)
+            )
+        """)
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -4071,6 +4108,116 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
     return response
 
 
+def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_page, created_at):
+    total_pages = end_page - start_page + 1
+    
+    if current_page is None:
+        completed_pages = 0
+        remaining_pages = total_pages
+        completion_percent = 0.0
+        current_page_display = "-"
+    else:
+        completed_pages = max(0, current_page - start_page + 1)
+        remaining_pages = max(0, end_page - current_page)
+        completion_percent = round((completed_pages / total_pages) * 100, 1)
+        current_page_display = current_page
+
+    # Get targets
+    c.execute("SELECT month, target_end_page FROM syllabus_monthly_targets WHERE syllabus_config_id=?", (config_id,))
+    targets_rows = c.fetchall()
+    targets = {row[0].strip().lower(): row[1] for row in targets_rows}
+    
+    # Get current month target
+    now_ist = get_ist_now()
+    curr_month = now_ist.strftime("%B").lower()
+    target_page = targets.get(curr_month, None)
+    
+    status = "On Track"
+    status_msg = "On Schedule"
+    status_color = "Yellow" # Green = Ahead, Yellow = On Track, Red = Behind
+    diff = 0
+    
+    if target_page is not None and current_page is not None:
+        diff = current_page - target_page
+        if diff > 0:
+            status = "Ahead"
+            status_msg = f"Ahead of Schedule by {diff} pages"
+            status_color = "Green"
+        elif diff < 0:
+            status = "Behind"
+            status_msg = f"Behind Schedule by {abs(diff)} pages"
+            status_color = "Red"
+        else:
+            status = "On Track"
+            status_msg = "On Schedule"
+            status_color = "Yellow"
+    elif current_page is not None:
+        status = "On Track"
+        status_msg = "On Schedule"
+        status_color = "Yellow"
+    else:
+        status = "Behind"
+        status_msg = "No Progress Recorded"
+        status_color = "Red"
+
+    # Calculate averages
+    # Get history of updates
+    c.execute("SELECT current_page, updated_at FROM syllabus_progress WHERE syllabus_config_id=? ORDER BY updated_at ASC", (config_id,))
+    history = c.fetchall()
+    
+    avg_per_week = 0
+    avg_per_month = 0
+    est_completion_date = "N/A"
+    
+    if len(history) >= 1:
+        first_page = start_page
+        first_date_str = created_at.split(" ")[0] # YYYY-MM-DD
+        
+        last_page = history[-1][0]
+        last_date_str = history[-1][1].split(" ")[0]
+        
+        try:
+            start_d = dt.strptime(first_date_str, "%Y-%m-%d")
+            end_d = dt.strptime(last_date_str, "%Y-%m-%d")
+            days_elapsed = (end_d - start_d).days
+            if days_elapsed <= 0:
+                days_elapsed = 1
+                
+            pages_covered = max(0, last_page - start_page)
+            pages_per_day = pages_covered / days_elapsed
+            
+            avg_per_week = round(pages_per_day * 7, 1)
+            avg_per_month = round(pages_per_day * 30.4, 1)
+            
+            if pages_per_day > 0 and last_page < end_page:
+                rem_pages = end_page - last_page
+                days_to_complete = rem_pages / pages_per_day
+                comp_date = end_d + datetime.timedelta(days=days_to_complete)
+                est_completion_date = comp_date.strftime("%b %d, %Y")
+            elif last_page >= end_page:
+                est_completion_date = "Completed"
+        except Exception as e:
+            pass
+
+    return {
+        "startPage": start_page,
+        "endPage": end_page,
+        "totalPages": total_pages,
+        "currentPage": current_page_display,
+        "completedPages": completed_pages,
+        "remainingPages": remaining_pages,
+        "completionPercentage": completion_percent,
+        "status": status,
+        "statusMessage": status_msg,
+        "statusColor": status_color,
+        "targetPage": target_page or "-",
+        "averagePagesPerWeek": avg_per_week,
+        "averagePagesPerMonth": avg_per_month,
+        "estimatedCompletionDate": est_completion_date,
+        "targets": [{"month": r[0], "targetPage": r[1]} for r in targets_rows]
+    }
+
+
 # === Bridge with Node.js & Web API ===
 if __name__ == "__main__":
     try:
@@ -4835,6 +4982,121 @@ if __name__ == "__main__":
                             }
                         }
 
+# calculate_syllabus_analytics is defined above the main action loop block.
+
+                elif action == "get_syllabus_configs":
+                    teacher_id = data.get("teacher_id")
+                    class_filter = data.get("class")
+                    subject_filter = data.get("subject")
+                    
+                    # Fetch configurations
+                    query = """
+                        SELECT sc.id, sc.class, sc.subject, sc.teacher_id, t.name as teacher_name,
+                               sc.academic_year, sc.semester, sc.start_page, sc.end_page, sc.created_at
+                        FROM syllabus_configs sc
+                        JOIN teachers t ON sc.teacher_id = t.id
+                        WHERE 1=1
+                    """
+                    params = []
+                    
+                    if teacher_id:
+                        query += " AND sc.teacher_id = ?"
+                        params.append(teacher_id)
+                    if class_filter:
+                        query += " AND sc.class = ?"
+                        params.append(class_filter)
+                    if subject_filter:
+                        query += " AND sc.subject = ?"
+                        params.append(subject_filter)
+                        
+                    c.execute(query, tuple(params))
+                    rows = c.fetchall()
+                    
+                    configs = []
+                    for r in rows:
+                        config_id, cls, subj, t_id, t_name, acad_yr, sem, start_p, end_p, created_at = r
+                        
+                        # Get latest progress
+                        c.execute("SELECT current_page FROM syllabus_progress WHERE syllabus_config_id=? ORDER BY id DESC LIMIT 1", (config_id,))
+                        prog_row = c.fetchone()
+                        curr_p = prog_row[0] if prog_row else None
+                        
+                        analytics = calculate_syllabus_analytics(c, config_id, start_p, end_p, curr_p, created_at)
+                        
+                        configs.append({
+                            "id": config_id,
+                            "class": cls,
+                            "subject": subj,
+                            "teacherId": t_id,
+                            "teacherName": t_name,
+                            "academicYear": acad_yr,
+                            "semester": sem,
+                            **analytics
+                        })
+                        
+                    result = {"success": True, "data": configs}
+
+                elif action == "save_syllabus_config":
+                    config_id = data.get("id")
+                    cls = data.get("class")
+                    subj = data.get("subject")
+                    teacher_id = data.get("teacher_id")
+                    academic_year = data.get("academic_year")
+                    semester = data.get("semester")
+                    start_page = int(data.get("start_page", 1))
+                    end_page = int(data.get("end_page", 1))
+                    targets = data.get("targets", []) # list of {"month": str, "target_end_page": int}
+                    
+                    if config_id:
+                        c.execute("""
+                            UPDATE syllabus_configs 
+                            SET class=?, subject=?, teacher_id=?, academic_year=?, semester=?, start_page=?, end_page=?
+                            WHERE id=?
+                        """, (cls, subj, teacher_id, academic_year, semester, start_page, end_page, config_id))
+                    else:
+                        c.execute("""
+                            INSERT INTO syllabus_configs (class, subject, teacher_id, academic_year, semester, start_page, end_page)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (cls, subj, teacher_id, academic_year, semester, start_page, end_page))
+                        config_id = c.lastrowid
+                        
+                    # Delete existing targets
+                    c.execute("DELETE FROM syllabus_monthly_targets WHERE syllabus_config_id=?", (config_id,))
+                    
+                    # Insert new targets
+                    for t in targets:
+                        m = t.get("month")
+                        tp = int(t.get("target_end_page", 0))
+                        if m and tp:
+                            c.execute("""
+                                INSERT INTO syllabus_monthly_targets (syllabus_config_id, month, target_end_page)
+                                VALUES (?, ?, ?)
+                            """, (config_id, m, tp))
+                            
+                    conn.commit()
+                    result = {"success": True, "message": "Syllabus configuration saved successfully.", "id": config_id}
+
+                elif action == "update_syllabus_progress":
+                    config_id = data.get("syllabus_config_id")
+                    current_page = int(data.get("current_page"))
+                    teacher_id = data.get("teacher_id")
+                    
+                    c.execute("""
+                        INSERT INTO syllabus_progress (syllabus_config_id, current_page, updated_by)
+                        VALUES (?, ?, ?)
+                    """, (config_id, current_page, teacher_id))
+                    
+                    conn.commit()
+                    result = {"success": True, "message": "Syllabus progress updated successfully."}
+
+                elif action == "delete_syllabus_config":
+                    config_id = data.get("id")
+                    c.execute("DELETE FROM syllabus_progress WHERE syllabus_config_id=?", (config_id,))
+                    c.execute("DELETE FROM syllabus_monthly_targets WHERE syllabus_config_id=?", (config_id,))
+                    c.execute("DELETE FROM syllabus_configs WHERE id=?", (config_id,))
+                    conn.commit()
+                    result = {"success": True, "message": "Syllabus configuration deleted successfully."}
+
                 elif action == "get_teachers_list":
                     # Fetch all teachers
                     c.execute("SELECT id, name, username, class_teacher_of, subject FROM teachers ORDER BY name")
@@ -4968,6 +5230,23 @@ if __name__ == "__main__":
                             """, (date, class_id, p_label, student_id, final_status, teacher_id))
                         
                         success_periods.append(p_label)
+
+                    current_lesson_page = data.get("currentLessonPage")
+                    if current_lesson_page:
+                        try:
+                            c.execute("""
+                                SELECT id FROM syllabus_configs 
+                                WHERE class = ? AND subject = ? AND teacher_id = ?
+                                LIMIT 1
+                            """, (class_id, subject_id, teacher_id))
+                            config_row = c.fetchone()
+                            if config_row:
+                                c.execute("""
+                                    INSERT INTO syllabus_progress (syllabus_config_id, current_page, updated_by)
+                                    VALUES (?, ?, ?)
+                                """, (config_row[0], int(current_lesson_page), teacher_id))
+                        except Exception as ex:
+                            print(f"[MARK_ATTENDANCE] Failed to update syllabus progress: {ex}")
 
                     conn.commit()
                     

@@ -22,7 +22,11 @@ import {
   getPendingAnnouncement,
   dismissAnnouncement,
   getNamazAnalytics,
-  getEventAttendance
+  getEventAttendance,
+  getSyllabusConfigs,
+  saveSyllabusConfig,
+  updateSyllabusProgress,
+  deleteSyllabusConfig
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -281,6 +285,29 @@ export default function DashboardPage() {
   const [markedDetails, setMarkedDetails] = useState([]);
   const [searchRollNo, setSearchRollNo] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(getIstDateString());
+
+  // Syllabus tracker states
+  const [syllabusConfigs, setSyllabusConfigsState] = useState([]);
+  const [loadingSyllabus, setLoadingSyllabus] = useState(false);
+  const [syllabusPopupOpen, setSyllabusPopupOpen] = useState(false);
+  const [syllabusFormData, setSyllabusFormData] = useState({
+    id: null,
+    class: "",
+    subject: "",
+    teacher_id: "",
+    academic_year: new Date().getFullYear().toString(),
+    semester: "Semester 1",
+    start_page: "",
+    end_page: "",
+  });
+  const [syllabusMonthTargets, setSyllabusMonthTargets] = useState({
+    June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+    January: "", February: "", March: "", April: "", May: ""
+  });
+  const [selectedSyllabusClassFilter, setSelectedSyllabusClassFilter] = useState("");
+  const [selectedSyllabusTeacherFilter, setSelectedSyllabusTeacherFilter] = useState("");
+  const [selectedSyllabusSubjectFilter, setSelectedSyllabusSubjectFilter] = useState("");
+  const [syllabusPageProgressData, setSyllabusPageProgressData] = useState({});
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPeriods, setSelectedPeriods] = useState([]);
 
@@ -624,6 +651,18 @@ export default function DashboardPage() {
     }
   }, [activeTab, reportType]);
 
+  useEffect(() => {
+    if (activeTab === "reports" && reportType === "syllabus") {
+      fetchSyllabusConfigs();
+    }
+  }, [activeTab, reportType, selectedSyllabusClassFilter, selectedSyllabusTeacherFilter, selectedSyllabusSubjectFilter]);
+
+  useEffect(() => {
+    if (activeTab === "attendance" && user && user.role !== "admin") {
+      fetchSyllabusConfigs();
+    }
+  }, [activeTab, user]);
+
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
     showLoader("Loading timetable...");
@@ -690,6 +729,89 @@ export default function DashboardPage() {
       setReportError("Failed to load weekly report.");
     } finally {
       setLoadingFeature(false);
+    }
+  };
+
+  const fetchSyllabusConfigs = async () => {
+    setLoadingSyllabus(true);
+    try {
+      const data = await getSyllabusConfigs({
+        class: selectedSyllabusClassFilter,
+        teacherId: selectedSyllabusTeacherFilter,
+        subject: selectedSyllabusSubjectFilter
+      });
+      setSyllabusConfigsState(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load syllabus configs:", err);
+    } finally {
+      setLoadingSyllabus(false);
+    }
+  };
+
+  const handleSaveSyllabusConfig = async (e) => {
+    if (e) e.preventDefault();
+    showLoader("Saving syllabus configuration...");
+    try {
+      const formattedTargets = Object.entries(syllabusMonthTargets)
+        .filter(([_, value]) => value !== "")
+        .map(([month, value]) => ({ month, target_end_page: Number(value) }));
+
+      const payload = {
+        ...syllabusFormData,
+        start_page: Number(syllabusFormData.start_page),
+        end_page: Number(syllabusFormData.end_page),
+        targets: formattedTargets
+      };
+
+      const res = await saveSyllabusConfig(payload);
+      if (res.success) {
+        setSyllabusPopupOpen(false);
+        fetchSyllabusConfigs();
+      } else {
+        alert(res.message || "Failed to save syllabus configuration.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      hideLoader();
+    }
+  };
+
+  const handleUpdateSyllabusProgress = async (configId, pageNum) => {
+    if (!pageNum) return;
+    showLoader("Updating syllabus progress...");
+    try {
+      const res = await updateSyllabusProgress({
+        syllabus_config_id: configId,
+        current_page: Number(pageNum)
+      });
+      if (res.success) {
+        setSyllabusPageProgressData(prev => ({ ...prev, [configId]: "" }));
+        fetchSyllabusConfigs();
+      } else {
+        alert(res.message || "Failed to update progress.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      hideLoader();
+    }
+  };
+
+  const handleDeleteSyllabusConfig = async (configId) => {
+    if (!confirm("Are you sure you want to delete this syllabus configuration?")) return;
+    showLoader("Deleting configuration...");
+    try {
+      const res = await deleteSyllabusConfig(configId);
+      if (res.success) {
+        fetchSyllabusConfigs();
+      } else {
+        alert(res.message || "Failed to delete.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      hideLoader();
     }
   };
 
@@ -1509,6 +1631,101 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── Feature: Syllabus Tracker Widget ── */}
+        {activeTab === "attendance" && user && user.role !== "admin" && (
+          <div
+            className="mx-auto max-w-md mt-6 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100 space-y-6"
+            style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.6s' }}
+          >
+            <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-gray-800">Syllabus Tracker</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mt-1">Track & Log Page Completion</p>
+              </div>
+              <span className="text-2xl">📖</span>
+            </div>
+
+            {loadingSyllabus ? (
+              <div className="py-6 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
+            ) : syllabusConfigs.length === 0 ? (
+              <div className="py-6 text-center text-xs font-bold text-gray-400 italic">No syllabus configurations assigned.</div>
+            ) : (
+              <div className="space-y-6">
+                {syllabusConfigs.map((config) => {
+                  const progressValue = syllabusPageProgressData[config.id] || "";
+                  const pct = config.completionPercentage;
+                  const statusColors = {
+                    Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
+                    Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
+                    Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
+                  }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
+
+                  return (
+                    <div key={config.id} className="p-4 rounded-3xl border border-gray-100 bg-gray-50/30 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className="inline-block px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">
+                            {config.class}
+                          </span>
+                          <h4 className="font-black text-gray-800 text-sm mt-2">{config.subject}</h4>
+                          <p className="text-[9px] font-bold text-gray-400 mt-0.5">{config.semester} • Range: {config.startPage} - {config.endPage}</p>
+                        </div>
+                        
+                        {/* Circular Progress Badge */}
+                        <div className="relative flex items-center justify-center h-12 w-12 shrink-0">
+                          <svg className="absolute w-full h-full transform -rotate-90">
+                            <circle cx="24" cy="24" r="18" stroke="#f3f4f6" strokeWidth="4" fill="transparent" />
+                            <circle cx="24" cy="24" r="18" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="4" fill="transparent"
+                              strokeDasharray={2 * Math.PI * 18}
+                              strokeDashoffset={2 * Math.PI * 18 * (1 - Math.min(100, pct) / 100)}
+                            />
+                          </svg>
+                          <span className="text-[10px] font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
+                        </div>
+                      </div>
+
+                      {/* Expected schedule alert badge */}
+                      <div className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                        <span>{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                        <span>{config.statusMessage}</span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1.5">
+                        <div className="w-full bg-gray-200/60 rounded-full h-2">
+                          <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest px-1">
+                          <span>{config.completedPages} Pages Done</span>
+                          <span>{config.remainingPages} Left</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Log Input */}
+                      <div className="pt-2 border-t border-gray-100 flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Log Current Page"
+                          className="flex-1 min-w-0 bg-white border border-gray-150 rounded-2xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 text-gray-800"
+                          value={progressValue}
+                          onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
+                        />
+                        <button
+                          onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
+                          disabled={!progressValue}
+                          className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${progressValue ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* --- TIMETABLE TAB --- */}
         {activeTab === "timetable" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1586,6 +1803,7 @@ export default function DashboardPage() {
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
               {[
                 { id: 'overview', label: 'Monitor', emoji: '📊' },
+                { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖' },
                 { id: 'namaz', label: 'Namaz', emoji: '🕌' },
                 { id: 'events', label: 'Events History', emoji: '🎉' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
@@ -1660,6 +1878,261 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {reportType === "syllabus" && (
+                <div className="space-y-6">
+                  {/* Actions and Filters Bar */}
+                  <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-lg font-black text-gray-900">Syllabus Progress & Planning</h4>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Configure targets and track student academic syllabus progress</p>
+                      </div>
+                      {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
+                        <button
+                          onClick={() => {
+                            setSyllabusFormData({
+                              id: null,
+                              class: "",
+                              subject: "",
+                              teacher_id: "",
+                              academic_year: new Date().getFullYear().toString(),
+                              semester: "Semester 1",
+                              start_page: "",
+                              end_page: "",
+                            });
+                            setSyllabusMonthTargets({
+                              June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                              January: "", February: "", March: "", April: "", May: ""
+                            });
+                            setSyllabusPopupOpen(true);
+                          }}
+                          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
+                        >
+                          ➕ Add Target Config
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter fields */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
+                        <select
+                          value={selectedSyllabusClassFilter}
+                          onChange={(e) => setSelectedSyllabusClassFilter(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                        >
+                          <option value="">All Classes</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Subject</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Fiqh"
+                          value={selectedSyllabusSubjectFilter}
+                          onChange={(e) => setSelectedSyllabusSubjectFilter(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
+                        <select
+                          value={selectedSyllabusTeacherFilter}
+                          onChange={(e) => setSelectedSyllabusTeacherFilter(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                        >
+                          <option value="">All Teachers</option>
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Principal Dashboard Overview widget */}
+                  {(user?.role === 'Principal' || user?.role === 'Vice Principal' || user?.role === 'admin') && syllabusConfigs.length > 0 && (
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+                      <div>
+                        <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider">Principal Syllabus Monitor Panel</h4>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Instant health indicator of syllabus completions</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {syllabusConfigs.map(config => {
+                          const indicatorColors = {
+                            Green: { bg: "bg-emerald-500", text: "text-white", label: "🟢 Ahead / On Time" },
+                            Yellow: { bg: "bg-amber-400", text: "text-gray-900", label: "🟡 On Track" },
+                            Red: { bg: "bg-red-500", text: "text-white", label: "🔴 Behind Schedule" }
+                          }[config.statusColor] || { bg: "bg-gray-400", text: "text-white", label: "Gray" };
+                          
+                          return (
+                            <div key={config.id} className={`${indicatorColors.bg} ${indicatorColors.text} p-4 rounded-[1.75rem] flex flex-col justify-between h-28 shadow-sm transition-all hover:scale-[1.02]`}>
+                              <div>
+                                <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">{config.class}</span>
+                                <h5 className="font-black text-xs mt-2 line-clamp-1">{config.subject}</h5>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-bold opacity-90 line-clamp-1">{config.statusMessage}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Main Grid View */}
+                  {loadingSyllabus ? (
+                    <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
+                  ) : syllabusConfigs.length === 0 ? (
+                    <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
+                      <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations found.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {syllabusConfigs.map(config => {
+                        const pct = config.completionPercentage;
+                        const progressValue = syllabusPageProgressData[config.id] || "";
+                        const statusColors = {
+                          Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
+                          Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
+                          Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
+                        }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
+
+                        return (
+                          <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between">
+                            <div className="space-y-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
+                                    <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
+                                  </div>
+                                  <h4 className="font-black text-gray-900 text-base mt-3">{config.subject}</h4>
+                                  <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
+                                </div>
+
+                                <div className="relative flex items-center justify-center h-14 w-14 shrink-0">
+                                  <svg className="absolute w-full h-full transform -rotate-90">
+                                    <circle cx="28" cy="28" r="22" stroke="#f3f4f6" strokeWidth="5" fill="transparent" />
+                                    <circle cx="28" cy="28" r="22" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="5" fill="transparent"
+                                      strokeDasharray={2 * Math.PI * 22}
+                                      strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min(100, pct) / 100)}
+                                    />
+                                  </svg>
+                                  <span className="text-xs font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
+                                </div>
+                              </div>
+
+                              <div className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                                <span>{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                                <span>{config.statusMessage}</span>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                  <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                  <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
+                                  <span>{config.remainingPages} left</span>
+                                </div>
+                              </div>
+
+                              {/* Advanced Analytics Panel */}
+                              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50 text-left">
+                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Target Page</p>
+                                  <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
+                                </div>
+                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
+                                  <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
+                                </div>
+                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Avg Pages / Week</p>
+                                  <p className="mt-1 text-sm font-black text-gray-800">{config.averagePagesPerWeek}</p>
+                                </div>
+                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion</p>
+                                  <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Config Modification Buttons or Teacher Update Box */}
+                            <div className="pt-4 border-t border-gray-50 flex items-center justify-between gap-3 flex-wrap">
+                              {/* Log Progress for current teacher config */}
+                              {String(config.teacherId) === String(user?.id) ? (
+                                <div className="flex-1 flex gap-2">
+                                  <input
+                                    type="number"
+                                    placeholder="Page"
+                                    className="w-20 bg-gray-50 border border-gray-150 rounded-2xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 text-gray-800"
+                                    value={progressValue}
+                                    onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
+                                  />
+                                  <button
+                                    onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
+                                    disabled={!progressValue}
+                                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${progressValue ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-300'}`}
+                                  >
+                                    Update Page
+                                  </button>
+                                </div>
+                              ) : <div />}
+
+                              {/* Admin action modifiers */}
+                              {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={() => {
+                                      setSyllabusFormData({
+                                        id: config.id,
+                                        class: config.class,
+                                        subject: config.subject,
+                                        teacher_id: config.teacherId,
+                                        academic_year: config.academicYear || new Date().getFullYear().toString(),
+                                        semester: config.semester || "Semester 1",
+                                        start_page: config.startPage,
+                                        end_page: config.endPage,
+                                      });
+                                      
+                                      const targetsMap = {};
+                                      config.targets.forEach(t => {
+                                        targetsMap[t.month] = t.targetPage;
+                                      });
+                                      setSyllabusMonthTargets(prev => ({
+                                        June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                                        January: "", February: "", March: "", April: "", May: "",
+                                        ...targetsMap
+                                      }));
+                                      
+                                      setSyllabusPopupOpen(true);
+                                    }}
+                                    className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                                    title="Edit Config"
+                                  >
+                                    ✏️
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSyllabusConfig(config.id)}
+                                    className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
+                                    title="Delete Config"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3062,6 +3535,164 @@ export default function DashboardPage() {
                 </>
               ) : null}
             </div>
+          </div>
+        </div>
+      )}
+
+      {syllabusPopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 flex flex-col my-8 max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-gray-900">
+                  {syllabusFormData.id ? "✏️ Edit Syllabus Configuration" : "➕ New Syllabus Configuration"}
+                </h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mt-1">
+                  Define boundaries and monthly target milestones
+                </p>
+              </div>
+              <button
+                onClick={() => setSyllabusPopupOpen(false)}
+                className="w-10 h-10 rounded-2xl bg-white border border-gray-100 flex items-center justify-center font-bold text-gray-400 hover:text-gray-600 hover:shadow-sm transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveSyllabusConfig} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Core Config Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Class</label>
+                  <select
+                    required
+                    value={syllabusFormData.class}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, class: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select Class</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Subject</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Fiqh"
+                    value={syllabusFormData.subject}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Teacher</label>
+                  <select
+                    required
+                    value={syllabusFormData.teacher_id}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, teacher_id: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select Teacher</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Academic Year</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. 2026"
+                    value={syllabusFormData.academic_year}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, academic_year: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Semester</label>
+                  <select
+                    required
+                    value={syllabusFormData.semester}
+                    onChange={(e) => setSyllabusFormData(prev => ({ ...prev, semester: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Semester 1">Semester 1</option>
+                    <option value="Semester 2">Semester 2</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Start Page</label>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={syllabusFormData.start_page}
+                      onChange={(e) => setSyllabusFormData(prev => ({ ...prev, start_page: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">End Page</label>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      placeholder="200"
+                      value={syllabusFormData.end_page}
+                      onChange={(e) => setSyllabusFormData(prev => ({ ...prev, end_page: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Target End Pages */}
+              <div className="border-t border-gray-100 pt-6">
+                <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-1">Monthly Target End Pages</h4>
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-4">Set the target final page index expected by the end of each month</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {Object.keys(syllabusMonthTargets).map((month) => (
+                    <div key={month}>
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest block mb-1">{month}</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Target page"
+                        value={syllabusMonthTargets[month]}
+                        onChange={(e) => setSyllabusMonthTargets(prev => ({ ...prev, [month]: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-2.5 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="border-t border-gray-100 pt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSyllabusPopupOpen(false)}
+                  className="px-5 py-3 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-500 font-black text-xs uppercase tracking-widest transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
+                >
+                  {syllabusFormData.id ? "Save Changes" : "Create Configuration"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

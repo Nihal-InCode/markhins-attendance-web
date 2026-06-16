@@ -913,6 +913,73 @@ app.post('/mark-attendance', authenticateToken, async (req, res) => {
     }
 });
 
+// --- Syllabus Tracker Endpoints ---
+app.get('/api/syllabus', authenticateToken, async (req, res) => {
+    try {
+        const { class: classId, subject } = req.query;
+        // Teachers only see their own configs unless they are admin/principal
+        const isManager = req.user.role === 'admin' || req.user.role === 'Principal' || req.user.role === 'Vice Principal';
+        const teacher_id = isManager ? req.query.teacherId : req.user.id;
+        
+        const result = await callPython({
+            action: "get_syllabus_configs",
+            teacher_id: teacher_id ? Number(teacher_id) : undefined,
+            class: classId,
+            subject: subject
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/syllabus/config', authenticateToken, async (req, res) => {
+    try {
+        // Only managers (admin/principal) can manage configurations
+        const isManager = req.user.role === 'admin' || req.user.role === 'Principal' || req.user.role === 'Vice Principal';
+        if (!isManager) {
+            return res.status(403).json({ success: false, message: "Unauthorized to save syllabus configuration." });
+        }
+        const result = await callPython({
+            action: "save_syllabus_config",
+            ...req.body
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/syllabus/progress', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "update_syllabus_progress",
+            syllabus_config_id: Number(req.body.syllabus_config_id),
+            current_page: Number(req.body.current_page),
+            teacher_id: req.user.id
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/api/syllabus/config/:id', authenticateToken, async (req, res) => {
+    try {
+        const isManager = req.user.role === 'admin' || req.user.role === 'Principal' || req.user.role === 'Vice Principal';
+        if (!isManager) {
+            return res.status(403).json({ success: false, message: "Unauthorized to delete syllabus configuration." });
+        }
+        const result = await callPython({
+            action: "delete_syllabus_config",
+            id: Number(req.params.id)
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/attendance/marked-periods', authenticateToken, async (req, res) => {
     try {
         const { class: classId, date } = req.query;
