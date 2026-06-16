@@ -23,7 +23,7 @@ async function proxy(request, params) {
         let body = null;
         if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
             try {
-                body = await request.text();
+                body = await request.arrayBuffer();
             } catch (e) {
                 // No body or unreadable
             }
