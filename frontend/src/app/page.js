@@ -248,7 +248,8 @@ export default function DashboardPage() {
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
   const [timetableError, setTimetableError] = useState("");
   const [reportError, setReportError] = useState("");
-  const [reportType, setReportType] = useState("overview");
+  const [reportType, setReportType] = useState(null);
+  const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
   const [extraClassesReport, setExtraClassesReport] = useState([]);
   const [digitalRegisterData, setDigitalRegisterData] = useState([]);
   const [digitalRegisterSessionLabels, setDigitalRegisterSessionLabels] = useState([]);
@@ -324,7 +325,12 @@ export default function DashboardPage() {
     setActiveTab(tab);
     setTimetableError("");
     setReportError("");
-    router.push(`/?tab=${tab}`, { scroll: false });
+    if (tab === "reports") {
+      setReportType(null);
+      router.push(`/?tab=reports`, { scroll: false });
+    } else {
+      router.push(`/?tab=${tab}`, { scroll: false });
+    }
   }, [router]);
 
   // On mount (and URL change): read tab from URL
@@ -332,6 +338,16 @@ export default function DashboardPage() {
     const urlTab = searchParams.get('tab');
     if (urlTab && ['attendance', 'timetable', 'reports'].includes(urlTab)) {
       setActiveTab(urlTab);
+    }
+    if (urlTab === 'reports') {
+      const type = searchParams.get('type');
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register'].includes(type)) {
+        setReportType(type);
+      } else {
+        setReportType(null);
+      }
+    } else {
+      setReportType(null);
     }
   }, [searchParams]);
 
@@ -1711,86 +1727,237 @@ export default function DashboardPage() {
         {/* --- REPORTS TAB --- */}
         {activeTab === "reports" && (
           <>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
-              {[
-                { id: 'overview', label: 'Monitor', emoji: '📊' },
-                { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖' },
-                { id: 'namaz', label: 'Namaz', emoji: '🕌' },
-                { id: 'events', label: 'Events History', emoji: '🎉' },
-                { id: 'extra', label: 'Extra Classes', emoji: '⚡' },
-                { id: 'analysis', label: 'Analysis', emoji: '📈' },
-                { id: 'register', label: 'Register', emoji: '📒' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setReportType(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${reportType === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
-                >
-                  <span>{tab.emoji}</span> {tab.label}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const reportTabs = [
+                { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
+                { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
+                { id: 'namaz', label: 'Namaz', emoji: '🕌', desc: 'Check daily and weekly prayer registers.' },
+                { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress and goals.' },
+                { id: 'events', label: 'Events History', emoji: '🎉', desc: 'Special events attendance records.' },
+                { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
+                { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
+              ];
 
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {reportError && (
-                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
-                  <span className="text-lg">⚠️</span>
-                  <span>{reportError}</span>
-                </div>
-              )}
-              {/* 1. Student Search */}
-              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    type="text"
-                    placeholder="Enter Roll No"
-                    className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
-                    value={searchRollNo}
-                    onChange={(e) => setSearchRollNo(e.target.value)}
-                  />
-                  <button
-                    onClick={handleStudentSearch}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
-                  >
-                    Search
-                  </button>
-                </div>
-              </div>
+              if (!reportType) {
+                return (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="text-center py-6">
+                      <h2 className="text-3xl font-black text-slate-800 tracking-tight">Reports</h2>
+                      <p className="text-xs font-bold text-slate-400 mt-1.5 uppercase tracking-widest">Select a report category to start tracking</p>
+                    </div>
 
-              {studentHistory && (
-                <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                  <div className="relative z-10">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
-                      <div>
-                        <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
-                        <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
-                          Roll: {studentHistory.rollNo} • Class {studentHistory.class}
-                        </p>
+                    {/* MD3 Dropdown Selector */}
+                    <div className="relative w-full max-w-md mx-auto mb-8 text-left">
+                      <button
+                        type="button"
+                        onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
+                        className="w-full flex items-center justify-between px-6 py-4.5 bg-white border border-slate-200/85 rounded-3xl shadow-md shadow-slate-100 hover:border-blue-400 active:scale-[0.98] transition-all text-base font-black text-slate-800"
+                        aria-haspopup="listbox"
+                        aria-expanded={reportDropdownOpen}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">📊</span>
+                          <span>Select Report</span>
+                        </div>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${reportDropdownOpen ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {reportDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setReportDropdownOpen(false)} />
+                          <div className="absolute left-0 right-0 mt-2.5 z-40 rounded-[2rem] bg-white border border-slate-100 shadow-2xl p-2.5 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                            {reportTabs.map((tab) => (
+                              <button
+                                key={tab.id}
+                                onClick={() => {
+                                  setReportType(tab.id);
+                                  setReportDropdownOpen(false);
+                                  router.push(`/?tab=reports&type=${tab.id}`, { scroll: false });
+                                }}
+                                className="flex items-center gap-4 w-full px-5 py-4 rounded-[1.25rem] text-left transition-all active:scale-[0.97] hover:bg-slate-50 text-slate-700"
+                              >
+                                <span className="text-2xl bg-slate-50 p-2.5 rounded-xl">{tab.emoji}</span>
+                                <div>
+                                  <p className="text-sm font-black tracking-tight leading-none text-slate-800">{tab.label}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{tab.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Recent Reports / Quick Cards */}
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-lg">🕒</span>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Quick Reports</h3>
                       </div>
-                      <div className="text-left sm:text-right">
-                        <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
-                        <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                          { id: 'analysis', label: 'Analysis', emoji: '📈', gradient: 'from-blue-500/5 to-indigo-500/5 hover:from-blue-500/10 hover:to-indigo-500/10 border-blue-100', desc: 'Perform student search and batch analysis.' },
+                          { id: 'overview', label: 'Monitor', emoji: '📊', gradient: 'from-emerald-500/5 to-teal-500/5 hover:from-emerald-500/10 hover:to-teal-500/10 border-emerald-100', desc: 'Real-time class attendance verification.' },
+                          { id: 'namaz', label: 'Namaz', emoji: '🕌', gradient: 'from-amber-500/5 to-orange-500/5 hover:from-amber-500/10 hover:to-orange-500/10 border-amber-100', desc: 'Check daily and weekly prayer registers.' },
+                          { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖', gradient: 'from-violet-500/5 to-purple-500/5 hover:from-violet-500/10 hover:to-purple-500/10 border-violet-100', desc: 'Track curriculum progress and goals.' },
+                        ].map((card) => (
+                          <button
+                            key={card.id}
+                            onClick={() => {
+                              setReportType(card.id);
+                              router.push(`/?tab=reports&type=${card.id}`, { scroll: false });
+                            }}
+                            className={`flex flex-col text-left p-6 bg-gradient-to-br ${card.gradient} rounded-[2rem] border shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] group`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-3xl bg-white p-3 rounded-2xl shadow-sm border border-slate-100">{card.emoji}</span>
+                              <span className="text-slate-400 group-hover:translate-x-1 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-black text-slate-800 mt-5 leading-none">{card.label}</h4>
+                            <p className="text-xs text-slate-500 font-bold mt-2 leading-relaxed">{card.desc}</p>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                        <p className="text-xl font-black">{studentHistory.stats?.total}</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
+
+                    {/* Quick Statistics */}
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-lg">📈</span>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Quick Statistics</h3>
                       </div>
-                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                        <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white p-5 rounded-[1.75rem] border border-slate-100 shadow-sm text-center">
+                          <p className="text-2xl font-black text-indigo-600">{classes.length || '—'}</p>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Classes</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-[1.75rem] border border-slate-100 shadow-sm text-center">
+                          <p className="text-2xl font-black text-emerald-600">{teachers.length || '—'}</p>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Teachers</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-[1.75rem] border border-slate-100 shadow-sm text-center">
+                          <p className="text-2xl font-black text-amber-500">Active</p>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Timetable</p>
+                        </div>
                       </div>
-                      <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                        <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
+                    </div>
+
+                    {/* Shortcuts */}
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-lg">🔗</span>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Shortcuts</h3>
+                      </div>
+                      <div className="flex flex-col gap-2.5">
+                        {[
+                          { id: 'events', label: 'Events History', emoji: '🎉', desc: 'Special events attendance records.' },
+                          { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
+                          { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
+                        ].map((shortcut) => (
+                          <button
+                            key={shortcut.id}
+                            onClick={() => {
+                              setReportType(shortcut.id);
+                              router.push(`/?tab=reports&type=${shortcut.id}`, { scroll: false });
+                            }}
+                            className="flex items-center justify-between p-4 bg-white hover:bg-slate-50/80 rounded-2xl border border-slate-100 shadow-sm transition-all active:scale-[0.99] group text-left"
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <span className="text-xl bg-slate-50 p-2 rounded-xl border border-slate-100">{shortcut.emoji}</span>
+                              <div>
+                                <p className="text-sm font-black text-slate-800">{shortcut.label}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{shortcut.desc}</p>
+                              </div>
+                            </div>
+                            <span className="text-slate-300 group-hover:translate-x-0.5 transition-transform">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
+                );
+              }
+
+              return (
+                <div className="flex items-center justify-between gap-3 mb-6 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                  {/* App Back Button */}
+                  <button
+                    onClick={() => {
+                      setReportType(null);
+                      router.push('/?tab=reports', { scroll: false });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-black text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all active:scale-95 uppercase tracking-widest border border-slate-150"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back
+                  </button>
+
+                  {/* Mini Dropdown Selector */}
+                  <div className="relative text-left">
+                    <button
+                      onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all active:scale-[0.98] text-xs font-black text-slate-700"
+                    >
+                      <span>{reportTabs.find(t => t.id === reportType)?.emoji}</span>
+                      <span>{reportTabs.find(t => t.id === reportType)?.label}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {reportDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setReportDropdownOpen(false)} />
+                        <div className="absolute right-0 mt-2 z-40 w-56 rounded-2xl bg-white border border-slate-100 shadow-2xl p-2.5 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                          {reportTabs.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => {
+                                setReportType(tab.id);
+                                setReportDropdownOpen(false);
+                                router.push(`/?tab=reports&type=${tab.id}`, { scroll: false });
+                              }}
+                              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-xs font-black transition-all active:scale-[0.97] ${
+                                reportType === tab.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <span className="text-lg bg-slate-50 p-1.5 rounded-lg">{tab.emoji}</span>
+                              <span>{tab.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
+              );
+            })()}
+
+            {reportType && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {reportError && (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold flex items-center gap-3">
+                    <span className="text-lg">⚠️</span>
+                    <span>{reportError}</span>
+                  </div>
+                )}
 
               {reportType === "syllabus" && (
                 <div className="space-y-6">
@@ -2881,7 +3048,62 @@ export default function DashboardPage() {
               )}
 
               {reportType === "analysis" && (
-                <>{/* 4. Batch-wise Report */}
+                <div className="space-y-6">
+                  {/* 1. Student Search */}
+                  <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        placeholder="Enter Roll No"
+                        className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
+                        value={searchRollNo}
+                        onChange={(e) => setSearchRollNo(e.target.value)}
+                      />
+                      <button
+                        onClick={handleStudentSearch}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
+                      >
+                        Search
+                      </button>
+                    </div>
+                  </div>
+
+                  {studentHistory && (
+                    <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                      <div className="relative z-10">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
+                          <div>
+                            <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
+                            <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
+                              Roll: {studentHistory.rollNo} • Class {studentHistory.class}
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
+                            <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                            <p className="text-xl font-black">{studentHistory.stats?.total}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
+                          </div>
+                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                            <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
+                          </div>
+                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                            <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Batch-wise Report */}
                   <div className="space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
                       <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
@@ -3012,7 +3234,7 @@ export default function DashboardPage() {
                       </div>
                     ) : null}
                   </div>
-                </>
+                </div>
               )}
 
               {reportType === "extra" && (
@@ -3307,8 +3529,9 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-          </>
-        )}
+          )}
+        </>
+      )}
 
         {/* ── SYLLABUS MANAGEMENT TAB (ADMIN ONLY) ── */}
         {activeTab === "syllabus_management" && user?.role === 'admin' && (
