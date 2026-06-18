@@ -102,7 +102,15 @@ const getDashboardRoleBadge = (user) => {
 
 function EventOccurrenceRow({ occurrence }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const presentStudents = (occurrence.students || []).filter(s => s.status === "present");
+  const [activeListTab, setActiveListTab] = useState("present");
+
+  const allStudents = occurrence.students || [];
+  const presentStudents = allStudents.filter(s => s.status === "present");
+  const absentStudents = allStudents.filter(s => s.status === "absent");
+  const totalCount = occurrence.totalCount || allStudents.length;
+  const presentCount = presentStudents.length;
+  const absentCount = Math.max(0, totalCount - presentCount);
+  const attendancePercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
   return (
     <div className="bg-gray-55/40 rounded-2xl border border-gray-100 p-4 hover:border-blue-200 hover:bg-white transition-all shadow-xs duration-200">
@@ -124,10 +132,11 @@ function EventOccurrenceRow({ occurrence }) {
           </p>
         </div>
         <div className="flex items-center gap-4 self-end sm:self-auto">
-          <div className="text-right">
-            <p className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1">
-              {presentStudents.length} / {occurrence.totalCount} Attended
-            </p>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
+            <span className="text-slate-400">Total: {totalCount}</span>
+            <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">P: {presentCount}</span>
+            <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded-md">A: {absentCount}</span>
+            <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{attendancePercentage}%</span>
           </div>
           <span className="text-xs text-gray-400 font-bold w-4 text-center">
             {isExpanded ? "▼" : "▶"}
@@ -136,29 +145,94 @@ function EventOccurrenceRow({ occurrence }) {
       </div>
 
       {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-gray-150/50 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-            Attendees List ({presentStudents.length})
-          </p>
-          {presentStudents.length > 0 ? (
-            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {presentStudents.map((student) => (
-                <div
-                  key={student.rollNo}
-                  className="bg-white rounded-xl border border-emerald-100 p-2.5 shadow-xs flex items-center justify-between hover:border-emerald-300 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
-                      {student.name}
-                    </p>
-                    <p className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</p>
-                  </div>
-                  <span className="text-xs">✅</span>
-                </div>
-              ))}
+        <div className="mt-4 pt-4 border-t border-gray-150/50 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* Summary Card */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
+            <div className="text-center p-1">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Students</p>
+              <p className="text-lg font-black text-slate-800 mt-1">{totalCount}</p>
             </div>
+            <div className="text-center p-1">
+              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Present</p>
+              <p className="text-lg font-black text-emerald-600 mt-1">{presentCount}</p>
+            </div>
+            <div className="text-center p-1">
+              <p className="text-[9px] font-black text-red-400 uppercase tracking-widest">Absent</p>
+              <p className="text-lg font-black text-red-650 mt-1">{absentCount}</p>
+            </div>
+            <div className="text-center p-1">
+              <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Attendance %</p>
+              <p className="text-lg font-black text-blue-700 mt-1">{attendancePercentage}%</p>
+            </div>
+          </div>
+
+          {/* Optional Tab Layout */}
+          <div className="flex gap-2 border-b border-gray-100 pb-1">
+            <button
+              onClick={() => setActiveListTab("present")}
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeListTab === "present"
+                  ? "border-emerald-500 text-emerald-600 font-extrabold"
+                  : "border-transparent text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Present ({presentCount})
+            </button>
+            <button
+              onClick={() => setActiveListTab("absent")}
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeListTab === "absent"
+                  ? "border-red-500 text-red-600 font-extrabold"
+                  : "border-transparent text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Absent ({absentCount})
+            </button>
+          </div>
+
+          {/* Student Lists */}
+          {activeListTab === "present" ? (
+            presentCount > 0 ? (
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {presentStudents.map((student) => (
+                  <div
+                    key={student.rollNo}
+                    className="bg-white rounded-xl border border-emerald-100 p-2.5 shadow-xs flex items-center justify-between hover:border-emerald-300 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
+                        {student.name}
+                      </p>
+                      <p className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</p>
+                    </div>
+                    <span className="text-xs text-emerald-500 font-bold">✓</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-bold text-gray-450 text-center py-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-150">No students attended this session</p>
+            )
           ) : (
-            <p className="text-xs font-bold text-gray-400">No students attended this session</p>
+            absentCount > 0 ? (
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {absentStudents.map((student) => (
+                  <div
+                    key={student.rollNo}
+                    className="bg-white rounded-xl border border-red-100 p-2.5 shadow-xs flex items-center justify-between hover:border-red-300 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
+                        {student.name}
+                      </p>
+                      <p className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</p>
+                    </div>
+                    <span className="text-xs text-red-500 font-bold">✗</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-bold text-gray-450 text-center py-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-150">No students absent for this session</p>
+            )
           )}
         </div>
       )}
@@ -203,6 +277,95 @@ function EventGroupCard({ group }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function NamazSessionRow({ s, isExpanded, onToggle }) {
+  const prayerEmojis = { Fajr: "🌅", Dhuhr: "☀️", Asr: "🌇", Maghrib: "🌆", Isha: "🌃" };
+  const emoji = prayerEmojis[s.sessionName] || "🕌";
+
+  const presentCount = (s.students || []).filter(st => st.status === "present").length;
+  const totalCount = (s.students || []).length;
+  const absentCount = Math.max(0, totalCount - presentCount);
+  const percent = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
+  const timeParts = (() => {
+    const source = s.createdAt || s.date;
+    if (!source) return { hour: "--", minute: "--", period: "" };
+    const match = String(source).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+      const hour24 = Number(match[1]);
+      const displayHour = hour24 % 12 || 12;
+      return {
+        hour: String(displayHour).padStart(2, "0"),
+        minute: match[2],
+        period: hour24 >= 12 ? "PM" : "AM",
+      };
+    }
+    const date = new Date(source);
+    if (isNaN(date.getTime())) return { hour: "--", minute: "--", period: "" };
+    const formatted = new Intl.DateTimeFormat("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(date);
+    return {
+      hour: formatted.find(part => part.type === "hour")?.value || "--",
+      minute: formatted.find(part => part.type === "minute")?.value || "--",
+      period: formatted.find(part => part.type === "dayPeriod")?.value || "",
+    };
+  })();
+
+  const formattedTime = `${timeParts.hour}:${timeParts.minute} ${timeParts.period}`;
+
+  return (
+    <div className="border-b border-slate-100 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full flex flex-col sm:flex-row sm:items-center justify-between py-3 px-4 hover:bg-slate-50/50 transition-all rounded-xl text-left"
+      >
+        <div className="flex items-center gap-3 font-mono text-xs text-slate-600 flex-1">
+          <span className="font-semibold text-slate-400">{formattedTime}</span>
+          <span className="text-slate-300">|</span>
+          <span className="font-bold text-indigo-700 flex items-center gap-1">
+            <span>{emoji}</span> {s.sessionName}
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">{s.className}</span>
+        </div>
+        <div className="flex items-center gap-3 mt-1 sm:mt-0">
+          <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+            {presentCount}/{totalCount} Present ({percent}%)
+          </span>
+          <span className="text-[10px] text-slate-400 font-bold">
+            {isExpanded ? "▼" : "▶"}
+          </span>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 pt-2 text-xs font-bold text-slate-500 bg-slate-50/30 rounded-2xl border border-slate-100 mx-4 mb-3 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest">Present</p>
+              <p className="text-sm font-black text-emerald-600 mt-0.5">{presentCount}</p>
+            </div>
+            <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest">Absent</p>
+              <p className="text-sm font-black text-red-500 mt-0.5">{absentCount}</p>
+            </div>
+            <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest">Recorded via</p>
+              <p className="text-sm font-black text-indigo-950 mt-0.5 truncate" title={s.source}>{s.source || "System"}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[9px] text-slate-400 uppercase tracking-widest px-1">
+            <span>Session ID: {s.sessionId}</span>
+            <span>Recorded at: {s.createdAt ? new Date(s.createdAt).toLocaleString("en-IN") : s.date}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -271,6 +434,10 @@ export default function DashboardPage() {
   const [selectedNamazSession, setSelectedNamazSession] = useState("");
   const [eventAttendance, setEventAttendance] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [selectedEventClassFilter, setSelectedEventClassFilter] = useState("");
+  const [selectedEventNameFilter, setSelectedEventNameFilter] = useState("");
+  const [selectedEventDateFilter, setSelectedEventDateFilter] = useState("");
+  const [expandedRecentSessionId, setExpandedRecentSessionId] = useState(null);
   const [expandedNamaz, setExpandedNamaz] = useState(null);
   const [expandedClasses, setExpandedClasses] = useState({});
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
@@ -1733,7 +1900,7 @@ export default function DashboardPage() {
                 { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
                 { id: 'namaz', label: 'Namaz', emoji: '🕌', desc: 'Check daily and weekly prayer registers.' },
                 { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress and goals.' },
-                { id: 'events', label: 'Events History', emoji: '🎉', desc: 'Special events attendance records.' },
+                { id: 'events', label: 'Events History', emoji: '🏆', desc: 'Special events attendance records.' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
                 { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
               ];
@@ -1862,7 +2029,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col gap-2.5">
                         {[
-                          { id: 'events', label: 'Events History', emoji: '🎉', desc: 'Special events attendance records.' },
+                          { id: 'events', label: 'Events History', emoji: '🏆', desc: 'Special events attendance records.' },
                           { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
                           { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
                         ].map((shortcut) => (
@@ -2814,145 +2981,100 @@ export default function DashboardPage() {
                           <h4 className="text-sm font-black text-gray-900">Recent Sessions</h4>
                         </div>
                         <div className="relative p-4 sm:p-5">
-                          <div className="space-y-4">
-                            {(namazAnalytics.sessions || []).map(s => {
-                              const prayerStyles = {
-                                Fajr: {
-                                  accent: "from-sky-400 to-cyan-500",
-                                  border: "border-l-sky-400",
-                                  badge: "bg-sky-50 text-sky-700 ring-sky-100",
-                                  glow: "group-hover:shadow-sky-100/80",
-                                },
-                                Dhuhr: {
-                                  accent: "from-amber-400 to-yellow-500",
-                                  border: "border-l-amber-400",
-                                  badge: "bg-amber-50 text-amber-700 ring-amber-100",
-                                  glow: "group-hover:shadow-amber-100/80",
-                                },
-                                Asr: {
-                                  accent: "from-orange-400 to-amber-500",
-                                  border: "border-l-orange-400",
-                                  badge: "bg-orange-50 text-orange-700 ring-orange-100",
-                                  glow: "group-hover:shadow-orange-100/80",
-                                },
-                                Maghrib: {
-                                  accent: "from-violet-400 to-fuchsia-500",
-                                  border: "border-l-violet-400",
-                                  badge: "bg-violet-50 text-violet-700 ring-violet-100",
-                                  glow: "group-hover:shadow-violet-100/80",
-                                },
-                                Isha: {
-                                  accent: "from-indigo-500 to-blue-700",
-                                  border: "border-l-indigo-500",
-                                  badge: "bg-indigo-50 text-indigo-700 ring-indigo-100",
-                                  glow: "group-hover:shadow-indigo-100/80",
-                                },
-                              };
-                              const visual = prayerStyles[s.sessionName] || {
-                                accent: "from-blue-400 to-indigo-500",
-                                border: "border-l-blue-400",
-                                badge: "bg-blue-50 text-blue-700 ring-blue-100",
-                                glow: "group-hover:shadow-blue-100/80",
-                              };
-                              const displayDate = (() => {
-                                if (!s.date) return "-";
-                                const dateParts = String(s.date).split("-");
-                                const date = dateParts.length === 3
-                                  ? new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2]))
-                                  : new Date(s.date);
-                                if (isNaN(date.getTime())) return s.date;
-                                return date.toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                });
-                              })();
-                              const timeParts = (() => {
-                                const source = s.createdAt || s.date;
-                                if (!source) return { hour: "--", minute: "--", second: "--", period: "" };
-                                const match = String(source).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-                                let date;
+                          {(() => {
+                            const todayStr = getIstDateString();
+                            const yesterdayStr = (() => {
+                              const formatter = new Intl.DateTimeFormat('en-CA', {
+                                timeZone: 'Asia/Kolkata',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                              });
+                              const yesterday = new Date();
+                              yesterday.setDate(yesterday.getDate() - 1);
+                              const parts = formatter.formatToParts(yesterday);
+                              const year = parts.find((part) => part.type === 'year')?.value;
+                              const month = parts.find((part) => part.type === 'month')?.value;
+                              const day = parts.find((part) => part.type === 'day')?.value;
+                              return `${year}-${month}-${day}`;
+                            })();
 
-                                if (match) {
-                                  const hour24 = Number(match[1]);
-                                  const displayHour = hour24 % 12 || 12;
-                                  return {
-                                    hour: String(displayHour).padStart(2, "0"),
-                                    minute: match[2],
-                                    second: match[3] || "00",
-                                    period: hour24 >= 12 ? "PM" : "AM",
-                                  };
-                                }
+                            const sessions = namazAnalytics.sessions || [];
+                            const todaySessions = sessions.filter(s => s.date === todayStr);
+                            const yesterdaySessions = sessions.filter(s => s.date === yesterdayStr);
+                            const olderSessions = sessions.filter(s => s.date !== todayStr && s.date !== yesterdayStr);
 
-                                date = new Date(source);
-                                if (isNaN(date.getTime())) return { hour: source, minute: "", second: "", period: "" };
-                                const formatted = new Intl.DateTimeFormat("en-IN", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                                  hour12: true,
-                                }).formatToParts(date);
-                                return {
-                                  hour: formatted.find(part => part.type === "hour")?.value || "--",
-                                  minute: formatted.find(part => part.type === "minute")?.value || "--",
-                                  second: formatted.find(part => part.type === "second")?.value || "--",
-                                  period: formatted.find(part => part.type === "dayPeriod")?.value || "",
-                                };
-                              })();
-
-                              return (
-                                <div
-                                  key={s.sessionId}
-                                  className={`group relative overflow-hidden rounded-[1.25rem] border border-white/80 border-l-4 ${visual.border} bg-white/70 p-5 shadow-md shadow-stone-200/45 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white hover:bg-white/85 hover:shadow-xl ${visual.glow}`}
-                                >
-                                  <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${visual.accent}`} />
-                                  <div className="absolute right-4 top-4 h-16 w-16 rounded-full bg-white/60 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-50" />
-                                  <div className="relative space-y-5">
-                                    <div className="flex items-center gap-3">
-                                      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ${visual.badge}`}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.25 14.15A7.5 7.5 0 1110.1 3.75 6 6 0 0020.25 14.15z" />
-                                        </svg>
-                                      </span>
-                                      <h5 className="text-xl font-black leading-tight text-stone-900 sm:text-2xl">
-                                        {s.sessionName || "Session"}
-                                      </h5>
+                            return (
+                              <div className="space-y-6">
+                                {/* TODAY'S SESSIONS */}
+                                {todaySessions.length > 0 && (
+                                  <div className="bg-emerald-50/30 border border-emerald-100 rounded-3xl p-4 shadow-sm shadow-emerald-50 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 blur-xl pointer-events-none" />
+                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-emerald-100/50 pb-2">
+                                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-400" />
+                                      <h5 className="text-xs font-black text-emerald-800 uppercase tracking-widest">🟢 Today&apos;s Recorded Sessions</h5>
                                     </div>
-
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                      <div className="flex items-center gap-2 text-xs font-bold text-stone-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        <span>{displayDate}</span>
-                                      </div>
-
-                                      <div className="flex items-center gap-2 text-sm font-black tabular-nums sm:text-base">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-stone-400 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-                                        </svg>
-                                        <span className="text-blue-700">{timeParts.hour}</span>
-                                        {timeParts.minute && <span className="text-stone-300">:</span>}
-                                        {timeParts.minute && <span className="text-amber-600">{timeParts.minute}</span>}
-                                        {timeParts.second && <span className="text-stone-300">:</span>}
-                                        {timeParts.second && <span className="text-stone-500">{timeParts.second}</span>}
-                                        {timeParts.period && (
-                                          <span className="ml-1 rounded-full border border-stone-200 bg-white/80 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-stone-600 shadow-sm">
-                                            {timeParts.period}
-                                          </span>
-                                        )}
-                                      </div>
+                                    <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-emerald-100 divide-y divide-slate-100 overflow-hidden">
+                                      {todaySessions.map(s => (
+                                        <NamazSessionRow
+                                          key={s.sessionId}
+                                          s={s}
+                                          isExpanded={expandedRecentSessionId === s.sessionId}
+                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                        />
+                                      ))}
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            {(!namazAnalytics.sessions || namazAnalytics.sessions.length === 0) && (
-                              <div className="rounded-[1.25rem] border border-dashed border-stone-200 bg-white/65 px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">
-                                No sessions received for these filters
+                                )}
+
+                                {/* YESTERDAY'S SESSIONS */}
+                                {yesterdaySessions.length > 0 && (
+                                  <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
+                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
+                                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                      <h5 className="text-xs font-black text-slate-600 uppercase tracking-widest">⚪ Yesterday</h5>
+                                    </div>
+                                    <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                                      {yesterdaySessions.map(s => (
+                                        <NamazSessionRow
+                                          key={s.sessionId}
+                                          s={s}
+                                          isExpanded={expandedRecentSessionId === s.sessionId}
+                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* OLDER SESSIONS */}
+                                {olderSessions.length > 0 && (
+                                  <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
+                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
+                                      <span className="w-2 h-2 rounded-full bg-slate-350" />
+                                      <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest">Older Records</h5>
+                                    </div>
+                                    <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                                      {olderSessions.map(s => (
+                                        <NamazSessionRow
+                                          key={s.sessionId}
+                                          s={s}
+                                          isExpanded={expandedRecentSessionId === s.sessionId}
+                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {sessions.length === 0 && (
+                                  <div className="rounded-[1.25rem] border border-dashed border-stone-200 bg-white/65 px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">
+                                    No sessions received for these filters
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </>
@@ -2965,7 +3087,7 @@ export default function DashboardPage() {
               )}
 
               {reportType === "events" && (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="font-black text-gray-905 text-lg">Events History</h3>
@@ -2980,6 +3102,100 @@ export default function DashboardPage() {
                       Refresh
                     </button>
                   </div>
+
+                  {/* Dynamic Frontend Filters Bar */}
+                  {eventAttendance && eventAttendance.length > 0 && (
+                    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+                        <span className="text-base">🔍</span>
+                        <span className="text-xs font-black text-gray-550 uppercase tracking-widest">Filter Events</span>
+                      </div>
+                      {(() => {
+                        const flatEventsForFilters = [];
+                        eventAttendance.forEach((group) => {
+                          if (Array.isArray(group.history)) {
+                            group.history.forEach((session) => {
+                              flatEventsForFilters.push({
+                                ...session,
+                                eventName: group.eventName
+                              });
+                            });
+                          }
+                        });
+
+                        const uniqueClasses = Array.from(new Set(flatEventsForFilters.map(e => e.className))).filter(Boolean).sort();
+                        const uniqueEvents = Array.from(new Set(flatEventsForFilters.map(e => e.eventName))).filter(Boolean).sort();
+
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <section>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Class / Batch</label>
+                              <select
+                                className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
+                                value={selectedEventClassFilter}
+                                onChange={(e) => setSelectedEventClassFilter(e.target.value)}
+                              >
+                                <option value="">All Classes/Batches</option>
+                                {uniqueClasses.map(cls => (
+                                  <option key={cls} value={cls}>{cls}</option>
+                                ))}
+                              </select>
+                            </section>
+
+                            <section>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Event / Program</label>
+                              <select
+                                className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
+                                value={selectedEventNameFilter}
+                                onChange={(e) => setSelectedEventNameFilter(e.target.value)}
+                              >
+                                <option value="">All Events</option>
+                                {uniqueEvents.map(name => (
+                                  <option key={name} value={name}>{name}</option>
+                                ))}
+                              </select>
+                            </section>
+
+                            <section>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Date</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="date"
+                                  className="flex-1 px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs uppercase tracking-widest cursor-pointer"
+                                  value={selectedEventDateFilter}
+                                  onChange={(e) => setSelectedEventDateFilter(e.target.value)}
+                                />
+                                {selectedEventDateFilter && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedEventDateFilter("")}
+                                    className="px-3 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 font-bold text-xs hover:bg-gray-100 active:scale-95"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            </section>
+                          </div>
+                        );
+                      })()}
+
+                      {(selectedEventClassFilter || selectedEventNameFilter || selectedEventDateFilter) && (
+                        <div className="flex justify-end pt-2">
+                          <button
+                            onClick={() => {
+                              setSelectedEventClassFilter("");
+                              setSelectedEventNameFilter("");
+                              setSelectedEventDateFilter("");
+                            }}
+                            className="text-[10px] font-black text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100/80 px-3.5 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95"
+                          >
+                            Clear Filters
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {loadingEvents ? (
                     <div className="flex justify-center p-12">
@@ -3006,7 +3222,15 @@ export default function DashboardPage() {
                         }
                       });
 
-                      flatEvents.sort((a, b) => {
+                      // Apply frontend filters
+                      const filteredFlatEvents = flatEvents.filter(e => {
+                        if (selectedEventClassFilter && e.className !== selectedEventClassFilter) return false;
+                        if (selectedEventNameFilter && e.eventName !== selectedEventNameFilter) return false;
+                        if (selectedEventDateFilter && e.date !== selectedEventDateFilter) return false;
+                        return true;
+                      });
+
+                      filteredFlatEvents.sort((a, b) => {
                         const dateCompare = b.date.localeCompare(a.date);
                         if (dateCompare !== 0) return dateCompare;
                         return (b.createdAt || "").localeCompare(a.createdAt || "");
@@ -3015,7 +3239,7 @@ export default function DashboardPage() {
                       const groupedEvents = [];
                       let currentGroup = null;
 
-                      flatEvents.forEach((event) => {
+                      filteredFlatEvents.forEach((event) => {
                         if (currentGroup && currentGroup.eventName === event.eventName) {
                           currentGroup.occurrences.push(event);
                         } else {
@@ -3028,6 +3252,17 @@ export default function DashboardPage() {
                         }
                       });
 
+                      if (groupedEvents.length === 0) {
+                        return (
+                          <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
+                            <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                              No matching events found for the selected filters.
+                            </p>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
                           {groupedEvents.map((group) => (
@@ -3038,7 +3273,7 @@ export default function DashboardPage() {
                     })()
                   ) : (
                     <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🎉</div>
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
                       <p className="text-xs font-black uppercase tracking-widest text-gray-400">
                         No Event/Program attendance records found
                       </p>
