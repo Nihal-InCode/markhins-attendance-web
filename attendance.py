@@ -963,8 +963,10 @@ def is_urdu_class(class_name):
 def is_urdu_principal_name(name):
     return str(name or '').strip().upper() == 'MAHROOF QADIRI'
 
-def can_manage_health_for_class(class_teacher_of, student_class, teacher_name=None):
+def can_manage_health_for_class(class_teacher_of, student_class, teacher_name=None, teacher_id=None):
     if class_teacher_of == student_class or class_teacher_of == "PRINCIPAL":
+        return True
+    if teacher_id in (1, 3):  # Hardcoded Principal (3) & Vice Principal (1)
         return True
     return is_urdu_principal_name(teacher_name) and is_urdu_class(student_class)
 
@@ -2255,7 +2257,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
 
             student_id, student_name, student_class, parent_phone = student
 
-            if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
+            if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name, teacher_id):
                 unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                 continue
 
@@ -2390,7 +2392,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
 
-                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name, teacher_id):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -2542,7 +2544,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
 
-                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name, teacher_id):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -2688,7 +2690,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
             if student:
                 student_id, student_name, student_class, parent_phone = student
                 
-                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name):
+                if not can_manage_health_for_class(class_teacher_of, student_class, teacher_name, teacher_id):
                     unauthorized_students.append(f"{student_name} ({roll}) from {student_class}")
                     continue
 
@@ -5622,7 +5624,7 @@ if __name__ == "__main__":
                             # Failure patterns: "BLOCKED", "Unauthorized", "Not Found", etc.
                             success = True
                             low_reply = reply.lower()
-                            if any(x in low_reply for x in ["access denied", "blocked", "not found", "invalid", "unauthorized"]):
+                            if reply.startswith("❌") or any(x in low_reply for x in ["access denied", "blocked", "not found", "invalid", "unauthorized"]):
                                 success = False
                             
                             # Special case: If bot returns a help message or doesn't mention the action
