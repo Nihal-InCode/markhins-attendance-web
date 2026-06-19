@@ -43,7 +43,11 @@ def get_teacher_image_url(teacher_id):
         return None
 
     app_root = os.path.dirname(os.path.abspath(__file__))
-    teachers_dir = os.path.join(app_root, "frontend", "public", "teachers")
+    db_dir = os.path.dirname(DB_NAME)
+    teachers_dir = os.path.join(db_dir, "teachers")
+    if not os.path.exists(teachers_dir):
+        teachers_dir = os.path.join(app_root, "frontend", "public", "teachers")
+        
     for extension in ("jpg", "jpeg", "png", "webp"):
         filename = f"{teacher_id}.{extension}"
         file_path = os.path.join(teachers_dir, filename)
