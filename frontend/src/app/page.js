@@ -3855,17 +3855,32 @@ export default function DashboardPage() {
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
                         <div>Start Page: <span className="font-black text-gray-800">{config.startPage}</span></div>
                         <div>End Page: <span className="font-black text-gray-800">{config.endPage}</span></div>
-                        <div className="col-span-2">Total Pages: <span className="font-black text-gray-800">{config.totalPages}</span></div>
+                        <div>Total Pages: <span className="font-black text-gray-800">{config.totalPages}</span></div>
+                        <div>Current Page: <span className="font-black text-indigo-650">{config.currentPage && config.currentPage !== "-" ? config.currentPage : "No Progress"}</span></div>
                       </div>
 
                       <div className="mt-3">
                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Monthly Target Pages</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {config.targets.map(t => (
-                            <span key={t.month} className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-150 text-gray-600">
-                              {t.month}: {t.targetPage}
-                            </span>
-                          ))}
+                          {(() => {
+                            const monthOrder = ["june", "july", "august", "september", "october", "november", "december", "january", "february", "march", "april", "may"];
+                            const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' }).toLowerCase();
+                            
+                            return [...(config.targets || [])]
+                              .sort((a, b) => monthOrder.indexOf(a.month.toLowerCase()) - monthOrder.indexOf(b.month.toLowerCase()))
+                              .map(t => {
+                                const isCurrentMonth = t.month.toLowerCase() === currentMonthName;
+                                const badgeClass = isCurrentMonth
+                                  ? "text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-800 font-extrabold"
+                                  : "text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-150 text-gray-600";
+                                
+                                return (
+                                  <span key={t.month} className={badgeClass}>
+                                    {t.month}: {t.targetPage}
+                                  </span>
+                                );
+                              });
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -4179,7 +4194,7 @@ export default function DashboardPage() {
                               {config.bookName && (
                                 <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 Book: {config.bookName}</p>
                               )}
-                              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages)</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages) | Current Page: {config.currentPage}</p>
                             </div>
 
                             <div className="relative flex items-center justify-center h-16 w-16 shrink-0">
@@ -4210,25 +4225,28 @@ export default function DashboardPage() {
                             const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
 
                             return (
-                              <div className="space-y-3.5">
+                              <div className="space-y-4">
                                 {config.targetPage !== "-" && config.targetPage !== null && (
                                   <div className="space-y-1.5">
                                     <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                       <span>📅 Monthly Target Progress</span>
                                       <span className="font-bold text-gray-600">{mPct}% ({mCompleted} of {mTargetTotal} Pages)</span>
                                     </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2">
-                                      <div className={`h-2 rounded-full transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
+                                    <div className="w-full bg-gray-100 rounded-lg h-3">
+                                      <div className={`h-3 rounded-lg transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
                                     </div>
                                   </div>
                                 )}
 
                                 <div className="space-y-1.5">
-                                  <div className="w-full bg-gray-100 rounded-full h-3">
-                                    <div className={`h-3 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                                  <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                    <span>📚 Semester Syllabus Progress</span>
+                                    <span className="font-bold text-gray-650">{Math.round(pct)}% ({config.completedPages} of {config.totalPages} Pages)</span>
                                   </div>
-                                  <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest px-1">
-                                    <span>{config.completedPages} of {config.totalPages} Pages Completed ({Math.round(pct)}%)</span>
+                                  <div className="w-full bg-gray-100 rounded-lg h-5">
+                                    <div className={`h-5 rounded-lg transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                     <span>{config.remainingPages} Pages Remaining</span>
                                   </div>
                                 </div>
@@ -4330,7 +4348,7 @@ export default function DashboardPage() {
                           {config.bookName && (
                             <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 Book: {config.bookName}</p>
                           )}
-                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages)</p>
+                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages) | Current Page: {config.currentPage}</p>
                         </div>
 
                         <div className="relative flex items-center justify-center h-16 w-16 shrink-0">
@@ -4361,25 +4379,28 @@ export default function DashboardPage() {
                         const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
 
                         return (
-                          <div className="space-y-3.5">
+                          <div className="space-y-4">
                             {config.targetPage !== "-" && config.targetPage !== null && (
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                   <span>📅 Monthly Target Progress</span>
                                   <span className="font-bold text-gray-600">{mPct}% ({mCompleted} of {mTargetTotal} Pages)</span>
                                 </div>
-                                <div className="w-full bg-gray-100 rounded-full h-2">
-                                  <div className={`h-2 rounded-full transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
+                                <div className="w-full bg-gray-100 rounded-lg h-3">
+                                  <div className={`h-3 rounded-lg transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
                                 </div>
                               </div>
                             )}
 
                             <div className="space-y-1.5">
-                              <div className="w-full bg-gray-100 rounded-full h-3">
-                                <div className={`h-3 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                              <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                <span>📚 Semester Syllabus Progress</span>
+                                <span className="font-bold text-gray-650">{Math.round(pct)}% ({config.completedPages} of {config.totalPages} Pages)</span>
                               </div>
-                              <div className="flex items-center justify-between text-xs font-black text-gray-400 uppercase tracking-widest px-1">
-                                <span>{config.completedPages} of {config.totalPages} Pages Completed ({Math.round(pct)}%)</span>
+                              <div className="w-full bg-gray-100 rounded-lg h-5">
+                                <div className={`h-5 rounded-lg transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                 <span>{config.remainingPages} Pages Remaining</span>
                               </div>
                             </div>
