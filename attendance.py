@@ -4205,6 +4205,7 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
     avg_per_week = 0
     avg_per_month = 0
     est_completion_date = "N/A"
+    est_month_target_completion_date = "N/A"
     
     if len(history) >= 1:
         first_page = start_page
@@ -4233,6 +4234,15 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
                 est_completion_date = comp_date.strftime("%b %d, %Y")
             elif last_page >= end_page:
                 est_completion_date = "Completed"
+
+            if target_page is not None:
+                if last_page >= target_page:
+                    est_month_target_completion_date = "Completed"
+                elif pages_per_day > 0:
+                    rem_month_pages = target_page - last_page
+                    days_to_complete_month = rem_month_pages / pages_per_day
+                    comp_month_date = end_d + datetime.timedelta(days=days_to_complete_month)
+                    est_month_target_completion_date = comp_month_date.strftime("%b %d, %Y")
         except Exception as e:
             pass
 
@@ -4251,6 +4261,7 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
         "averagePagesPerWeek": avg_per_week,
         "averagePagesPerMonth": avg_per_month,
         "estimatedCompletionDate": est_completion_date,
+        "estimatedMonthTargetCompletionDate": est_month_target_completion_date,
         "targets": [{"month": r[0], "targetPage": r[1]} for r in targets_rows]
     }
 

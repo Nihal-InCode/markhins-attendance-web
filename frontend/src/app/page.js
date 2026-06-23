@@ -114,7 +114,7 @@ function EventOccurrenceRow({ occurrence }) {
 
   return (
     <div className="bg-gray-55/40 rounded-2xl border border-gray-100 p-4 hover:border-blue-200 hover:bg-white transition-all shadow-xs duration-200">
-      <div 
+      <div
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -170,21 +170,19 @@ function EventOccurrenceRow({ occurrence }) {
           <div className="flex gap-2 border-b border-gray-100 pb-1">
             <button
               onClick={() => setActiveListTab("present")}
-              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
-                activeListTab === "present"
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeListTab === "present"
                   ? "border-emerald-500 text-emerald-600 font-extrabold"
                   : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
+                }`}
             >
               Present ({presentCount})
             </button>
             <button
               onClick={() => setActiveListTab("absent")}
-              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
-                activeListTab === "absent"
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeListTab === "absent"
                   ? "border-red-500 text-red-600 font-extrabold"
                   : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
+                }`}
             >
               Absent ({absentCount})
             </button>
@@ -659,7 +657,7 @@ export default function DashboardPage() {
     const handleAppResume = async () => {
       console.log("App resumed from background or focused. Checking dates and syncing data...");
       const todayIst = getIstDateString();
-      
+
       // 1. Check if date changed (e.g. overnight sleep) and update states
       setAttendanceDate((prev) => (prev !== todayIst ? todayIst : prev));
       setSelectedDate((prev) => (prev !== todayIst ? todayIst : prev));
@@ -698,10 +696,10 @@ export default function DashboardPage() {
         } catch (err) {
           console.error("Failed to refresh last attendance on resume:", err);
         }
-        
+
         // Refresh marked periods list using the updated date string directly
         fetchMarked(todayIst);
-        
+
         if (selectedClass && selectedPeriod) {
           handleResolvePeriod(selectedClass, selectedPeriod, todayIst);
         }
@@ -1151,12 +1149,12 @@ export default function DashboardPage() {
 
       const teacherName = teachers.find((t) => String(t.id) === String(selectedTeacherForRegister))?.name || "Teacher";
       const className = classes.find((c) => String(c.id) === String(selectedClassForAnalysis))?.name || selectedClassForAnalysis || "Class";
-      
+
       const fromDateObj = new Date(registerFromDate);
       const toDateObj = new Date(registerToDate);
       const sameMonth = fromDateObj.getFullYear() === toDateObj.getFullYear() && fromDateObj.getMonth() === toDateObj.getMonth();
-      const monthLabel = sameMonth 
-        ? fromDateObj.toLocaleString('en-US', { month: 'long' }) 
+      const monthLabel = sameMonth
+        ? fromDateObj.toLocaleString('en-US', { month: 'long' })
         : `${fromDateObj.toLocaleString('en-US', { month: 'short' })}-${toDateObj.toLocaleString('en-US', { month: 'short' })}`;
 
       // 1. Setup Columns
@@ -1167,7 +1165,7 @@ export default function DashboardPage() {
         "Total",
         "Percentage (%)"
       ];
-      
+
       sheet.columns = headers.map((h, i) => ({
         header: h,
         key: `col_${i}`,
@@ -1180,19 +1178,19 @@ export default function DashboardPage() {
       sheet.insertRow(3, ["Class", className]);
       sheet.insertRow(4, ["Reporting Period", `${registerFromDate} to ${registerToDate}`]);
       sheet.insertRow(5, []); // Spacer
-      
+
       const titleCell = sheet.getCell('A1');
-      titleCell.font = { size: 16, bold: true, color: { argb: 'FF1D4ED8' } }; 
-      
+      titleCell.font = { size: 16, bold: true, color: { argb: 'FF1D4ED8' } };
+
       // 3. Header Row Styling
       const headerRow = sheet.getRow(6);
       headerRow.values = headers;
       headerRow.eachCell((cell) => {
         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; 
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = {
-          top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+          top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
         };
       });
 
@@ -1206,14 +1204,14 @@ export default function DashboardPage() {
           `${row.percentage}%`
         ];
         const newRow = sheet.addRow(bodyRowValues);
-        
+
         newRow.eachCell((cell, colNum) => {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
           cell.border = {
-            top: {style:'thin', color: {argb:'FFE2E8F0'}}, 
-            left: {style:'thin', color: {argb:'FFE2E8F0'}}, 
-            bottom: {style:'thin', color: {argb:'FFE2E8F0'}}, 
-            right: {style:'thin', color: {argb:'FFE2E8F0'}}
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
           };
 
           // Conditional Styling for attendance cells
@@ -1234,7 +1232,7 @@ export default function DashboardPage() {
               cell.font = { color: { argb: 'FF059669' }, bold: true };
             }
           }
-          
+
           if (colNum === 2) {
             cell.alignment = { horizontal: 'left', vertical: 'middle' };
             cell.font = { bold: true };
@@ -2101,9 +2099,8 @@ export default function DashboardPage() {
                                 setReportDropdownOpen(false);
                                 router.push(`/?tab=reports&type=${tab.id}`, { scroll: false });
                               }}
-                              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-xs font-black transition-all active:scale-[0.97] ${
-                                reportType === tab.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
-                              }`}
+                              className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-xs font-black transition-all active:scale-[0.97] ${reportType === tab.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
+                                }`}
                             >
                               <span className="text-lg bg-slate-50 p-1.5 rounded-lg">{tab.emoji}</span>
                               <span>{tab.label}</span>
@@ -2126,1647 +2123,1650 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-              {reportType === "syllabus" && (
-                <div className="space-y-6">
-                  {/* Actions and Filters Bar */}
-                  <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h4 className="text-lg font-black text-gray-900">Syllabus Progress & Planning</h4>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Configure targets and track student academic syllabus progress</p>
-                      </div>
-                      {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
-                        <button
-                          onClick={() => {
-                            setSyllabusFormData({
-                              id: null,
-                              class: "",
-                              subject: "",
-                              teacher_id: "",
-                              academic_year: new Date().getFullYear().toString(),
-                              semester: "Semester 1",
-                              book_name: "",
-                              start_page: "",
-                              end_page: "",
-                            });
-                            setSyllabusMonthTargets({
-                              June: "", July: "", August: "", September: "", October: "", November: "", December: "",
-                              January: "", February: "", March: "", April: "", May: ""
-                            });
-                            setSyllabusPopupOpen(true);
-                          }}
-                          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
-                        >
-                          ➕ Add Target Config
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Filter fields */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      <div>
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
-                        <select
-                          value={selectedSyllabusClassFilter}
-                          onChange={(e) => setSelectedSyllabusClassFilter(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
-                        >
-                          <option value="">All Classes</option>
-                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
-                        <select
-                          value={selectedSyllabusTeacherFilter}
-                          onChange={(e) => setSelectedSyllabusTeacherFilter(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
-                        >
-                          <option value="">All Teachers</option>
-                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Principal Dashboard Overview widget */}
-                  {(user?.role === 'Principal' || user?.role === 'Vice Principal' || user?.role === 'admin') && syllabusConfigs.length > 0 && (
+                {reportType === "syllabus" && (
+                  <div className="space-y-6">
+                    {/* Actions and Filters Bar */}
                     <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-                      <div>
-                        <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider">Principal Syllabus Monitor Panel</h4>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Instant health indicator of syllabus completions</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-lg font-black text-gray-900">Syllabus Progress & Planning</h4>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Configure targets and track student academic syllabus progress</p>
+                        </div>
+                        {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
+                          <button
+                            onClick={() => {
+                              setSyllabusFormData({
+                                id: null,
+                                class: "",
+                                subject: "",
+                                teacher_id: "",
+                                academic_year: new Date().getFullYear().toString(),
+                                semester: "Semester 1",
+                                book_name: "",
+                                start_page: "",
+                                end_page: "",
+                              });
+                              setSyllabusMonthTargets({
+                                June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                                January: "", February: "", March: "", April: "", May: ""
+                              });
+                              setSyllabusPopupOpen(true);
+                            }}
+                            className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
+                          >
+                            ➕ Add Target Config
+                          </button>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {syllabusConfigs.map(config => {
-                          const indicatorColors = {
-                            Green: { bg: "bg-emerald-500", text: "text-white", label: "🟢 Ahead / On Time" },
-                            Yellow: { bg: "bg-amber-400", text: "text-gray-900", label: "🟡 On Track" },
-                            Red: { bg: "bg-red-500", text: "text-white", label: "🔴 Behind Schedule" }
-                          }[config.statusColor] || { bg: "bg-gray-400", text: "text-white", label: "Gray" };
-                          
-                          return (
-                            <div key={config.id} className={`${indicatorColors.bg} ${indicatorColors.text} p-4 rounded-[1.75rem] flex flex-col justify-between h-28 shadow-sm transition-all hover:scale-[1.02]`}>
-                              <div>
-                                <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">{config.class}</span>
-                                <h5 className="font-black text-xs mt-2 line-clamp-1">{config.subject}</h5>
+
+                      {/* Filter fields */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Class</label>
+                          <select
+                            value={selectedSyllabusClassFilter}
+                            onChange={(e) => setSelectedSyllabusClassFilter(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                          >
+                            <option value="">All Classes</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Filter Teacher</label>
+                          <select
+                            value={selectedSyllabusTeacherFilter}
+                            onChange={(e) => setSelectedSyllabusTeacherFilter(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-3 font-bold text-xs focus:outline-none"
+                          >
+                            <option value="">All Teachers</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Principal Dashboard Overview widget */}
+                    {(user?.role === 'Principal' || user?.role === 'Vice Principal' || user?.role === 'admin') && syllabusConfigs.length > 0 && (
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+                        <div>
+                          <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider">Principal Syllabus Monitor Panel</h4>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Instant health indicator of syllabus completions</p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {syllabusConfigs.map(config => {
+                            const indicatorColors = {
+                              Green: { bg: "bg-emerald-500", text: "text-white", label: "🟢 Ahead / On Time" },
+                              Yellow: { bg: "bg-amber-400", text: "text-gray-900", label: "🟡 On Track" },
+                              Red: { bg: "bg-red-500", text: "text-white", label: "🔴 Behind Schedule" }
+                            }[config.statusColor] || { bg: "bg-gray-400", text: "text-white", label: "Gray" };
+
+                            return (
+                              <div key={config.id} className={`${indicatorColors.bg} ${indicatorColors.text} p-4 rounded-[1.75rem] flex flex-col justify-between h-28 shadow-sm transition-all hover:scale-[1.02]`}>
+                                <div>
+                                  <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">{config.class}</span>
+                                  <h5 className="font-black text-xs mt-2 line-clamp-1">{config.subject}</h5>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold opacity-90 line-clamp-1">{config.statusMessage}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-[9px] font-bold opacity-90 line-clamp-1">{config.statusMessage}</p>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Main Grid View */}
+                    {loadingSyllabus ? (
+                      <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
+                    ) : syllabusConfigs.length === 0 ? (
+                      <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
+                        <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations found.</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {syllabusConfigs.map(config => {
+                          const pct = config.completionPercentage;
+                          const progressValue = syllabusPageProgressData[config.id] || "";
+                          const statusColors = {
+                            Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
+                            Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
+                            Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
+                          }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
+
+                          return (
+                            <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between">
+                              <div className="space-y-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
+                                      <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
+                                    </div>
+                                    <h4 className="font-black text-gray-900 text-base mt-3">{config.subject}</h4>
+                                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
+                                  </div>
+
+                                  <div className="relative flex items-center justify-center h-14 w-14 shrink-0">
+                                    <svg className="absolute w-full h-full transform -rotate-90">
+                                      <circle cx="28" cy="28" r="22" stroke="#f3f4f6" strokeWidth="5" fill="transparent" />
+                                      <circle cx="28" cy="28" r="22" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="5" fill="transparent"
+                                        strokeDasharray={2 * Math.PI * 22}
+                                        strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min(100, pct) / 100)}
+                                      />
+                                    </svg>
+                                    <span className="text-xs font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
+                                  </div>
+                                </div>
+
+                                <div className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                                  <span>{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                                  <span>{config.statusMessage}</span>
+                                </div>
+
+                                {(() => {
+                                  const mTargetTotal = Math.max(1, Number(config.targetPage) - Number(config.startPage) + 1);
+                                  const mCompleted = Math.max(0, (config.currentPage === "-" ? 0 : Number(config.currentPage)) - Number(config.startPage) + 1);
+                                  const mPct = config.targetPage !== "-" && config.targetPage !== null
+                                    ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100))
+                                    : 0;
+                                  const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
+
+                                  return (
+                                    <div className="space-y-3">
+                                      {config.targetPage !== "-" && config.targetPage !== null && (
+                                        <div className="space-y-1">
+                                          <div className="flex items-center justify-between text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                            <span>📅 Monthly Target Progress</span>
+                                            <span className="font-bold text-gray-600">{mPct}% ({mCompleted}/{mTargetTotal} pgs)</span>
+                                          </div>
+                                          <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                            <div className={`h-1.5 rounded-full transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className="space-y-1">
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                          <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                          <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
+                                          <span>{config.remainingPages} left</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* Advanced Analytics Panel */}
+                                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50 text-left">
+                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Target Page</p>
+                                    <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
+                                  </div>
+                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
+                                    <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
+                                  </div>
+                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {config.semester} Syllabus</p>
+                                    <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
+                                  </div>
+                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                                    <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedMonthTargetCompletionDate}>{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Config Modification Buttons or Teacher Update Box */}
+                              <div className="pt-4 border-t border-gray-50 flex items-center justify-between gap-3 flex-wrap">
+                                {/* Log Progress for current teacher config */}
+                                {String(config.teacherId) === String(user?.id) ? (
+                                  <div className="flex-1 flex gap-2">
+                                    <input
+                                      type="number"
+                                      placeholder="Page"
+                                      className="w-20 bg-gray-50 border border-gray-150 rounded-2xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 text-gray-800"
+                                      value={progressValue}
+                                      onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
+                                      disabled={!progressValue}
+                                      className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${progressValue ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-300'}`}
+                                    >
+                                      Update Page
+                                    </button>
+                                  </div>
+                                ) : <div />}
+
+                                {/* Admin action modifiers */}
+                                {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={() => {
+                                        setSyllabusFormData({
+                                          id: config.id,
+                                          class: config.class,
+                                          subject: config.subject,
+                                          teacher_id: config.teacherId,
+                                          academic_year: config.academicYear || new Date().getFullYear().toString(),
+                                          semester: config.semester || "Semester 1",
+                                          book_name: config.bookName || "",
+                                          start_page: config.startPage,
+                                          end_page: config.endPage,
+                                        });
+
+                                        const targetsMap = {};
+                                        config.targets.forEach(t => {
+                                          targetsMap[t.month] = t.targetPage;
+                                        });
+                                        setSyllabusMonthTargets(prev => ({
+                                          June: "", July: "", August: "", September: "", October: "", November: "", December: "",
+                                          January: "", February: "", March: "", April: "", May: "",
+                                          ...targetsMap
+                                        }));
+
+                                        setSyllabusPopupOpen(true);
+                                      }}
+                                      className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                                      title="Edit Config"
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSyllabusConfig(config.id)}
+                                      className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
+                                      title="Delete Config"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
 
-                  {/* Main Grid View */}
-                  {loadingSyllabus ? (
-                    <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
-                  ) : syllabusConfigs.length === 0 ? (
-                    <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
-                      <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations found.</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-6 md:grid-cols-2">
-                      {syllabusConfigs.map(config => {
-                        const pct = config.completionPercentage;
-                        const progressValue = syllabusPageProgressData[config.id] || "";
-                        const statusColors = {
-                          Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
-                          Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
-                          Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
-                        }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
-
-                        return (
-                          <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between">
-                            <div className="space-y-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
-                                    <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
-                                  </div>
-                                  <h4 className="font-black text-gray-900 text-base mt-3">{config.subject}</h4>
-                                  <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
-                                </div>
-
-                                <div className="relative flex items-center justify-center h-14 w-14 shrink-0">
-                                  <svg className="absolute w-full h-full transform -rotate-90">
-                                    <circle cx="28" cy="28" r="22" stroke="#f3f4f6" strokeWidth="5" fill="transparent" />
-                                    <circle cx="28" cy="28" r="22" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="5" fill="transparent"
-                                      strokeDasharray={2 * Math.PI * 22}
-                                      strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min(100, pct) / 100)}
-                                    />
-                                  </svg>
-                                  <span className="text-xs font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
-                                </div>
+                {reportType === "overview" && (
+                  <>{/* 2. Active Health Status (Combined Sick/Leave) */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
+                        <span className="bg-purple-50 text-purple-600 text-[10px] font-black px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
+                          {sickLeaveOverview?.length || 0} active
+                        </span>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
+                        {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
+                          sickLeaveOverview.map((item, idx) => (
+                            <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
+                              <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
+                                {item.type === 'Sick' ? '💊' : '🏠'}
+                              </span>
+                              <div>
+                                <p className="font-black text-gray-800 line-clamp-1 pr-6">{item.name}</p>
+                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {item.rollNo} • {item.class}</p>
                               </div>
-
-                              <div className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
-                                <span>{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
-                                <span>{config.statusMessage}</span>
-                              </div>
-
-                              {(() => {
-                                const mTargetTotal = Math.max(1, Number(config.targetPage) - Number(config.startPage) + 1);
-                                const mCompleted = Math.max(0, (config.currentPage === "-" ? 0 : Number(config.currentPage)) - Number(config.startPage) + 1);
-                                const mPct = config.targetPage !== "-" && config.targetPage !== null
-                                  ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100))
-                                  : 0;
-                                const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
-
-                                return (
-                                  <div className="space-y-3">
-                                    {config.targetPage !== "-" && config.targetPage !== null && (
-                                      <div className="space-y-1">
-                                        <div className="flex items-center justify-between text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                          <span>📅 Monthly Target Progress</span>
-                                          <span className="font-bold text-gray-600">{mPct}% ({mCompleted}/{mTargetTotal} pgs)</span>
-                                        </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                          <div className={`h-1.5 rounded-full transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    <div className="space-y-1">
-                                      <div className="w-full bg-gray-100 rounded-full h-2">
-                                        <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
-                                      </div>
-                                      <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                        <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
-                                        <span>{config.remainingPages} left</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Advanced Analytics Panel */}
-                              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50 text-left">
-                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Target Page</p>
-                                  <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
-                                </div>
-                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
-                                  <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
-                                </div>
-                                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {config.semester} Syllabus</p>
-                                  <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
-                                </div>
+                              <div className="mt-2 pt-3 border-t border-gray-50">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Since {item.since}</p>
                               </div>
                             </div>
-
-                            {/* Config Modification Buttons or Teacher Update Box */}
-                            <div className="pt-4 border-t border-gray-50 flex items-center justify-between gap-3 flex-wrap">
-                              {/* Log Progress for current teacher config */}
-                              {String(config.teacherId) === String(user?.id) ? (
-                                <div className="flex-1 flex gap-2">
-                                  <input
-                                    type="number"
-                                    placeholder="Page"
-                                    className="w-20 bg-gray-50 border border-gray-150 rounded-2xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 text-gray-800"
-                                    value={progressValue}
-                                    onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
-                                  />
-                                  <button
-                                    onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
-                                    disabled={!progressValue}
-                                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${progressValue ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-300'}`}
-                                  >
-                                    Update Page
-                                  </button>
-                                </div>
-                              ) : <div />}
-
-                              {/* Admin action modifiers */}
-                              {(user?.role === 'admin' || user?.role === 'Principal' || user?.role === 'Vice Principal') && (
-                                <div className="flex gap-2 justify-end">
-                                  <button
-                                    onClick={() => {
-                                      setSyllabusFormData({
-                                        id: config.id,
-                                        class: config.class,
-                                        subject: config.subject,
-                                        teacher_id: config.teacherId,
-                                        academic_year: config.academicYear || new Date().getFullYear().toString(),
-                                        semester: config.semester || "Semester 1",
-                                        book_name: config.bookName || "",
-                                        start_page: config.startPage,
-                                        end_page: config.endPage,
-                                      });
-                                      
-                                      const targetsMap = {};
-                                      config.targets.forEach(t => {
-                                        targetsMap[t.month] = t.targetPage;
-                                      });
-                                      setSyllabusMonthTargets(prev => ({
-                                        June: "", July: "", August: "", September: "", October: "", November: "", December: "",
-                                        January: "", February: "", March: "", April: "", May: "",
-                                        ...targetsMap
-                                      }));
-                                      
-                                      setSyllabusPopupOpen(true);
-                                    }}
-                                    className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
-                                    title="Edit Config"
-                                  >
-                                    ✏️
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteSyllabusConfig(config.id)}
-                                    className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
-                                    title="Delete Config"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                          ))
+                        ) : (
+                          <div className="w-full bg-gray-50/50 p-10 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">All students normal</p>
                           </div>
-                        );
-                      })}
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {reportType === "overview" && (
-                <>{/* 2. Active Health Status (Combined Sick/Leave) */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
-                      <span className="bg-purple-50 text-purple-600 text-[10px] font-black px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
-                        {sickLeaveOverview?.length || 0} active
-                      </span>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
-                      {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
-                        sickLeaveOverview.map((item, idx) => (
-                          <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
-                            <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
-                              {item.type === 'Sick' ? '💊' : '🏠'}
+                    {user?.role === "admin" && (
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
+                          <div>
+                            <h3 className="font-black text-gray-800 tracking-tight text-lg">Admin Activity Log</h3>
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and today&apos;s actions for {selectedDate}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                              {adminActivityLog?.activeUsers?.length || 0} active now
                             </span>
-                            <div>
-                              <p className="font-black text-gray-800 line-clamp-1 pr-6">{item.name}</p>
-                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {item.rollNo} • {item.class}</p>
-                            </div>
-                            <div className="mt-2 pt-3 border-t border-gray-50">
-                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Since {item.since}</p>
-                            </div>
+                            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                              {adminActivityLog?.actions?.length || 0} actions
+                            </span>
                           </div>
-                        ))
-                      ) : (
-                        <div className="w-full bg-gray-50/50 p-10 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">All students normal</p>
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  {user?.role === "admin" && (
-                    <div className="space-y-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
-                        <div>
-                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Admin Activity Log</h3>
-                          <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and today&apos;s actions for {selectedDate}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                            {adminActivityLog?.activeUsers?.length || 0} active now
-                          </span>
-                          <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
-                            {adminActivityLog?.actions?.length || 0} actions
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-                        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-black text-gray-800">Users Online</h4>
-                            <button
-                              onClick={() => fetchAdminLog(selectedDate)}
-                              className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
-                            >
-                              Refresh
-                            </button>
-                          </div>
-                          <div className="mt-4 space-y-3">
-                            {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
-                              <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-black text-gray-900">{person.name}</p>
-                                    <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-gray-400">@{person.username}</p>
+                        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+                          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-black text-gray-800">Users Online</h4>
+                              <button
+                                onClick={() => fetchAdminLog(selectedDate)}
+                                className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
+                              >
+                                Refresh
+                              </button>
+                            </div>
+                            <div className="mt-4 space-y-3">
+                              {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
+                                <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-black text-gray-900">{person.name}</p>
+                                      <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-gray-400">@{person.username}</p>
+                                    </div>
+                                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
                                   </div>
-                                  <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{person.role}</span>
+                                    {person.classTeacherOf && (
+                                      <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">{person.classTeacherOf}</span>
+                                    )}
+                                  </div>
+                                  <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Last login: {person.lastLogin || "Unknown"}</p>
                                 </div>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{person.role}</span>
-                                  {person.classTeacherOf && (
-                                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">{person.classTeacherOf}</span>
-                                  )}
+                              )) : (
+                                <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No active users right now</p>
                                 </div>
-                                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Last login: {person.lastLogin || "Unknown"}</p>
-                              </div>
-                            )) : (
-                              <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No active users right now</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                          <h4 className="text-sm font-black text-gray-800">Today&apos;s Action Feed</h4>
-                          <div className="mt-4 overflow-hidden rounded-[2rem] border border-gray-100">
-                            <div className="max-h-[28rem] overflow-auto">
-                              <table className="w-full min-w-[720px] text-left">
-                                <thead className="sticky top-0 z-10 bg-gray-50">
-                                  <tr>
-                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Time</th>
-                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">User</th>
-                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Type</th>
-                                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                  {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
-                                    <tr key={`${row.type}-${idx}`} className="align-top">
-                                      <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
-                                      <td className="px-5 py-4">
-                                        <p className="text-sm font-black text-gray-800">{row.actor}</p>
-                                        {row.username && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">@{row.username}</p>}
-                                      </td>
-                                      <td className="px-5 py-4">
-                                        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{row.type}</span>
-                                      </td>
-                                      <td className="px-5 py-4">
-                                        <p className="text-sm font-semibold text-gray-700">{row.summary}</p>
-                                        {row.meta && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{row.meta}</p>}
-                                      </td>
-                                    </tr>
-                                  )) : (
-                                    <tr>
-                                      <td colSpan="4" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No activity records for this date</td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {user?.role !== "admin" && (
-                    <div className="space-y-4">
-                      <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
-                      <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[560px] text-left">
-                            <thead>
-                              <tr className="border-b border-gray-50">
-                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Period</th>
-                                <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
-                                <tr key={idx} className="text-sm">
-                                  <td className="py-5 font-bold text-gray-600">{row.date}</td>
-                                  <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
-                                  <td className="py-5 font-bold text-gray-800">{row.period}</td>
-                                  <td className="py-5 text-right"><span className="text-green-600 font-black text-[10px] uppercase tracking-wider">✅ Taken</span></td>
-                                </tr>
-                              ))}
-                              {(!weeklyReport || weeklyReport.length === 0) && (
-                                <tr><td colSpan="4" className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No activity records</td></tr>
                               )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </>
-              )}
-
-              {reportType === "namaz" && (
-                <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="font-black text-gray-900 text-lg">Namaz & Event Analytics</h3>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Independent Android session analytics</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={exportNamazExcel} disabled={!namazAnalytics} className="rounded-2xl bg-green-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">Excel</button>
-                        <button onClick={exportNamazPdf} disabled={!namazAnalytics} className="rounded-2xl bg-gray-900 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">PDF</button>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                      <input type="date" value={namazFromDate} onChange={(e) => setNamazFromDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
-                      <input type="date" value={namazToDate} onChange={(e) => setNamazToDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
-                      <select value={selectedNamazClass} onChange={(e) => setSelectedNamazClass(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
-                        <option value="">All Classes</option>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <input value={selectedNamazStudent} onChange={(e) => setSelectedNamazStudent(e.target.value)} placeholder="Student Roll" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
-                      <select value={selectedNamazSession} onChange={(e) => setSelectedNamazSession(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
-                        <option value="">All Sessions</option>
-                        {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      <button onClick={fetchNamazAnalytics} className="rounded-2xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700">Apply</button>
-                    </div>
-                  </div>
-
-                  {loadingNamaz ? (
-                    <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" /></div>
-                  ) : namazAnalytics ? (
-                    <>
-                      {/* Section 1: TOP KPI cards */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        {/* Card 1: Overall Attendance % */}
-                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#8d6e63]" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Overall Attendance</p>
-                              <p className="mt-2 text-3xl font-black text-[#5d4037]">{namazAnalytics.cards?.overallAttendance ?? 0}%</p>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-[#efebe9] flex items-center justify-center text-xl text-[#795548]">📊</div>
                           </div>
-                        </div>
-                        
-                        {/* Card 2: Students Below 80% */}
-                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#d84315]" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Below 80%</p>
-                              <p className="mt-2 text-3xl font-black text-[#d84315]">{namazAnalytics.cards?.studentsBelow80 ?? 0}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-2xl bg-[#fbe9e7] flex items-center justify-center text-xl text-[#d84315]">⚠️</div>
-                          </div>
-                        </div>
 
-                        {/* Card 3: Students Above 90% */}
-                        <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-[#2e7d32]" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Above 90%</p>
-                              <p className="mt-2 text-3xl font-black text-[#2e7d32]">{namazAnalytics.cards?.studentsAbove90 ?? 0}</p>
+                          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
+                            <h4 className="text-sm font-black text-gray-800">Today&apos;s Action Feed</h4>
+                            <div className="mt-4 overflow-hidden rounded-[2rem] border border-gray-100">
+                              <div className="max-h-[28rem] overflow-auto">
+                                <table className="w-full min-w-[720px] text-left">
+                                  <thead className="sticky top-0 z-10 bg-gray-50">
+                                    <tr>
+                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Time</th>
+                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">User</th>
+                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Type</th>
+                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-50">
+                                    {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
+                                      <tr key={`${row.type}-${idx}`} className="align-top">
+                                        <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
+                                        <td className="px-5 py-4">
+                                          <p className="text-sm font-black text-gray-800">{row.actor}</p>
+                                          {row.username && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">@{row.username}</p>}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                          <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{row.type}</span>
+                                        </td>
+                                        <td className="px-5 py-4">
+                                          <p className="text-sm font-semibold text-gray-700">{row.summary}</p>
+                                          {row.meta && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{row.meta}</p>}
+                                        </td>
+                                      </tr>
+                                    )) : (
+                                      <tr>
+                                        <td colSpan="4" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No activity records for this date</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-[#e8f5e9] flex items-center justify-center text-xl text-[#2e7d32]">⭐</div>
                           </div>
                         </div>
                       </div>
+                    )}
 
-                      {/* Section 3: Today's Recorded Sessions */}
-                      {(() => {
-                        const todayStr = getIstDateString();
-                        const todaySessions = (namazAnalytics.sessions || []).filter(s => s.date === todayStr);
-                        
-                        if (todaySessions.length === 0) return null;
+                    {user?.role !== "admin" && (
+                      <div className="space-y-4">
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
+                        <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[560px] text-left">
+                              <thead>
+                                <tr className="border-b border-gray-50">
+                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
+                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Period</th>
+                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
+                                  <tr key={idx} className="text-sm">
+                                    <td className="py-5 font-bold text-gray-600">{row.date}</td>
+                                    <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
+                                    <td className="py-5 font-bold text-gray-800">{row.period}</td>
+                                    <td className="py-5 text-right"><span className="text-green-600 font-black text-[10px] uppercase tracking-wider">✅ Taken</span></td>
+                                  </tr>
+                                ))}
+                                {(!weeklyReport || weeklyReport.length === 0) && (
+                                  <tr><td colSpan="4" className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No activity records</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-                        // Group sessions by sessionName (Fajr, Dhuhr, etc.)
-                        const grouped = {};
-                        todaySessions.forEach(s => {
-                          if (!grouped[s.sessionName]) {
-                            grouped[s.sessionName] = [];
-                          }
-                          grouped[s.sessionName].push(s);
-                        });
+                  </>
+                )}
 
-                        return (
-                          <div className="mb-6 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-                            <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Today's Recorded Sessions</h4>
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                              {Object.entries(grouped).map(([namazName, list]) => {
-                                const isNamazExpanded = expandedNamaz === namazName;
-                                const totalStudentCount = list.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
-                                
+                {reportType === "namaz" && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="font-black text-gray-900 text-lg">Namaz & Event Analytics</h3>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Independent Android session analytics</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={exportNamazExcel} disabled={!namazAnalytics} className="rounded-2xl bg-green-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">Excel</button>
+                          <button onClick={exportNamazPdf} disabled={!namazAnalytics} className="rounded-2xl bg-gray-900 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:bg-gray-200">PDF</button>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                        <input type="date" value={namazFromDate} onChange={(e) => setNamazFromDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                        <input type="date" value={namazToDate} onChange={(e) => setNamazToDate(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                        <select value={selectedNamazClass} onChange={(e) => setSelectedNamazClass(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
+                          <option value="">All Classes</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <input value={selectedNamazStudent} onChange={(e) => setSelectedNamazStudent(e.target.value)} placeholder="Student Roll" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100" />
+                        <select value={selectedNamazSession} onChange={(e) => setSelectedNamazSession(e.target.value)} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100">
+                          <option value="">All Sessions</option>
+                          {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <button onClick={fetchNamazAnalytics} className="rounded-2xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700">Apply</button>
+                      </div>
+                    </div>
+
+                    {loadingNamaz ? (
+                      <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" /></div>
+                    ) : namazAnalytics ? (
+                      <>
+                        {/* Section 1: TOP KPI cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                          {/* Card 1: Overall Attendance % */}
+                          <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-[#8d6e63]" />
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Overall Attendance</p>
+                                <p className="mt-2 text-3xl font-black text-[#5d4037]">{namazAnalytics.cards?.overallAttendance ?? 0}%</p>
+                              </div>
+                              <div className="w-12 h-12 rounded-2xl bg-[#efebe9] flex items-center justify-center text-xl text-[#795548]">📊</div>
+                            </div>
+                          </div>
+
+                          {/* Card 2: Students Below 80% */}
+                          <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-[#d84315]" />
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Below 80%</p>
+                                <p className="mt-2 text-3xl font-black text-[#d84315]">{namazAnalytics.cards?.studentsBelow80 ?? 0}</p>
+                              </div>
+                              <div className="w-12 h-12 rounded-2xl bg-[#fbe9e7] flex items-center justify-center text-xl text-[#d84315]">⚠️</div>
+                            </div>
+                          </div>
+
+                          {/* Card 3: Students Above 90% */}
+                          <div className="relative overflow-hidden rounded-3xl border border-[#d7ccc8]/50 bg-white/70 backdrop-blur-md p-6 shadow-md shadow-amber-900/5 transition-all duration-300 hover:shadow-lg hover:border-[#bcaaa4]">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-[#2e7d32]" />
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-[#795548]/80">Students Above 90%</p>
+                                <p className="mt-2 text-3xl font-black text-[#2e7d32]">{namazAnalytics.cards?.studentsAbove90 ?? 0}</p>
+                              </div>
+                              <div className="w-12 h-12 rounded-2xl bg-[#e8f5e9] flex items-center justify-center text-xl text-[#2e7d32]">⭐</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 3: Today's Recorded Sessions */}
+                        {(() => {
+                          const todayStr = getIstDateString();
+                          const todaySessions = (namazAnalytics.sessions || []).filter(s => s.date === todayStr);
+
+                          if (todaySessions.length === 0) return null;
+
+                          // Group sessions by sessionName (Fajr, Dhuhr, etc.)
+                          const grouped = {};
+                          todaySessions.forEach(s => {
+                            if (!grouped[s.sessionName]) {
+                              grouped[s.sessionName] = [];
+                            }
+                            grouped[s.sessionName].push(s);
+                          });
+
+                          return (
+                            <div className="mb-6 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+                              <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Today's Recorded Sessions</h4>
+                              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {Object.entries(grouped).map(([namazName, list]) => {
+                                  const isNamazExpanded = expandedNamaz === namazName;
+                                  const totalStudentCount = list.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
+
+                                  return (
+                                    <div key={namazName} className="col-span-full">
+                                      <div
+                                        onClick={() => setExpandedNamaz(isNamazExpanded ? null : namazName)}
+                                        className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isNamazExpanded
+                                            ? 'border-amber-300 bg-amber-50/30'
+                                            : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-200'
+                                          }`}
+                                      >
+                                        <div>
+                                          <h5 className="font-black text-stone-800 text-sm">{namazName}</h5>
+                                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 inline-block">
+                                            ✓ Recorded
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-xs font-black text-stone-600">
+                                            {totalStudentCount} Students
+                                          </span>
+                                          <span className="text-stone-400 text-xs">
+                                            {isNamazExpanded ? "▼" : "▶"}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Section 4: Expandable details */}
+                                      {isNamazExpanded && (
+                                        <div className="mt-2 pl-4 pr-2 py-3 border-l-2 border-dashed border-amber-200 space-y-3 bg-amber-50/10 rounded-r-xl">
+                                          {list.map(session => {
+                                            const classKey = `${namazName}-${session.className}`;
+                                            const isClassExpanded = !!expandedClasses[classKey];
+                                            const sList = session.students || [];
+                                            const presentList = sList.filter(st => st.status === "present");
+                                            const absentList = sList.filter(st => st.status === "absent");
+
+                                            return (
+                                              <div key={session.sessionId} className="border border-stone-100 rounded-xl bg-white overflow-hidden shadow-xs">
+                                                <div
+                                                  onClick={() => setExpandedClasses(prev => ({ ...prev, [classKey]: !isClassExpanded }))}
+                                                  className="p-3 bg-stone-50/50 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                                                >
+                                                  <span className="text-xs font-black text-stone-700">🏫 {session.className}</span>
+                                                  <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-bold text-stone-500">
+                                                      Present: {presentList.length} | Absent: {absentList.length}
+                                                    </span>
+                                                    <span className="text-stone-400 text-[10px]">
+                                                      {isClassExpanded ? "▼" : "▶"}
+                                                    </span>
+                                                  </div>
+                                                </div>
+
+                                                {isClassExpanded && (
+                                                  <div className="p-3 border-t border-stone-50 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                                    {/* Present Column */}
+                                                    <div>
+                                                      <p className="font-black text-emerald-700 mb-2">Present ({presentList.length})</p>
+                                                      {presentList.length > 0 ? (
+                                                        <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                          {presentList.map(st => (
+                                                            <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
+                                                              <span className="text-emerald-500 font-bold">✓</span>
+                                                              <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      ) : (
+                                                        <p className="text-stone-400 italic text-[10px]">No students present</p>
+                                                      )}
+                                                    </div>
+
+                                                    {/* Absent Column */}
+                                                    <div>
+                                                      <p className="font-black text-rose-700 mb-2">Absent ({absentList.length})</p>
+                                                      {absentList.length > 0 ? (
+                                                        <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                          {absentList.map(st => (
+                                                            <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
+                                                              <span className="text-rose-500 font-bold">✗</span>
+                                                              <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      ) : (
+                                                        <p className="text-stone-400 italic text-[10px]">No students absent</p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Section 5: Stats breakdown grid */}
+                        <div className="mb-6">
+                          <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Attendance Breakdown</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* Fajr */}
+                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                              <div>
+                                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌅 Fajr</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.fajrPercent ?? 0}%</p>
+                                <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className="h-full bg-blue-500" style={{ width: `${namazAnalytics.cards?.fajrPercent ?? 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Dhuhr */}
+                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                              <div>
+                                <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md uppercase tracking-wider">☀️ Dhuhr</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.dhuhrPercent ?? 0}%</p>
+                                <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className="h-full bg-amber-500" style={{ width: `${namazAnalytics.cards?.dhuhrPercent ?? 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Asr */}
+                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                              <div>
+                                <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌤️ Asr</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.asrPercent ?? 0}%</p>
+                                <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className="h-full bg-orange-500" style={{ width: `${namazAnalytics.cards?.asrPercent ?? 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Maghrib */}
+                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                              <div>
+                                <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌆 Maghrib</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.maghribPercent ?? 0}%</p>
+                                <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className="h-full bg-indigo-500" style={{ width: `${namazAnalytics.cards?.maghribPercent ?? 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Isha */}
+                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
+                              <div>
+                                <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌌 Isha</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.ishaPercent ?? 0}%</p>
+                                <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className="h-full bg-purple-500" style={{ width: `${namazAnalytics.cards?.ishaPercent ?? 0}%` }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Total Sessions */}
+                            <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40 text-white border border-stone-800">
+                              <div>
+                                <span className="text-[10px] font-black text-stone-300 bg-stone-700/50 px-2 py-0.5 rounded-md uppercase tracking-wider">📊 Stats</span>
+                                <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Total Sessions</h5>
+                              </div>
+                              <div className="flex items-end justify-between">
+                                <p className="text-3xl font-black text-white">{namazAnalytics.cards?.totalSessions ?? 0}</p>
+                                <span className="text-xl">🕌</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                            <h4 className="text-sm font-black text-gray-900">Class Analytics</h4>
+                            {namazAnalytics.classAnalytics ? (
+                              <div className="mt-4 grid grid-cols-2 gap-3">
+                                <div className="rounded-2xl bg-blue-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-blue-500">Class Average</p><p className="text-2xl font-black text-blue-900">{namazAnalytics.classAnalytics.classAverage}%</p></div>
+                                <div className="rounded-2xl bg-gray-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Total Sessions</p><p className="text-2xl font-black">{namazAnalytics.classAnalytics.totalSessions}</p></div>
+                                <div className="rounded-2xl bg-green-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-green-600">Best Student</p><p className="text-sm font-black text-green-900">{namazAnalytics.classAnalytics.bestStudent?.name || "-"}</p></div>
+                                <div className="rounded-2xl bg-red-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-red-500">Lowest Student</p><p className="text-sm font-black text-red-900">{namazAnalytics.classAnalytics.lowestStudent?.name || "-"}</p></div>
+                              </div>
+                            ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Select a class to view class analytics</p>}
+                          </div>
+
+                          <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                            <h4 className="text-sm font-black text-gray-900">Student Analytics</h4>
+                            {namazAnalytics.studentAnalytics ? (
+                              <div className="mt-4 space-y-4">
+                                <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
+                                  <div><p className="font-black">{namazAnalytics.studentAnalytics.name}</p><p className="text-[10px] font-bold text-gray-400">Roll {namazAnalytics.studentAnalytics.rollNo}</p></div>
+                                  <p className="text-3xl font-black text-blue-600">{namazAnalytics.studentAnalytics.overall}%</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                  <div className="rounded-2xl bg-green-50 p-3"><p className="text-[9px] font-black text-green-600 uppercase">Present</p><p className="font-black">{namazAnalytics.studentAnalytics.presentCount}</p></div>
+                                  <div className="rounded-2xl bg-red-50 p-3"><p className="text-[9px] font-black text-red-500 uppercase">Absent</p><p className="font-black">{namazAnalytics.studentAnalytics.absentCount}</p></div>
+                                  {Object.entries(namazAnalytics.studentAnalytics.sessions || {}).map(([name, row]) => <div key={name} className="rounded-2xl bg-blue-50 p-3"><p className="text-[9px] font-black text-blue-500 uppercase">{name}</p><p className="font-black">{row.percent}%</p></div>)}
+                                </div>
+                              </div>
+                            ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Enter a student roll number to view student analytics</p>}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 xl:grid-cols-3">
+                          {[
+                            ["Attendance Trends", namazAnalytics.trends],
+                            ["Monthly Trends", namazAnalytics.monthlyTrends],
+                            ["Session Comparison", namazAnalytics.sessionComparison],
+                          ].map(([title, rows]) => (
+                            <div key={title} className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
+                              <h4 className="text-sm font-black text-gray-900">{title}</h4>
+                              <div className="mt-5 space-y-3">
+                                {(rows || []).slice(-8).map(row => (
+                                  <div key={row.label} className="space-y-1.5">
+                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400"><span>{row.label}</span><span>{row.percent}%</span></div>
+                                    <div className="h-2 rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.min(row.percent, 100)}%` }} /></div>
+                                  </div>
+                                ))}
+                                {(!rows || rows.length === 0) && <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No uploaded session data</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {selectedNamazClass && namazAnalytics?.students && namazAnalytics.students.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                              <div>
+                                <h4 className="text-sm font-black text-gray-900 uppercase tracking-wider">Student Performance</h4>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Overall Namaz attendance rate by student</p>
+                              </div>
+                              <span className="text-[9px] font-black text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 uppercase tracking-widest">
+                                {namazAnalytics.students.length} Students
+                              </span>
+                            </div>
+                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" style={{ perspective: "1000px" }}>
+                              {namazAnalytics.students.map((student) => {
+                                // Professional color codes
+                                let statusColor = "from-emerald-500/10 to-emerald-500/5 border-emerald-100 text-emerald-700 shadow-emerald-500/10 hover:border-emerald-300";
+                                let progressBg = "bg-emerald-500";
+                                if (student.percent < 80) {
+                                  statusColor = "from-rose-500/10 to-rose-500/5 border-rose-100 text-rose-700 shadow-rose-500/10 hover:border-rose-300";
+                                  progressBg = "bg-rose-500";
+                                } else if (student.percent < 90) {
+                                  statusColor = "from-amber-500/10 to-amber-500/5 border-amber-100 text-amber-700 shadow-amber-500/10 hover:border-amber-300";
+                                  progressBg = "bg-amber-500";
+                                }
+
                                 return (
-                                  <div key={namazName} className="col-span-full">
-                                    <div 
-                                      onClick={() => setExpandedNamaz(isNamazExpanded ? null : namazName)}
-                                      className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                                        isNamazExpanded 
-                                          ? 'border-amber-300 bg-amber-50/30' 
-                                          : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50 hover:border-gray-200'
-                                      }`}
-                                    >
-                                      <div>
-                                        <h5 className="font-black text-stone-800 text-sm">{namazName}</h5>
-                                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md mt-1 inline-block">
-                                          ✓ Recorded
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-xs font-black text-stone-600">
-                                          {totalStudentCount} Students
-                                        </span>
-                                        <span className="text-stone-400 text-xs">
-                                          {isNamazExpanded ? "▼" : "▶"}
-                                        </span>
-                                      </div>
+                                  <div
+                                    key={student.rollNo}
+                                    className="group relative bg-white rounded-3xl border border-gray-150 p-5 transition-all duration-300 ease-out cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1.5 flex items-center justify-between overflow-hidden"
+                                    style={{
+                                      transformStyle: "preserve-3d",
+                                      transition: "transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), shadow 0.4s ease-out, border-color 0.3s",
+                                    }}
+                                    onMouseMove={(e) => {
+                                      const card = e.currentTarget;
+                                      const rect = card.getBoundingClientRect();
+                                      const x = e.clientX - rect.left - rect.width / 2;
+                                      const y = e.clientY - rect.top - rect.height / 2;
+                                      card.style.transform = `translateY(-6px) rotateY(${x / 10}deg) rotateX(${-y / 10}deg)`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const card = e.currentTarget;
+                                      card.style.transform = "translateY(0px) rotateY(0deg) rotateX(0deg)";
+                                    }}
+                                  >
+                                    {/* Hover overlay glow */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                                    {/* Left Info Panel */}
+                                    <div className="space-y-1 relative z-10">
+                                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Roll {student.rollNo}</p>
+                                      <h5 className="font-black text-gray-800 text-sm leading-snug group-hover:text-blue-600 transition-colors duration-200 truncate max-w-[155px]" title={student.name}>
+                                        {student.name}
+                                      </h5>
+                                      <p className="text-[10px] font-bold text-gray-400">{student.present} of {student.total} sessions</p>
                                     </div>
 
-                                    {/* Section 4: Expandable details */}
-                                    {isNamazExpanded && (
-                                      <div className="mt-2 pl-4 pr-2 py-3 border-l-2 border-dashed border-amber-200 space-y-3 bg-amber-50/10 rounded-r-xl">
-                                        {list.map(session => {
-                                          const classKey = `${namazName}-${session.className}`;
-                                          const isClassExpanded = !!expandedClasses[classKey];
-                                          const sList = session.students || [];
-                                          const presentList = sList.filter(st => st.status === "present");
-                                          const absentList = sList.filter(st => st.status === "absent");
+                                    {/* Right 3D Percentage Ring/Pill */}
+                                    <div
+                                      className={`flex items-center justify-center rounded-2xl border px-3 py-2.5 font-black text-base bg-gradient-to-br transition-all duration-300 ${statusColor}`}
+                                      style={{
+                                        transform: "translateZ(30px)",
+                                        boxShadow: "0 10px 20px -5px rgba(0,0,0,0.05)",
+                                      }}
+                                    >
+                                      {student.percent}%
+                                    </div>
 
-                                          return (
-                                            <div key={session.sessionId} className="border border-stone-100 rounded-xl bg-white overflow-hidden shadow-xs">
-                                              <div 
-                                                onClick={() => setExpandedClasses(prev => ({ ...prev, [classKey]: !isClassExpanded }))}
-                                                className="p-3 bg-stone-50/50 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
-                                              >
-                                                <span className="text-xs font-black text-stone-700">🏫 {session.className}</span>
-                                                <div className="flex items-center gap-3">
-                                                  <span className="text-[10px] font-bold text-stone-500">
-                                                    Present: {presentList.length} | Absent: {absentList.length}
-                                                  </span>
-                                                  <span className="text-stone-400 text-[10px]">
-                                                    {isClassExpanded ? "▼" : "▶"}
-                                                  </span>
-                                                </div>
-                                              </div>
-
-                                              {isClassExpanded && (
-                                                <div className="p-3 border-t border-stone-50 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                                                  {/* Present Column */}
-                                                  <div>
-                                                    <p className="font-black text-emerald-700 mb-2">Present ({presentList.length})</p>
-                                                    {presentList.length > 0 ? (
-                                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                                        {presentList.map(st => (
-                                                          <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
-                                                            <span className="text-emerald-500 font-bold">✓</span>
-                                                            <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
-                                                          </div>
-                                                        ))}
-                                                      </div>
-                                                    ) : (
-                                                      <p className="text-stone-400 italic text-[10px]">No students present</p>
-                                                    )}
-                                                  </div>
-
-                                                  {/* Absent Column */}
-                                                  <div>
-                                                    <p className="font-black text-rose-700 mb-2">Absent ({absentList.length})</p>
-                                                    {absentList.length > 0 ? (
-                                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                                        {absentList.map(st => (
-                                                          <div key={st.rollNo} className="text-stone-600 font-medium flex items-center gap-1.5 py-0.5">
-                                                            <span className="text-rose-500 font-bold">✗</span>
-                                                            <span>{st.name} <span className="text-[9px] text-stone-400 font-bold">({st.rollNo})</span></span>
-                                                          </div>
-                                                        ))}
-                                                      </div>
-                                                    ) : (
-                                                      <p className="text-stone-400 italic text-[10px]">No students absent</p>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                    {/* Bottom Accent Line */}
+                                    <div className={`absolute bottom-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5 ${progressBg}`} />
                                   </div>
                                 );
                               })}
                             </div>
                           </div>
-                        );
-                      })()}
+                        )}
 
-                      {/* Section 5: Stats breakdown grid */}
-                      <div className="mb-6">
-                        <h4 className="text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Attendance Breakdown</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {/* Fajr */}
-                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
-                            <div>
-                              <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌅 Fajr</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.fajrPercent ?? 0}%</p>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full bg-blue-500" style={{ width: `${namazAnalytics.cards?.fajrPercent ?? 0}%` }} />
-                              </div>
-                            </div>
+                        <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 shadow-lg shadow-stone-200/40 backdrop-blur-xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-amber-50/80 via-white/30 to-blue-50/60 pointer-events-none" />
+                          <div className="relative p-5 border-b border-white/80">
+                            <h4 className="text-sm font-black text-gray-900">Recent Sessions</h4>
                           </div>
+                          <div className="relative p-4 sm:p-5">
+                            {(() => {
+                              const todayStr = getIstDateString();
+                              const yesterdayStr = (() => {
+                                const formatter = new Intl.DateTimeFormat('en-CA', {
+                                  timeZone: 'Asia/Kolkata',
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                });
+                                const yesterday = new Date();
+                                yesterday.setDate(yesterday.getDate() - 1);
+                                const parts = formatter.formatToParts(yesterday);
+                                const year = parts.find((part) => part.type === 'year')?.value;
+                                const month = parts.find((part) => part.type === 'month')?.value;
+                                const day = parts.find((part) => part.type === 'day')?.value;
+                                return `${year}-${month}-${day}`;
+                              })();
 
-                          {/* Dhuhr */}
-                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
-                            <div>
-                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md uppercase tracking-wider">☀️ Dhuhr</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.dhuhrPercent ?? 0}%</p>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full bg-amber-500" style={{ width: `${namazAnalytics.cards?.dhuhrPercent ?? 0}%` }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Asr */}
-                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
-                            <div>
-                              <span className="text-[10px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌤️ Asr</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.asrPercent ?? 0}%</p>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full bg-orange-500" style={{ width: `${namazAnalytics.cards?.asrPercent ?? 0}%` }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Maghrib */}
-                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
-                            <div>
-                              <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌆 Maghrib</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.maghribPercent ?? 0}%</p>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full bg-indigo-500" style={{ width: `${namazAnalytics.cards?.maghribPercent ?? 0}%` }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Isha */}
-                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40">
-                            <div>
-                              <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md uppercase tracking-wider">🌌 Isha</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Attendance Rate</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-stone-800">{namazAnalytics.cards?.ishaPercent ?? 0}%</p>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full bg-purple-500" style={{ width: `${namazAnalytics.cards?.ishaPercent ?? 0}%` }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Total Sessions */}
-                          <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40 text-white border border-stone-800">
-                            <div>
-                              <span className="text-[10px] font-black text-stone-300 bg-stone-700/50 px-2 py-0.5 rounded-md uppercase tracking-wider">📊 Stats</span>
-                              <h5 className="mt-2 text-stone-400 font-bold text-[9px] uppercase tracking-widest">Total Sessions</h5>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <p className="text-3xl font-black text-white">{namazAnalytics.cards?.totalSessions ?? 0}</p>
-                              <span className="text-xl">🕌</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 xl:grid-cols-2">
-                        <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
-                          <h4 className="text-sm font-black text-gray-900">Class Analytics</h4>
-                          {namazAnalytics.classAnalytics ? (
-                            <div className="mt-4 grid grid-cols-2 gap-3">
-                              <div className="rounded-2xl bg-blue-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-blue-500">Class Average</p><p className="text-2xl font-black text-blue-900">{namazAnalytics.classAnalytics.classAverage}%</p></div>
-                              <div className="rounded-2xl bg-gray-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Total Sessions</p><p className="text-2xl font-black">{namazAnalytics.classAnalytics.totalSessions}</p></div>
-                              <div className="rounded-2xl bg-green-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-green-600">Best Student</p><p className="text-sm font-black text-green-900">{namazAnalytics.classAnalytics.bestStudent?.name || "-"}</p></div>
-                              <div className="rounded-2xl bg-red-50 p-4"><p className="text-[9px] font-black uppercase tracking-widest text-red-500">Lowest Student</p><p className="text-sm font-black text-red-900">{namazAnalytics.classAnalytics.lowestStudent?.name || "-"}</p></div>
-                            </div>
-                          ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Select a class to view class analytics</p>}
-                        </div>
-
-                        <div className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
-                          <h4 className="text-sm font-black text-gray-900">Student Analytics</h4>
-                          {namazAnalytics.studentAnalytics ? (
-                            <div className="mt-4 space-y-4">
-                              <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
-                                <div><p className="font-black">{namazAnalytics.studentAnalytics.name}</p><p className="text-[10px] font-bold text-gray-400">Roll {namazAnalytics.studentAnalytics.rollNo}</p></div>
-                                <p className="text-3xl font-black text-blue-600">{namazAnalytics.studentAnalytics.overall}%</p>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                <div className="rounded-2xl bg-green-50 p-3"><p className="text-[9px] font-black text-green-600 uppercase">Present</p><p className="font-black">{namazAnalytics.studentAnalytics.presentCount}</p></div>
-                                <div className="rounded-2xl bg-red-50 p-3"><p className="text-[9px] font-black text-red-500 uppercase">Absent</p><p className="font-black">{namazAnalytics.studentAnalytics.absentCount}</p></div>
-                                {Object.entries(namazAnalytics.studentAnalytics.sessions || {}).map(([name, row]) => <div key={name} className="rounded-2xl bg-blue-50 p-3"><p className="text-[9px] font-black text-blue-500 uppercase">{name}</p><p className="font-black">{row.percent}%</p></div>)}
-                              </div>
-                            </div>
-                          ) : <p className="mt-6 text-xs font-black uppercase tracking-widest text-gray-400">Enter a student roll number to view student analytics</p>}
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 xl:grid-cols-3">
-                        {[
-                          ["Attendance Trends", namazAnalytics.trends],
-                          ["Monthly Trends", namazAnalytics.monthlyTrends],
-                          ["Session Comparison", namazAnalytics.sessionComparison],
-                        ].map(([title, rows]) => (
-                          <div key={title} className="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm">
-                            <h4 className="text-sm font-black text-gray-900">{title}</h4>
-                            <div className="mt-5 space-y-3">
-                              {(rows || []).slice(-8).map(row => (
-                                <div key={row.label} className="space-y-1.5">
-                                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-400"><span>{row.label}</span><span>{row.percent}%</span></div>
-                                  <div className="h-2 rounded-full bg-gray-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.min(row.percent, 100)}%` }} /></div>
-                                </div>
-                              ))}
-                              {(!rows || rows.length === 0) && <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No uploaded session data</p>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {selectedNamazClass && namazAnalytics?.students && namazAnalytics.students.length > 0 && (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between px-1">
-                            <div>
-                              <h4 className="text-sm font-black text-gray-900 uppercase tracking-wider">Student Performance</h4>
-                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Overall Namaz attendance rate by student</p>
-                            </div>
-                            <span className="text-[9px] font-black text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 uppercase tracking-widest">
-                              {namazAnalytics.students.length} Students
-                            </span>
-                          </div>
-                          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" style={{ perspective: "1000px" }}>
-                            {namazAnalytics.students.map((student) => {
-                              // Professional color codes
-                              let statusColor = "from-emerald-500/10 to-emerald-500/5 border-emerald-100 text-emerald-700 shadow-emerald-500/10 hover:border-emerald-300";
-                              let progressBg = "bg-emerald-500";
-                              if (student.percent < 80) {
-                                statusColor = "from-rose-500/10 to-rose-500/5 border-rose-100 text-rose-700 shadow-rose-500/10 hover:border-rose-300";
-                                progressBg = "bg-rose-500";
-                              } else if (student.percent < 90) {
-                                statusColor = "from-amber-500/10 to-amber-500/5 border-amber-100 text-amber-700 shadow-amber-500/10 hover:border-amber-300";
-                                progressBg = "bg-amber-500";
-                              }
+                              const sessions = namazAnalytics.sessions || [];
+                              const todaySessions = sessions.filter(s => s.date === todayStr);
+                              const yesterdaySessions = sessions.filter(s => s.date === yesterdayStr);
+                              const olderSessions = sessions.filter(s => s.date !== todayStr && s.date !== yesterdayStr);
 
                               return (
-                                <div
-                                  key={student.rollNo}
-                                  className="group relative bg-white rounded-3xl border border-gray-150 p-5 transition-all duration-300 ease-out cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1.5 flex items-center justify-between overflow-hidden"
-                                  style={{
-                                    transformStyle: "preserve-3d",
-                                    transition: "transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), shadow 0.4s ease-out, border-color 0.3s",
-                                  }}
-                                  onMouseMove={(e) => {
-                                    const card = e.currentTarget;
-                                    const rect = card.getBoundingClientRect();
-                                    const x = e.clientX - rect.left - rect.width / 2;
-                                    const y = e.clientY - rect.top - rect.height / 2;
-                                    card.style.transform = `translateY(-6px) rotateY(${x / 10}deg) rotateX(${-y / 10}deg)`;
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    const card = e.currentTarget;
-                                    card.style.transform = "translateY(0px) rotateY(0deg) rotateX(0deg)";
-                                  }}
-                                >
-                                  {/* Hover overlay glow */}
-                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                                  
-                                  {/* Left Info Panel */}
-                                  <div className="space-y-1 relative z-10">
-                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Roll {student.rollNo}</p>
-                                    <h5 className="font-black text-gray-800 text-sm leading-snug group-hover:text-blue-600 transition-colors duration-200 truncate max-w-[155px]" title={student.name}>
-                                      {student.name}
-                                    </h5>
-                                    <p className="text-[10px] font-bold text-gray-400">{student.present} of {student.total} sessions</p>
-                                  </div>
+                                <div className="space-y-6">
+                                  {/* TODAY'S SESSIONS */}
+                                  {todaySessions.length > 0 && (
+                                    <div className="bg-emerald-50/30 border border-emerald-100 rounded-3xl p-4 shadow-sm shadow-emerald-50 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 blur-xl pointer-events-none" />
+                                      <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-emerald-100/50 pb-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-400" />
+                                        <h5 className="text-xs font-black text-emerald-800 uppercase tracking-widest">🟢 Today&apos;s Recorded Sessions</h5>
+                                      </div>
+                                      <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-emerald-100 divide-y divide-slate-100 overflow-hidden">
+                                        {todaySessions.map(s => (
+                                          <NamazSessionRow
+                                            key={s.sessionId}
+                                            s={s}
+                                            isExpanded={expandedRecentSessionId === s.sessionId}
+                                            onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
 
-                                  {/* Right 3D Percentage Ring/Pill */}
-                                  <div 
-                                    className={`flex items-center justify-center rounded-2xl border px-3 py-2.5 font-black text-base bg-gradient-to-br transition-all duration-300 ${statusColor}`}
-                                    style={{
-                                      transform: "translateZ(30px)",
-                                      boxShadow: "0 10px 20px -5px rgba(0,0,0,0.05)",
-                                    }}
-                                  >
-                                    {student.percent}%
-                                  </div>
-                                  
-                                  {/* Bottom Accent Line */}
-                                  <div className={`absolute bottom-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5 ${progressBg}`} />
+                                  {/* YESTERDAY'S SESSIONS */}
+                                  {yesterdaySessions.length > 0 && (
+                                    <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
+                                      <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
+                                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                        <h5 className="text-xs font-black text-slate-600 uppercase tracking-widest">⚪ Yesterday</h5>
+                                      </div>
+                                      <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                                        {yesterdaySessions.map(s => (
+                                          <NamazSessionRow
+                                            key={s.sessionId}
+                                            s={s}
+                                            isExpanded={expandedRecentSessionId === s.sessionId}
+                                            onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* OLDER SESSIONS */}
+                                  {olderSessions.length > 0 && (
+                                    <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
+                                      <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
+                                        <span className="w-2 h-2 rounded-full bg-slate-350" />
+                                        <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest">Older Records</h5>
+                                      </div>
+                                      <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                                        {olderSessions.map(s => (
+                                          <NamazSessionRow
+                                            key={s.sessionId}
+                                            s={s}
+                                            isExpanded={expandedRecentSessionId === s.sessionId}
+                                            onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {sessions.length === 0 && (
+                                    <div className="rounded-[1.25rem] border border-dashed border-stone-200 bg-white/65 px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">
+                                      No sessions received for these filters
+                                    </div>
+                                  )}
                                 </div>
                               );
-                            })}
+                            })()}
                           </div>
                         </div>
-                      )}
-
-                      <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 shadow-lg shadow-stone-200/40 backdrop-blur-xl">
-                        <div className="absolute inset-0 bg-gradient-to-br from-amber-50/80 via-white/30 to-blue-50/60 pointer-events-none" />
-                        <div className="relative p-5 border-b border-white/80">
-                          <h4 className="text-sm font-black text-gray-900">Recent Sessions</h4>
-                        </div>
-                        <div className="relative p-4 sm:p-5">
-                          {(() => {
-                            const todayStr = getIstDateString();
-                            const yesterdayStr = (() => {
-                              const formatter = new Intl.DateTimeFormat('en-CA', {
-                                timeZone: 'Asia/Kolkata',
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                              });
-                              const yesterday = new Date();
-                              yesterday.setDate(yesterday.getDate() - 1);
-                              const parts = formatter.formatToParts(yesterday);
-                              const year = parts.find((part) => part.type === 'year')?.value;
-                              const month = parts.find((part) => part.type === 'month')?.value;
-                              const day = parts.find((part) => part.type === 'day')?.value;
-                              return `${year}-${month}-${day}`;
-                            })();
-
-                            const sessions = namazAnalytics.sessions || [];
-                            const todaySessions = sessions.filter(s => s.date === todayStr);
-                            const yesterdaySessions = sessions.filter(s => s.date === yesterdayStr);
-                            const olderSessions = sessions.filter(s => s.date !== todayStr && s.date !== yesterdayStr);
-
-                            return (
-                              <div className="space-y-6">
-                                {/* TODAY'S SESSIONS */}
-                                {todaySessions.length > 0 && (
-                                  <div className="bg-emerald-50/30 border border-emerald-100 rounded-3xl p-4 shadow-sm shadow-emerald-50 relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 blur-xl pointer-events-none" />
-                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-emerald-100/50 pb-2">
-                                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-400" />
-                                      <h5 className="text-xs font-black text-emerald-800 uppercase tracking-widest">🟢 Today&apos;s Recorded Sessions</h5>
-                                    </div>
-                                    <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-emerald-100 divide-y divide-slate-100 overflow-hidden">
-                                      {todaySessions.map(s => (
-                                        <NamazSessionRow
-                                          key={s.sessionId}
-                                          s={s}
-                                          isExpanded={expandedRecentSessionId === s.sessionId}
-                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
-                                        />
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* YESTERDAY'S SESSIONS */}
-                                {yesterdaySessions.length > 0 && (
-                                  <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
-                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
-                                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                                      <h5 className="text-xs font-black text-slate-600 uppercase tracking-widest">⚪ Yesterday</h5>
-                                    </div>
-                                    <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
-                                      {yesterdaySessions.map(s => (
-                                        <NamazSessionRow
-                                          key={s.sessionId}
-                                          s={s}
-                                          isExpanded={expandedRecentSessionId === s.sessionId}
-                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
-                                        />
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* OLDER SESSIONS */}
-                                {olderSessions.length > 0 && (
-                                  <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-xs">
-                                    <div className="flex items-center gap-2 mb-3.5 px-3 border-b border-slate-100 pb-2">
-                                      <span className="w-2 h-2 rounded-full bg-slate-350" />
-                                      <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest">Older Records</h5>
-                                    </div>
-                                    <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
-                                      {olderSessions.map(s => (
-                                        <NamazSessionRow
-                                          key={s.sessionId}
-                                          s={s}
-                                          isExpanded={expandedRecentSessionId === s.sessionId}
-                                          onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
-                                        />
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {sessions.length === 0 && (
-                                  <div className="rounded-[1.25rem] border border-dashed border-stone-200 bg-white/65 px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">
-                                    No sessions received for these filters
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">Apply filters to load Namaz analytics</p>
                       </div>
-                    </>
-                  ) : (
-                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
-                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">Apply filters to load Namaz analytics</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {reportType === "events" && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-black text-gray-905 text-lg">Events History</h3>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">
-                        Historical record of special program and event attendances
-                      </p>
-                    </div>
-                    <button 
-                      onClick={fetchEventAttendance}
-                      className="rounded-2xl bg-blue-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-100"
-                    >
-                      Refresh
-                    </button>
+                    )}
                   </div>
+                )}
 
-                  {/* Dynamic Frontend Filters Bar */}
-                  {eventAttendance && eventAttendance.length > 0 && (
-                    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                      <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
-                        <span className="text-base">🔍</span>
-                        <span className="text-xs font-black text-gray-550 uppercase tracking-widest">Filter Events</span>
+                {reportType === "events" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="font-black text-gray-905 text-lg">Events History</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">
+                          Historical record of special program and event attendances
+                        </p>
                       </div>
-                      {(() => {
-                        const flatEventsForFilters = [];
-                        eventAttendance.forEach((group) => {
+                      <button
+                        onClick={fetchEventAttendance}
+                        className="rounded-2xl bg-blue-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-100"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+
+                    {/* Dynamic Frontend Filters Bar */}
+                    {eventAttendance && eventAttendance.length > 0 && (
+                      <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+                          <span className="text-base">🔍</span>
+                          <span className="text-xs font-black text-gray-550 uppercase tracking-widest">Filter Events</span>
+                        </div>
+                        {(() => {
+                          const flatEventsForFilters = [];
+                          eventAttendance.forEach((group) => {
+                            if (Array.isArray(group.history)) {
+                              group.history.forEach((session) => {
+                                flatEventsForFilters.push({
+                                  ...session,
+                                  eventName: group.eventName
+                                });
+                              });
+                            }
+                          });
+
+                          const uniqueClasses = Array.from(new Set(flatEventsForFilters.map(e => e.className))).filter(Boolean).sort();
+                          const uniqueEvents = Array.from(new Set(flatEventsForFilters.map(e => e.eventName))).filter(Boolean).sort();
+
+                          return (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <section>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Class / Batch</label>
+                                <select
+                                  className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
+                                  value={selectedEventClassFilter}
+                                  onChange={(e) => setSelectedEventClassFilter(e.target.value)}
+                                >
+                                  <option value="">All Classes/Batches</option>
+                                  {uniqueClasses.map(cls => (
+                                    <option key={cls} value={cls}>{cls}</option>
+                                  ))}
+                                </select>
+                              </section>
+
+                              <section>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Event / Program</label>
+                                <select
+                                  className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
+                                  value={selectedEventNameFilter}
+                                  onChange={(e) => setSelectedEventNameFilter(e.target.value)}
+                                >
+                                  <option value="">All Events</option>
+                                  {uniqueEvents.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                  ))}
+                                </select>
+                              </section>
+
+                              <section>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Date</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="date"
+                                    className="flex-1 px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs uppercase tracking-widest cursor-pointer"
+                                    value={selectedEventDateFilter}
+                                    onChange={(e) => setSelectedEventDateFilter(e.target.value)}
+                                  />
+                                  {selectedEventDateFilter && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedEventDateFilter("")}
+                                      className="px-3 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 font-bold text-xs hover:bg-gray-100 active:scale-95"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              </section>
+                            </div>
+                          );
+                        })()}
+
+                        {(selectedEventClassFilter || selectedEventNameFilter || selectedEventDateFilter) && (
+                          <div className="flex justify-end pt-2">
+                            <button
+                              onClick={() => {
+                                setSelectedEventClassFilter("");
+                                setSelectedEventNameFilter("");
+                                setSelectedEventDateFilter("");
+                              }}
+                              className="text-[10px] font-black text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100/80 px-3.5 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95"
+                            >
+                              Clear Filters
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {loadingEvents ? (
+                      <div className="flex justify-center p-12">
+                        <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
+                      </div>
+                    ) : eventAttendance && eventAttendance.length > 0 ? (
+                      (() => {
+                        const flatEvents = [];
+                        eventAttendance.forEach((group, groupIndex) => {
                           if (Array.isArray(group.history)) {
-                            group.history.forEach((session) => {
-                              flatEventsForFilters.push({
+                            group.history.forEach((session, sessionIndex) => {
+                              flatEvents.push({
                                 ...session,
-                                eventName: group.eventName
+                                eventName: group.eventName,
+                                recordKey: [
+                                  groupIndex,
+                                  sessionIndex,
+                                  session.sessionId || "no-session-id",
+                                  session.date || "no-date",
+                                  session.createdAt || "no-created-at",
+                                ].join("::")
                               });
                             });
                           }
                         });
 
-                        const uniqueClasses = Array.from(new Set(flatEventsForFilters.map(e => e.className))).filter(Boolean).sort();
-                        const uniqueEvents = Array.from(new Set(flatEventsForFilters.map(e => e.eventName))).filter(Boolean).sort();
+                        // Apply frontend filters
+                        const filteredFlatEvents = flatEvents.filter(e => {
+                          if (selectedEventClassFilter && e.className !== selectedEventClassFilter) return false;
+                          if (selectedEventNameFilter && e.eventName !== selectedEventNameFilter) return false;
+                          if (selectedEventDateFilter && e.date !== selectedEventDateFilter) return false;
+                          return true;
+                        });
+
+                        filteredFlatEvents.sort((a, b) => {
+                          const dateCompare = b.date.localeCompare(a.date);
+                          if (dateCompare !== 0) return dateCompare;
+                          return (b.createdAt || "").localeCompare(a.createdAt || "");
+                        });
+
+                        const groupedEvents = [];
+                        let currentGroup = null;
+
+                        filteredFlatEvents.forEach((event) => {
+                          if (currentGroup && currentGroup.eventName === event.eventName) {
+                            currentGroup.occurrences.push(event);
+                          } else {
+                            currentGroup = {
+                              id: `event-group-${groupedEvents.length}-${event.recordKey}`,
+                              eventName: event.eventName,
+                              occurrences: [event]
+                            };
+                            groupedEvents.push(currentGroup);
+                          }
+                        });
+
+                        if (groupedEvents.length === 0) {
+                          return (
+                            <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
+                              <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                                No matching events found for the selected filters.
+                              </p>
+                            </div>
+                          );
+                        }
 
                         return (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <section>
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Class / Batch</label>
-                              <select
-                                className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
-                                value={selectedEventClassFilter}
-                                onChange={(e) => setSelectedEventClassFilter(e.target.value)}
-                              >
-                                <option value="">All Classes/Batches</option>
-                                {uniqueClasses.map(cls => (
-                                  <option key={cls} value={cls}>{cls}</option>
-                                ))}
-                              </select>
-                            </section>
-
-                            <section>
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Event / Program</label>
-                              <select
-                                className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs"
-                                value={selectedEventNameFilter}
-                                onChange={(e) => setSelectedEventNameFilter(e.target.value)}
-                              >
-                                <option value="">All Events</option>
-                                {uniqueEvents.map(name => (
-                                  <option key={name} value={name}>{name}</option>
-                                ))}
-                              </select>
-                            </section>
-
-                            <section>
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5 block">Date</label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="date"
-                                  className="flex-1 px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-xs uppercase tracking-widest cursor-pointer"
-                                  value={selectedEventDateFilter}
-                                  onChange={(e) => setSelectedEventDateFilter(e.target.value)}
-                                />
-                                {selectedEventDateFilter && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedEventDateFilter("")}
-                                    className="px-3 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 font-bold text-xs hover:bg-gray-100 active:scale-95"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-                              </div>
-                            </section>
+                          <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
+                            {groupedEvents.map((group) => (
+                              <EventGroupCard key={group.id} group={group} />
+                            ))}
                           </div>
                         );
-                      })()}
-
-                      {(selectedEventClassFilter || selectedEventNameFilter || selectedEventDateFilter) && (
-                        <div className="flex justify-end pt-2">
-                          <button
-                            onClick={() => {
-                              setSelectedEventClassFilter("");
-                              setSelectedEventNameFilter("");
-                              setSelectedEventDateFilter("");
-                            }}
-                            className="text-[10px] font-black text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100/80 px-3.5 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95"
-                          >
-                            Clear Filters
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {loadingEvents ? (
-                    <div className="flex justify-center p-12">
-                      <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
-                    </div>
-                  ) : eventAttendance && eventAttendance.length > 0 ? (
-                    (() => {
-                      const flatEvents = [];
-                      eventAttendance.forEach((group, groupIndex) => {
-                        if (Array.isArray(group.history)) {
-                          group.history.forEach((session, sessionIndex) => {
-                            flatEvents.push({
-                              ...session,
-                              eventName: group.eventName,
-                              recordKey: [
-                                groupIndex,
-                                sessionIndex,
-                                session.sessionId || "no-session-id",
-                                session.date || "no-date",
-                                session.createdAt || "no-created-at",
-                              ].join("::")
-                            });
-                          });
-                        }
-                      });
-
-                      // Apply frontend filters
-                      const filteredFlatEvents = flatEvents.filter(e => {
-                        if (selectedEventClassFilter && e.className !== selectedEventClassFilter) return false;
-                        if (selectedEventNameFilter && e.eventName !== selectedEventNameFilter) return false;
-                        if (selectedEventDateFilter && e.date !== selectedEventDateFilter) return false;
-                        return true;
-                      });
-
-                      filteredFlatEvents.sort((a, b) => {
-                        const dateCompare = b.date.localeCompare(a.date);
-                        if (dateCompare !== 0) return dateCompare;
-                        return (b.createdAt || "").localeCompare(a.createdAt || "");
-                      });
-
-                      const groupedEvents = [];
-                      let currentGroup = null;
-
-                      filteredFlatEvents.forEach((event) => {
-                        if (currentGroup && currentGroup.eventName === event.eventName) {
-                          currentGroup.occurrences.push(event);
-                        } else {
-                          currentGroup = {
-                            id: `event-group-${groupedEvents.length}-${event.recordKey}`,
-                            eventName: event.eventName,
-                            occurrences: [event]
-                          };
-                          groupedEvents.push(currentGroup);
-                        }
-                      });
-
-                      if (groupedEvents.length === 0) {
-                        return (
-                          <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
-                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
-                            <p className="text-xs font-black uppercase tracking-widest text-gray-400">
-                              No matching events found for the selected filters.
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
-                          {groupedEvents.map((group) => (
-                            <EventGroupCard key={group.id} group={group} />
-                          ))}
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
-                      <p className="text-xs font-black uppercase tracking-widest text-gray-400">
-                        No Event/Program attendance records found
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {reportType === "analysis" && (
-                <div className="space-y-6">
-                  {/* 1. Student Search */}
-                  <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <input
-                        type="text"
-                        placeholder="Enter Roll No"
-                        className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
-                        value={searchRollNo}
-                        onChange={(e) => setSearchRollNo(e.target.value)}
-                      />
-                      <button
-                        onClick={handleStudentSearch}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
-                      >
-                        Search
-                      </button>
-                    </div>
-                  </div>
-
-                  {studentHistory && (
-                    <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                      <div className="relative z-10">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
-                          <div>
-                            <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
-                            <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
-                              Roll: {studentHistory.rollNo} • Class {studentHistory.class}
-                            </p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
-                            <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                            <p className="text-xl font-black">{studentHistory.stats?.total}</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
-                          </div>
-                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                            <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
-                          </div>
-                          <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                            <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 4. Batch-wise Report */}
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
-                      <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
-                      <select
-                        className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
-                        value={selectedClassForAnalysis}
-                        onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                      >
-                        <option value="">Select Class</option>
-                        {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-
-                    {Array.isArray(batchReport) ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {batchReport.map((student, idx) => (
-                          <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
-                            <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
-                              {Math.round(student.percent)}%
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs font-black text-gray-600">{student.attended}/{student.total}</p>
-                              <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      })()
                     ) : (
-                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select a class to view batch percentages</p>
+                      <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-lg font-black">🏆</div>
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                          No Event/Program attendance records found
+                        </p>
                       </div>
                     )}
                   </div>
+                )}
 
-                  <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
-                    {/* 4.5 Full-Day Absentees List */}
-                    <div className="flex flex-col gap-4 px-1">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
-                        <div className="flex gap-2">
-                          <select
-                            className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
-                            value={selectedClassForAnalysis}
-                            onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                          >
-                            <option value="">Select Class</option>
-                            {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </div>
-                      </div>
-
-                      {selectedClassForAnalysis && (
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                          {[
-                            { id: 'ALL', label: 'All Absentees', emoji: '📋' },
-                            { id: 'A', label: 'Absent Only', emoji: '❌' },
-                            { id: 'S', label: 'Sick Only', emoji: '💊' },
-                            { id: 'L', label: 'Leave Only', emoji: '🏠' }
-                          ].map(f => (
-                            <button
-                              key={f.id}
-                              onClick={() => setAbsenteeFilter(f.id)}
-                              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
-                            >
-                              <span>{f.emoji}</span> {f.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {loadingAbsentees ? (
-                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-                    ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
-                      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                        <div className="p-5 bg-gray-50/50 flex justify-between items-center">
-                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
-                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
-                        </div>
-                        {absenteeReport.map((student, idx) => (
-                          <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
-                                {student.rollNo}
-                              </div>
-                              <div>
-                                <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                                <div className="flex gap-1.5 mt-1">
-                                  <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
-                                        {student.status.split('(')[0].trim()}
-                                      </span>
-                                      {student.status.includes('(') && (
-                                        <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
-                                          {student.status.match(/\((\d+)/)?.[1]} P
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                setSearchRollNo(student.rollNo);
-                                handleStudentSearch();
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : selectedClassForAnalysis ? (
-                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-
-              {reportType === "extra" && (
-                <>{/* 4.7 Extra Classes Report Section */}
-                  <div className="space-y-4 pt-6 border-t border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
-                      <div>
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <select
-                          className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
-                          value={selectedClassForExtra}
-                          onChange={(e) => setSelectedClassForExtra(e.target.value)}
-                        >
-                          <option value="">All Classes</option>
-                          {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <select
-                          className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
-                          value={selectedTeacherForExtra}
-                          onChange={(e) => setSelectedTeacherForExtra(e.target.value)}
-                        >
-                          <option value="">All Teachers</option>
-                          {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
+                {reportType === "analysis" && (
+                  <div className="space-y-6">
+                    {/* 1. Student Search */}
+                    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
+                      <div className="flex flex-col gap-3 sm:flex-row">
                         <input
-                          type="date"
-                          className="bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
-                          value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
+                          type="text"
+                          placeholder="Enter Roll No"
+                          className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
+                          value={searchRollNo}
+                          onChange={(e) => setSearchRollNo(e.target.value)}
                         />
+                        <button
+                          onClick={handleStudentSearch}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
+                        >
+                          Search
+                        </button>
                       </div>
                     </div>
 
-                    {loadingExtra ? (
-                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
-                    ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
-                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        {extraClassesReport.map((report, idx) => (
-                          <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                              <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
+                    {studentHistory && (
+                      <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                        <div className="relative z-10">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
+                            <div>
+                              <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
+                              <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
+                                Roll: {studentHistory.rollNo} • Class {studentHistory.class}
+                              </p>
                             </div>
-                            <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
-                            <div className="mt-2 space-y-1">
-                              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
-                              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
-                            </div>
-                            <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-                              <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
-                                <p className="text-sm font-black text-green-600">{report.presentCount}</p>
-                                <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
-                              </div>
-                              <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
-                                <p className="text-sm font-black text-red-600">{report.absentCount}</p>
-                                <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
-                              </div>
+                            <div className="text-left sm:text-right">
+                              <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
+                              <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No extra classes records for this date</p>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                              <p className="text-xl font-black">{studentHistory.stats?.total}</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                              <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                              <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                </>
-              )}
-
-              {reportType === "register" && (
-                <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <section>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
+                    {/* 4. Batch-wise Report */}
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
+                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
                         <select
-                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                          className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
                           value={selectedClassForAnalysis}
                           onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
                         >
                           <option value="">Select Class</option>
-                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                      </section>
-                      <section>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Teacher</label>
-                        <select
-                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                          value={selectedTeacherForRegister}
-                          onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
-                        >
-                          <option value="">Select Teacher</option>
-                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                      </section>
-                      <section>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">From Date</label>
-                        <input
-                          type="date"
-                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                          value={registerFromDate}
-                          onChange={(e) => setRegisterFromDate(e.target.value)}
-                        />
-                      </section>
-                      <section>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">To Date</label>
-                        <input
-                          type="date"
-                          className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
-                          value={registerToDate}
-                          onChange={(e) => setRegisterToDate(e.target.value)}
-                        />
-                      </section>
+                      </div>
+
+                      {Array.isArray(batchReport) ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {batchReport.map((student, idx) => (
+                            <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
+                              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
+                                {Math.round(student.percent)}%
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
+                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-black text-gray-600">{student.attended}/{student.total}</p>
+                                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select a class to view batch percentages</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                      <button
-                        onClick={fetchDigitalRegister}
-                        disabled={loadingRegister}
-                        className="py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                      >
-                        {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
-                      </button>
-                      <button
-                        onClick={exportToExcel}
-                        disabled={digitalRegisterData.length === 0}
-                        className="py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-200 disabled:shadow-none"
-                      >
-                        📥 Download Excel
-                      </button>
+
+                    <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
+                      {/* 4.5 Full-Day Absentees List */}
+                      <div className="flex flex-col gap-4 px-1">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
+                          <div className="flex gap-2">
+                            <select
+                              className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
+                              value={selectedClassForAnalysis}
+                              onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                            >
+                              <option value="">Select Class</option>
+                              {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+                        </div>
+
+                        {selectedClassForAnalysis && (
+                          <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                            {[
+                              { id: 'ALL', label: 'All Absentees', emoji: '📋' },
+                              { id: 'A', label: 'Absent Only', emoji: '❌' },
+                              { id: 'S', label: 'Sick Only', emoji: '💊' },
+                              { id: 'L', label: 'Leave Only', emoji: '🏠' }
+                            ].map(f => (
+                              <button
+                                key={f.id}
+                                onClick={() => setAbsenteeFilter(f.id)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+                              >
+                                <span>{f.emoji}</span> {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {loadingAbsentees ? (
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                      ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
+                        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+                          <div className="p-5 bg-gray-50/50 flex justify-between items-center">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
+                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
+                          </div>
+                          {absenteeReport.map((student, idx) => (
+                            <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
+                                  {student.rollNo}
+                                </div>
+                                <div>
+                                  <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
+                                  <div className="flex gap-1.5 mt-1">
+                                    <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
+                                          {student.status.split('(')[0].trim()}
+                                        </span>
+                                        {student.status.includes('(') && (
+                                          <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
+                                            {student.status.match(/\((\d+)/)?.[1]} P
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSearchRollNo(student.rollNo);
+                                  handleStudentSearch();
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : selectedClassForAnalysis ? (
+                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
+                )}
 
-                  {digitalRegisterData.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                          <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Classes Taken</p>
-                          <p className="mt-3 text-2xl font-black text-blue-900">{digitalRegisterSummary.classesTaken || 0}</p>
+                {reportType === "extra" && (
+                  <>{/* 4.7 Extra Classes Report Section */}
+                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1">
+                        <div>
+                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
                         </div>
-                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
-                          <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.assignedPeriods || 0}</p>
-                        </div>
-                        <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                          <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Teaching %</p>
-                          <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterSummary.teachingPercentage || 0}%</p>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse min-w-[600px]">
-                            <thead>
-                              <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Attendance Timeline</th>
-                                <th className="px-4 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right">%</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {digitalRegisterData.map((row, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                                  <td className="px-6 py-4">
-                                    <span className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-[10px] font-black group-hover:bg-white group-hover:text-gray-600 transition-all">
-                                      {row.rollNo}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <p className="font-bold text-gray-700 whitespace-nowrap">{row.name}</p>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[300px]">
-                                      {row.attendanceLine.split(",").map((status, sIdx) => {
-                                        const s = status.trim();
-                                        const isAbsent = s === 'A' || s === 'S' || s === 'L';
-                                        return (
-                                          <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
-                                            }`}>
-                                            {s}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-4 text-right">
-                                    <span className={`font-black text-[10px] px-2 py-1 rounded-md ${row.percentage >= 75 ? 'bg-emerald-50 text-emerald-600' :
-                                        row.percentage >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
-                                      }`}>
-                                      {row.percentage}%
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    <span className="font-black text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg">
-                                      {row.total}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="flex flex-wrap gap-2">
+                          <select
+                            className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                            value={selectedClassForExtra}
+                            onChange={(e) => setSelectedClassForExtra(e.target.value)}
+                          >
+                            <option value="">All Classes</option>
+                            {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <select
+                            className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
+                            value={selectedTeacherForExtra}
+                            onChange={(e) => setSelectedTeacherForExtra(e.target.value)}
+                          >
+                            <option value="">All Teachers</option>
+                            {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                          <input
+                            type="date"
+                            className="bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100 text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                          />
                         </div>
                       </div>
+
+                      {loadingExtra ? (
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
+                      ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                          {extraClassesReport.map((report, idx) => (
+                            <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
+                              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
+                              <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
+                              </div>
+                              <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
+                              <div className="mt-2 space-y-1">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
+                              </div>
+                              <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
+                                <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
+                                  <p className="text-sm font-black text-green-600">{report.presentCount}</p>
+                                  <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
+                                </div>
+                                <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
+                                  <p className="text-sm font-black text-red-600">{report.absentCount}</p>
+                                  <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No extra classes records for this date</p>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    !loadingRegister && (
-                      <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-300">📒</div>
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
 
-              {reportType === "overview" && (
-                <>{/* 5. Live Daily Monitoring */}
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
-                      <div>
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Live Daily Monitoring</h3>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
+                  </>
+                )}
+
+                {reportType === "register" && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <section>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Class</label>
+                          <select
+                            className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                            value={selectedClassForAnalysis}
+                            onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                          >
+                            <option value="">Select Class</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </section>
+                        <section>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Teacher</label>
+                          <select
+                            className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                            value={selectedTeacherForRegister}
+                            onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
+                          >
+                            <option value="">Select Teacher</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </section>
+                        <section>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">From Date</label>
+                          <input
+                            type="date"
+                            className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                            value={registerFromDate}
+                            onChange={(e) => setRegisterFromDate(e.target.value)}
+                          />
+                        </section>
+                        <section>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">To Date</label>
+                          <input
+                            type="date"
+                            className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-bold text-sm"
+                            value={registerToDate}
+                            onChange={(e) => setRegisterToDate(e.target.value)}
+                          />
+                        </section>
                       </div>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                         <button
-                          onClick={() => setDailyRefreshTs(Date.now())}
-                          className="h-11 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm font-black text-sm"
-                          title="Refresh"
+                          onClick={fetchDigitalRegister}
+                          disabled={loadingRegister}
+                          className="py-4 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
                         >
-                          Refresh
+                          {loadingRegister ? 'Loading...' : '🔍 Generate Register'}
                         </button>
-                        <input
-                          type="date"
-                          className="h-11 text-sm font-black text-blue-600 bg-gray-50 px-4 rounded-2xl border border-gray-100 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
-                          value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
-                        />
+                        <button
+                          onClick={exportToExcel}
+                          disabled={digitalRegisterData.length === 0}
+                          className="py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-200 disabled:shadow-none"
+                        >
+                          📥 Download Excel
+                        </button>
                       </div>
                     </div>
 
-                    {loadingFeature && !dailyReportData ? (
-                      <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
-                    ) : Array.isArray(dailyReportData) && dailyReportData.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        {dailyReportData.map((item, idx) => (
-                          <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
-                            <div className="flex items-center justify-between gap-3 mb-4 border-b border-gray-50 pb-3">
-                              <span className="font-black text-sm text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
-                              <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-                              {(Array.isArray(item.periods) ? item.periods : []).map((p, pIdx) => {
-                                const isClickable = p.scheduled || p.taken;
-                                return (
-                                  <button
-                                    key={pIdx}
-                                    onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
-                                    className={`min-h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
-                                      ? 'cursor-pointer hover:shadow-md'
-                                      : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
-                                      } group/cell ${p.taken
-                                        ? 'bg-green-50 border-green-200'
-                                        : p.scheduled
-                                          ? 'bg-red-50 border-red-100'
-                                          : ''
-                                      }`}
-                                  >
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
-                                    <span className="text-xl mt-1 select-none text-gray-300">
-                                      {p.taken ? '✅' : p.scheduled ? '⏳' : '—'}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                    {digitalRegisterData.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Classes Taken</p>
+                            <p className="mt-3 text-2xl font-black text-blue-900">{digitalRegisterSummary.classesTaken || 0}</p>
                           </div>
-                        ))}
+                          <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Assigned Periods</p>
+                            <p className="mt-3 text-2xl font-black text-emerald-900">{digitalRegisterSummary.assignedPeriods || 0}</p>
+                          </div>
+                          <div className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Teaching %</p>
+                            <p className="mt-3 text-2xl font-black text-amber-900">{digitalRegisterSummary.teachingPercentage || 0}%</p>
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[600px]">
+                              <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Name</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Attendance Timeline</th>
+                                  <th className="px-4 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right">%</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-green-600 uppercase tracking-widest text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {digitalRegisterData.map((row, idx) => (
+                                  <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                                    <td className="px-6 py-4">
+                                      <span className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-[10px] font-black group-hover:bg-white group-hover:text-gray-600 transition-all">
+                                        {row.rollNo}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <p className="font-bold text-gray-700 whitespace-nowrap">{row.name}</p>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[300px]">
+                                        {row.attendanceLine.split(",").map((status, sIdx) => {
+                                          const s = status.trim();
+                                          const isAbsent = s === 'A' || s === 'S' || s === 'L';
+                                          return (
+                                            <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
+                                              }`}>
+                                              {s}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-4 text-right">
+                                      <span className={`font-black text-[10px] px-2 py-1 rounded-md ${row.percentage >= 75 ? 'bg-emerald-50 text-emerald-600' :
+                                        row.percentage >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                        }`}>
+                                        {row.percentage}%
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                      <span className="font-black text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg">
+                                        {row.total}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-center py-20 bg-gray-50/30 rounded-[2.5rem] border border-dashed border-gray-200">
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records found for this date</p>
-                      </div>
+                      !loadingRegister && (
+                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl text-blue-300">📒</div>
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
+                        </div>
+                      )
                     )}
                   </div>
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
+                )}
+
+                {reportType === "overview" && (
+                  <>{/* 5. Live Daily Monitoring */}
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center px-1 pt-6 border-t border-gray-100">
+                        <div>
+                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Live Daily Monitoring</h3>
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tap any period for details</p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <button
+                            onClick={() => setDailyRefreshTs(Date.now())}
+                            className="h-11 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 shadow-sm font-black text-sm"
+                            title="Refresh"
+                          >
+                            Refresh
+                          </button>
+                          <input
+                            type="date"
+                            className="h-11 text-sm font-black text-blue-600 bg-gray-50 px-4 rounded-2xl border border-gray-100 uppercase tracking-widest cursor-pointer focus:ring-2 focus:ring-blue-100"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {loadingFeature && !dailyReportData ? (
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                      ) : Array.isArray(dailyReportData) && dailyReportData.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                          {dailyReportData.map((item, idx) => (
+                            <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-blue-100 group min-w-0">
+                              <div className="flex items-center justify-between gap-3 mb-4 border-b border-gray-50 pb-3">
+                                <span className="font-black text-sm text-gray-800 bg-gray-50 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.class}</span>
+                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] self-center">Daily Status</span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                                {(Array.isArray(item.periods) ? item.periods : []).map((p, pIdx) => {
+                                  const isClickable = p.scheduled || p.taken;
+                                  return (
+                                    <button
+                                      key={pIdx}
+                                      onClick={() => isClickable && openPeriodModal(item.class, p.period, selectedDate)}
+                                      className={`min-h-16 rounded-2xl flex flex-col items-center justify-center border transition-all ${isClickable
+                                        ? 'cursor-pointer hover:shadow-md'
+                                        : 'cursor-default opacity-50 bg-gray-100 border-gray-100 pointer-events-none'
+                                        } group/cell ${p.taken
+                                          ? 'bg-green-50 border-green-200'
+                                          : p.scheduled
+                                            ? 'bg-red-50 border-red-100'
+                                            : ''
+                                        }`}
+                                    >
+                                      <span className={`text-[10px] font-black uppercase tracking-widest ${p.taken ? 'text-green-700' : p.scheduled ? 'text-red-400' : 'text-gray-400'}`}>{p.period}</span>
+                                      <span className="text-xl mt-1 select-none text-gray-300">
+                                        {p.taken ? '✅' : p.scheduled ? '⏳' : '—'}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-20 bg-gray-50/30 rounded-[2.5rem] border border-dashed border-gray-200">
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records found for this date</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        )}
 
         {/* ── SYLLABUS MANAGEMENT TAB (ADMIN ONLY) ── */}
         {activeTab === "syllabus_management" && user?.role === 'admin' && (
@@ -3851,7 +3851,7 @@ export default function DashboardPage() {
                         <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 {config.bookName}</p>
                       )}
                       <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
-                      
+
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
                         <div>Start Page: <span className="font-black text-gray-800">{config.startPage}</span></div>
                         <div>End Page: <span className="font-black text-gray-800">{config.endPage}</span></div>
@@ -3865,7 +3865,7 @@ export default function DashboardPage() {
                           {(() => {
                             const monthOrder = ["june", "july", "august", "september", "october", "november", "december", "january", "february", "march", "april", "may"];
                             const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' }).toLowerCase();
-                            
+
                             return [...(config.targets || [])]
                               .sort((a, b) => monthOrder.indexOf(a.month.toLowerCase()) - monthOrder.indexOf(b.month.toLowerCase()))
                               .map(t => {
@@ -3873,7 +3873,7 @@ export default function DashboardPage() {
                                 const badgeClass = isCurrentMonth
                                   ? "text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-800 font-extrabold"
                                   : "text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-150 text-gray-600";
-                                
+
                                 return (
                                   <span key={t.month} className={badgeClass}>
                                     {t.month}: {t.targetPage}
@@ -3899,7 +3899,7 @@ export default function DashboardPage() {
                             start_page: config.startPage,
                             end_page: config.endPage,
                           });
-                          
+
                           const targetsMap = {};
                           config.targets.forEach(t => {
                             targetsMap[t.month] = t.targetPage;
@@ -3909,7 +3909,7 @@ export default function DashboardPage() {
                             January: "", February: "", March: "", April: "", May: "",
                             ...targetsMap
                           }));
-                          
+
                           setSyllabusPopupOpen(true);
                         }}
                         className="p-2.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
@@ -4030,7 +4030,7 @@ export default function DashboardPage() {
                           Yellow: { bg: "bg-amber-400", text: "text-gray-900" },
                           Red: { bg: "bg-red-500", text: "text-white" }
                         }[config.statusColor] || { bg: "bg-gray-400", text: "text-white" };
-                        
+
                         return (
                           <div key={config.id} className={`${indicatorColors.bg} ${indicatorColors.text} p-4 rounded-[1.75rem] flex flex-col justify-between h-28 shadow-sm transition-all hover:scale-[1.02]`}>
                             <div>
@@ -4147,6 +4147,10 @@ export default function DashboardPage() {
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
                                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
                                 <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                              </div>
+                              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
+                                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                                <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                               </div>
                             </div>
                           </div>
@@ -4276,6 +4280,10 @@ export default function DashboardPage() {
                             <div className="col-span-2 sm:col-span-3">
                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
                               <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                            </div>
+                            <div className="col-span-2 sm:col-span-3">
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion Date of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                              <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                             </div>
                           </div>
 
@@ -4433,6 +4441,10 @@ export default function DashboardPage() {
                         <div className="col-span-2 sm:col-span-3">
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
                           <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                        </div>
+                        <div className="col-span-2 sm:col-span-3">
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion Date of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                         </div>
                       </div>
 
