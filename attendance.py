@@ -4175,9 +4175,15 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
             status_msg = f"Ahead of Schedule by {diff} pages ({days_left} days left)"
             status_color = "Green"
         elif diff < 0:
-            status = "Behind"
-            status_msg = f"Behind Schedule by {abs(diff)} pages ({days_left} days left)"
-            status_color = "Red"
+            if abs(diff) <= 5:
+                status = "Slightly Behind"
+                status_msg = f"Behind Schedule by {abs(diff)} pages ({days_left} days left)"
+                status_color = "Yellow"
+            else:
+                status = "Behind"
+                status_msg = f"Behind Schedule by {abs(diff)} pages ({days_left} days left)"
+                status_color = "Red"
+            status_color = "Yellow" if abs(diff) <= 5 else "Red"
         else:
             status = "On Track"
             status_msg = f"On Schedule ({days_left} days left)"

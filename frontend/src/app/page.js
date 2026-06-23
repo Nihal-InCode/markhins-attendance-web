@@ -2314,7 +2314,7 @@ export default function DashboardPage() {
                                   <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
                                 </div>
                                 <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion</p>
+                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {config.semester} Syllabus</p>
                                   <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
                                 </div>
                               </div>
@@ -4145,7 +4145,7 @@ export default function DashboardPage() {
                                 </p>
                               </div>
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
                                 <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                               </div>
                             </div>
@@ -4222,7 +4222,10 @@ export default function DashboardPage() {
                             const mPct = config.targetPage !== "-" && config.targetPage !== null
                               ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100))
                               : 0;
-                            const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
+                            const pagesNeeded = config.targetPage !== "-" && config.targetPage !== null && config.currentPage !== "-"
+                              ? Math.max(0, Number(config.targetPage) - Number(config.currentPage))
+                              : 999;
+                            const mBarColor = mPct >= 90 ? "bg-emerald-500" : (mPct >= 70 || pagesNeeded <= 5 ? "bg-amber-400" : "bg-red-500");
 
                             return (
                               <div className="space-y-4">
@@ -4271,7 +4274,7 @@ export default function DashboardPage() {
                               </p>
                             </div>
                             <div className="col-span-2 sm:col-span-3">
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
                               <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                             </div>
                           </div>
@@ -4376,7 +4379,10 @@ export default function DashboardPage() {
                         const mPct = config.targetPage !== "-" && config.targetPage !== null
                           ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100))
                           : 0;
-                        const mBarColor = mPct >= 90 ? "bg-emerald-500" : mPct >= 70 ? "bg-amber-400" : "bg-red-500";
+                        const pagesNeeded = config.targetPage !== "-" && config.targetPage !== null && config.currentPage !== "-"
+                          ? Math.max(0, Number(config.targetPage) - Number(config.currentPage))
+                          : 999;
+                        const mBarColor = mPct >= 90 ? "bg-emerald-500" : (mPct >= 70 || pagesNeeded <= 5 ? "bg-amber-400" : "bg-red-500");
 
                         return (
                           <div className="space-y-4">
@@ -4425,7 +4431,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date</p>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
                           <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                         </div>
                       </div>
