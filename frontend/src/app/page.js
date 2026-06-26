@@ -1391,23 +1391,23 @@ export default function DashboardPage() {
     <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
-      <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-3 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] p-1 shadow-sm overflow-hidden">
+      <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-4 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.1] p-1.5 shadow-md overflow-hidden">
               <img
                 src="/logo.png"
                 alt="MARKHINS HUB"
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain drop-shadow-sm"
               />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-black leading-tight tracking-tight text-white sm:text-lg">MARKHINS HUB</h1>
-              <div className="mt-0.5 flex items-center gap-2">
-                <p className="truncate text-[10px] font-bold text-teal-200/80 max-w-[120px] sm:max-w-none">
+              <h1 className="text-lg font-black leading-tight tracking-tight text-white sm:text-xl">MARKHINS HUB</h1>
+              <div className="mt-1 flex items-center gap-2">
+                <p className="truncate text-[11px] font-bold text-teal-200/80 max-w-[130px] sm:max-w-none">
                   {user?.name || 'Teacher'}
                 </p>
-                <span className={`inline-flex items-center truncate rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
+                <span className={`inline-flex items-center truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
                   {roleBadge.label}
                 </span>
               </div>
@@ -1417,7 +1417,7 @@ export default function DashboardPage() {
           <div className="relative shrink-0">
             <button
               onClick={() => setHeaderMenuOpen((prev) => !prev)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
               title="Menu"
             >
               {headerMenuOpen ? (
