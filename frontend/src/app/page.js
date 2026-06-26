@@ -1394,11 +1394,11 @@ export default function DashboardPage() {
       <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-4 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.1] p-1.5 shadow-md overflow-hidden">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.1] p-1.5 shadow-md overflow-hidden">
               <img
                 src="/logo.png"
                 alt="MARKHINS HUB"
-                className="h-full w-full object-contain drop-shadow-sm"
+                className="h-full w-full object-contain drop-shadow-sm scale-110"
               />
             </div>
             <div className="min-w-0">
@@ -4924,11 +4924,11 @@ export default function DashboardPage() {
       <nav
         className="anim-tab-bar fixed bottom-0 inset-x-0 z-50 rounded-t-3xl"
         style={{
-          background: 'rgba(255,255,255,0.92)',
+          background: 'linear-gradient(135deg, #0c3242 0%, #0a505c 100%)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(0,0,0,0.06)',
-          boxShadow: '0 -4px 32px rgba(0,0,0,0.08)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 -4px 32px rgba(8,34,49,0.25)',
           paddingBottom: 'env(safe-area-inset-bottom, 8px)',
           minHeight: 'var(--bottom-nav-height)'
         }}
@@ -4977,14 +4977,14 @@ export default function DashboardPage() {
                 key={id}
                 onClick={() => switchTab(id)}
                 className="flex flex-col items-center gap-1 px-2.5 py-1 rounded-2xl transition-all active:scale-90"
-                style={{ color: activeTab === id ? '#0d3347' : '#9ca3af' }}
+                style={{ color: activeTab === id ? '#ffffff' : 'rgba(255,255,255,0.45)' }}
               >
                 <div className={`transition-all duration-200 ${activeTab === id ? 'scale-110' : 'scale-100'}`}>
                   {icon}
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-center">{label}</span>
                 {activeTab === id && (
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#0a4a4a' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#5eead4' }} />
                 )}
               </button>
             ));
