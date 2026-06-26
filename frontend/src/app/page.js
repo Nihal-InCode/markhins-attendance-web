@@ -11,6 +11,8 @@ import {
   getBatchReport,
   getWeeklyReport,
   getSickLeaveOverview,
+  getSickList,
+  getLeaveList,
   getPeriodSummary,
   getLastAttendance,
   getMarkedPeriods,
@@ -407,6 +409,9 @@ export default function DashboardPage() {
   const [batchReport, setBatchReport] = useState(null);
   const [selectedClassForAnalysis, setSelectedClassForAnalysis] = useState("");
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
+  const [viewingHealthList, setViewingHealthList] = useState(null);
+  const [healthListData, setHealthListData] = useState(null);
+  const [healthListLoading, setHealthListLoading] = useState(false);
   const [timetableError, setTimetableError] = useState("");
   const [reportError, setReportError] = useState("");
   const [reportType, setReportType] = useState(null);
@@ -441,6 +446,7 @@ export default function DashboardPage() {
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [semesterPopupOpen, setSemesterPopupOpen] = useState(false);
   const [semesterPopupSaving, setSemesterPopupSaving] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 
   // Period detail modal
   const [periodModal, setPeriodModal] = useState(null);
@@ -1290,6 +1296,28 @@ export default function DashboardPage() {
     }
   };
 
+  const handleViewHealthList = async (type) => {
+    setHealthListLoading(true);
+    showLoader(`Fetching ${type} list...`);
+    setViewingHealthList(type);
+    setHealthListData(null);
+    try {
+      const res = type === 'sick' ? await getSickList() : await getLeaveList();
+      if (res.success) {
+        setHealthListData(res);
+      } else {
+        setReportError(res.error || "Failed to fetch list.");
+        setViewingHealthList(null);
+      }
+    } catch (err) {
+      setReportError("Connectivity error.");
+      setViewingHealthList(null);
+    } finally {
+      setHealthListLoading(false);
+      hideLoader();
+    }
+  };
+
   const openPeriodModal = async (cls, period, date) => {
     // Push a history entry so the phone back button closes the modal
     history.pushState({ modal: 'period' }, '');
@@ -1366,53 +1394,75 @@ export default function DashboardPage() {
       <header className="anim-header border-b border-white/10 px-4 py-3 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] p-1.5 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] p-1 shadow-sm overflow-hidden">
               <img
                 src="/logo.png"
-                alt="MARKHINS HUB Logo"
+                alt="MARKHINS HUB"
                 className="h-full w-full object-contain"
               />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg font-black leading-tight tracking-tight text-white sm:text-xl">MARKHINS HUB</h1>
-              <div className="mt-1 flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
-                <p className="max-w-[150px] truncate text-[11px] font-bold uppercase tracking-wider text-teal-200 sm:max-w-none">
+              <h1 className="text-base font-black leading-tight tracking-tight text-white sm:text-lg">MARKHINS HUB</h1>
+              <div className="mt-0.5 flex items-center gap-2">
+                <p className="truncate text-[10px] font-bold text-teal-200/80 max-w-[120px] sm:max-w-none">
                   {user?.name || 'Teacher'}
                 </p>
-                <span className={`inline-flex max-w-[150px] items-center truncate rounded-full border px-2.5 py-0.5 text-[8px] font-black uppercase tracking-widest shadow-sm backdrop-blur-sm sm:max-w-none sm:py-1 sm:text-[9px] ${roleBadge.className}`}>
+                <span className={`inline-flex items-center truncate rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
                   {roleBadge.label}
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {user?.role === 'admin' && (
-              <button
-                onClick={() => router.push("/settings")}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
-                title="System Settings"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-            )}
-            <VolumeToggle className="h-10 w-10 border border-white/10 bg-white/10 text-white/80 hover:bg-white/15" />
+
+          <div className="relative shrink-0">
             <button
-              onClick={() => router.push("/profile")}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
-              title="My Profile"
+              onClick={() => setHeaderMenuOpen((prev) => !prev)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+              title="Menu"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              {headerMenuOpen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              )}
             </button>
-            <button onClick={logout} className="flex h-10 w-10 items-center justify-center rounded-2xl text-white/45 transition-all hover:bg-red-400/10 hover:text-red-200" title="Log out">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+
+            {headerMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[59]" onClick={() => setHeaderMenuOpen(false)} />
+                <div className="absolute right-0 top-12 z-[60] w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-200/40 animate-fade-in">
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => { router.push("/settings"); setHeaderMenuOpen(false); }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-gray-700 transition-all hover:bg-gray-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Settings
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { router.push("/profile"); setHeaderMenuOpen(false); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-gray-700 transition-all hover:bg-gray-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    My Profile
+                  </button>
+                  <div className="border-t border-gray-100" />
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <VolumeToggle className="!h-auto !w-auto !p-0 !rounded-none !bg-transparent !border-none" />
+                    <span className="text-sm font-bold text-gray-700">Sound</span>
+                  </div>
+                  <div className="border-t border-gray-100" />
+                  <button
+                    onClick={() => { logout(); setHeaderMenuOpen(false); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                    Log out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -2396,35 +2446,35 @@ export default function DashboardPage() {
                 )}
 
                 {reportType === "overview" && (
-                  <>{/* 2. Active Health Status (Combined Sick/Leave) */}
+                  <>
+                    {/* Campus Health Overview (Sick List & Leave List buttons) */}
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center px-1">
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Active Health & Leave</h3>
-                        <span className="bg-purple-50 text-purple-600 text-[10px] font-black px-3 py-1 rounded-full border border-purple-100 uppercase tracking-wider">
-                          {sickLeaveOverview?.length || 0} active
-                        </span>
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 px-1">
-                        {Array.isArray(sickLeaveOverview) && sickLeaveOverview.length > 0 ? (
-                          sickLeaveOverview.map((item, idx) => (
-                            <div key={idx} className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-3 relative min-w-0">
-                              <span className={`absolute top-4 right-4 text-lg p-2 rounded-2xl ${item.type === 'Sick' ? 'bg-red-50' : 'bg-orange-50'}`}>
-                                {item.type === 'Sick' ? '💊' : '🏠'}
-                              </span>
-                              <div>
-                                <p className="font-black text-gray-800 line-clamp-1 pr-6">{item.name}</p>
-                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {item.rollNo} • {item.class}</p>
-                              </div>
-                              <div className="mt-2 pt-3 border-t border-gray-50">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Since {item.since}</p>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="w-full bg-gray-50/50 p-10 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">All students normal</p>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
+                        Campus Health Overview
+                      </label>
+                      <div className="grid grid-cols-2 gap-4 px-1">
+                        <button
+                          onClick={() => handleViewHealthList('sick')}
+                          className="relative p-6 bg-gradient-to-br from-orange-50 to-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group text-left"
+                        >
+                          <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">💊</div>
+                          <div className="relative flex flex-col items-start gap-1 z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-500 flex items-center justify-center text-xl mb-2 shadow-sm">💊</div>
+                            <span className="font-black text-sm text-gray-800">Sick List</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-orange-500">View Active</span>
                           </div>
-                        )}
+                        </button>
+                        <button
+                          onClick={() => handleViewHealthList('leave')}
+                          className="relative p-6 bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group text-left"
+                        >
+                          <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">🏠</div>
+                          <div className="relative flex flex-col items-start gap-1 z-10">
+                            <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-2 shadow-sm">🏠</div>
+                            <span className="font-black text-sm text-gray-800">Leave List</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-purple-500">Planned Absence</span>
+                          </div>
+                        </button>
                       </div>
                     </div>
 
@@ -2432,132 +2482,128 @@ export default function DashboardPage() {
                       <div className="space-y-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
                           <div>
-                            <h3 className="font-black text-gray-800 tracking-tight text-lg">Admin Activity Log</h3>
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and today&apos;s actions for {selectedDate}</p>
+                            <h3 className="font-black text-gray-800 tracking-tight text-lg">Activity Log</h3>
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and teacher activity for {selectedDate}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                              {adminActivityLog?.activeUsers?.length || 0} active now
+                              {(adminActivityLog?.liveUsers?.length || 0) + (adminActivityLog?.activeUsers?.length || 0)} online
                             </span>
                             <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
-                              {adminActivityLog?.actions?.length || 0} actions
+                              {adminActivityLog?.actions?.length || 0} teacher actions
                             </span>
+                            <button
+                              onClick={() => fetchAdminLog(selectedDate)}
+                              className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
+                            >
+                              Refresh
+                            </button>
                           </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+                          {/* Users Online Panel */}
                           <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-black text-gray-800">Users Online</h4>
-                              <button
-                                onClick={() => fetchAdminLog(selectedDate)}
-                                className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
-                              >
-                                Refresh
-                              </button>
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                             </div>
-                            <div className="mt-4 space-y-3">
-                              {Array.isArray(adminActivityLog?.activeUsers) && adminActivityLog.activeUsers.length ? adminActivityLog.activeUsers.map((person) => (
-                                <div key={person.id} className="rounded-[1.5rem] border border-gray-100 bg-gray-50 p-4">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="truncate text-sm font-black text-gray-900">{person.name}</p>
-                                      <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-gray-400">@{person.username}</p>
+                            <div className="mt-4 space-y-2">
+                              {(() => {
+                                const live = adminActivityLog?.liveUsers || [];
+                                const sessions = adminActivityLog?.activeUsers || [];
+                                const allUsers = [...live];
+                                for (const s of sessions) {
+                                  if (!allUsers.find(u => u.username === s.username)) allUsers.push(s);
+                                }
+                                if (allUsers.length === 0) {
+                                  return (
+                                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No users online</p>
                                     </div>
-                                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                                  </div>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{person.role}</span>
-                                    {person.classTeacherOf && (
-                                      <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">{person.classTeacherOf}</span>
-                                    )}
-                                  </div>
-                                  <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Last login: {person.lastLogin || "Unknown"}</p>
-                                </div>
-                              )) : (
-                                <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No active users right now</p>
-                                </div>
-                              )}
+                                  );
+                                }
+                                return allUsers.map((person, i) => {
+                                  const isLive = live.some(u => u.username === person.username);
+                                  const lastSeen = person.lastSeen || person.lastLogin || "";
+                                  const timePart = lastSeen.includes(" ") ? lastSeen.split(" ")[1] : lastSeen;
+                                  let displayTime = timePart || "";
+                                  if (displayTime) {
+                                    const [h, m] = displayTime.split(":").map(Number);
+                                    const ampm = h >= 12 ? "PM" : "AM";
+                                    const h12 = h % 12 || 12;
+                                    displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                                  }
+                                  return (
+                                    <div key={person.username || i} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLive ? "bg-emerald-500" : "bg-gray-300"}`} />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-black text-gray-900">{person.name || person.username}</p>
+                                        <p className="truncate text-[10px] font-bold text-gray-400">
+                                          {person.role || "Teacher"}{displayTime ? ` · ${displayTime}` : ""}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
                             </div>
                           </div>
 
+                          {/* Teacher Action Feed */}
                           <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                            <h4 className="text-sm font-black text-gray-800">Today&apos;s Action Feed</h4>
-                            <div className="mt-4 overflow-hidden rounded-[2rem] border border-gray-100">
-                              <div className="max-h-[28rem] overflow-auto">
-                                <table className="w-full min-w-[720px] text-left">
-                                  <thead className="sticky top-0 z-10 bg-gray-50">
-                                    <tr>
-                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Time</th>
-                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">User</th>
-                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Type</th>
-                                      <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-50">
-                                    {Array.isArray(adminActivityLog?.actions) && adminActivityLog.actions.length ? adminActivityLog.actions.map((row, idx) => (
-                                      <tr key={`${row.type}-${idx}`} className="align-top">
-                                        <td className="px-5 py-4 text-xs font-black text-gray-500">{row.time || "--"}</td>
-                                        <td className="px-5 py-4">
-                                          <p className="text-sm font-black text-gray-800">{row.actor}</p>
-                                          {row.username && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">@{row.username}</p>}
-                                        </td>
-                                        <td className="px-5 py-4">
-                                          <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">{row.type}</span>
-                                        </td>
-                                        <td className="px-5 py-4">
-                                          <p className="text-sm font-semibold text-gray-700">{row.summary}</p>
-                                          {row.meta && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">{row.meta}</p>}
-                                        </td>
-                                      </tr>
-                                    )) : (
-                                      <tr>
-                                        <td colSpan="4" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No activity records for this date</td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
+                            <h4 className="text-sm font-black text-gray-800">Teacher Activity</h4>
+                            <div className="mt-4 space-y-2 max-h-[28rem] overflow-auto pr-1">
+                              {(() => {
+                                const actions = adminActivityLog?.actions || [];
+                                if (actions.length === 0) {
+                                  return (
+                                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No teacher activity for this date</p>
+                                    </div>
+                                  );
+                                }
+                                const TYPE_COLORS = {
+                                  Attendance: "bg-blue-50 text-blue-700 border-blue-100",
+                                  "Extra Class": "bg-purple-50 text-purple-700 border-purple-100",
+                                  Health: "bg-rose-50 text-rose-700 border-rose-100",
+                                  Reports: "bg-amber-50 text-amber-700 border-amber-100",
+                                  Timetable: "bg-teal-50 text-teal-700 border-teal-100",
+                                  Profile: "bg-indigo-50 text-indigo-700 border-indigo-100",
+                                };
+                                return actions.map((row, idx) => {
+                                  let displayTime = row.time || "";
+                                  if (displayTime) {
+                                    const [h, m] = displayTime.split(":").map(Number);
+                                    if (!isNaN(h)) {
+                                      const ampm = h >= 12 ? "PM" : "AM";
+                                      const h12 = h % 12 || 12;
+                                      displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                                    }
+                                  }
+                                  const colorClass = TYPE_COLORS[row.type] || "bg-gray-50 text-gray-600 border-gray-100";
+                                  return (
+                                    <div key={`${row.type}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                      <div className="min-w-0 shrink-0 pt-0.5">
+                                        <p className="text-xs font-black text-gray-500 whitespace-nowrap">{displayTime || "--"}</p>
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-sm font-black text-gray-900 truncate">{row.actor}</span>
+                                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${colorClass}`}>{row.type}</span>
+                                        </div>
+                                        <p className="mt-1 text-xs font-semibold text-gray-600">{row.summary}</p>
+                                        {row.meta && <p className="mt-0.5 text-[10px] font-bold text-gray-400">{row.meta}</p>}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
                             </div>
                           </div>
                         </div>
                       </div>
                     )}
-
-                    {user?.role !== "admin" && (
-                      <div className="space-y-4">
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg px-1">Weekly Activity Overview</h3>
-                        <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full min-w-[560px] text-left">
-                              <thead>
-                                <tr className="border-b border-gray-50">
-                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Period</th>
-                                  <th className="py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50">
-                                {(Array.isArray(weeklyReport) ? weeklyReport.slice(0, 10) : []).map((row, idx) => (
-                                  <tr key={idx} className="text-sm">
-                                    <td className="py-5 font-bold text-gray-600">{row.date}</td>
-                                    <td className="py-5"><span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px]">{row.class}</span></td>
-                                    <td className="py-5 font-bold text-gray-800">{row.period}</td>
-                                    <td className="py-5 text-right"><span className="text-green-600 font-black text-[10px] uppercase tracking-wider">✅ Taken</span></td>
-                                  </tr>
-                                ))}
-                                {(!weeklyReport || weeklyReport.length === 0) && (
-                                  <tr><td colSpan="4" className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">No activity records</td></tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                   </>
                 )}
 
@@ -4802,9 +4848,81 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* HEALTH LIST MODAL */}
+      {viewingHealthList && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-8 shadow-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-black text-gray-800">
+                  {viewingHealthList === 'sick' ? 'Sick Students' : 'Students on Leave'}
+                </h3>
+                {healthListData && (
+                  <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">
+                    Total Active: {healthListData.total_count}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => { setViewingHealthList(null); setHealthListData(null); }}
+                className="p-2 hover:bg-gray-50 rounded-full transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
+              {healthListLoading ? (
+                <div className="flex justify-center p-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div>
+                </div>
+              ) : healthListData?.health_list?.length > 0 ? (
+                healthListData.health_list.map(group => (
+                  <div key={group.class} className="space-y-3">
+                    <div className="flex items-center gap-3 px-2">
+                      <div className="h-[2px] flex-1 bg-gray-50" />
+                      <span className="text-sm font-black text-gray-800">{group.class}</span>
+                      <div className="h-[2px] flex-1 bg-gray-50" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {group.students.map(student => (
+                        <div key={student.roll_no} className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-50">
+                          <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-[10px] font-black text-gray-500 border border-gray-100">
+                            {student.roll_no}
+                          </div>
+                          <span className="text-sm font-bold text-gray-800">{student.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-12 text-center space-y-4">
+                  <div className="text-5xl opacity-20">🍃</div>
+                  <p className="text-sm font-bold text-gray-400">
+                    No active {viewingHealthList} students found.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8">
+              <button
+                onClick={() => { setViewingHealthList(null); setHealthListData(null); }}
+                className="w-full py-5 rounded-[2rem] bg-gray-900 text-white font-black hover:bg-black transition-all shadow-xl active:scale-95"
+              >
+                Close Overview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* BOTTOM NAV BAR */}
       <nav
-        className="anim-tab-bar fixed bottom-0 inset-x-0 z-50"
+        className="anim-tab-bar fixed bottom-0 inset-x-0 z-50 rounded-t-3xl"
         style={{
           background: 'rgba(255,255,255,0.92)',
           backdropFilter: 'blur(20px)',
@@ -4844,7 +4962,7 @@ export default function DashboardPage() {
               });
             } else if (role === 'Principal' || role === 'Vice Principal') {
               tabs.push({
-                id: 'syllabus_overview', label: 'Syllabus Overview',
+                id: 'syllabus_overview', label: 'Syllabus',
                 icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
               });
             } else if (role && role !== 'admin') {

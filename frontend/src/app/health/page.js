@@ -271,39 +271,6 @@ export default function HealthPage() {
                         </div>
                     )}
 
-                    {/* CAMPUS HEALTH OVERVIEW (ANALYTICS) - Only for Principal/CT */}
-                    {(canManageMultipleClasses || isClassTeacher) && (
-                        <section className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">
-                                Campus Health Overview
-                            </label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => handleViewHealthList('sick')}
-                                    className="relative p-6 bg-gradient-to-br from-orange-50 to-white border border-orange-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group"
-                                >
-                                    <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">💊</div>
-                                    <div className="relative flex flex-col items-start gap-1 z-10">
-                                        <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-500 flex items-center justify-center text-xl mb-2 shadow-sm">💊</div>
-                                        <span className="font-black text-sm text-gray-800">Sick List</span>
-                                        <span className="text-[9px] font-bold uppercase tracking-widest text-orange-500">View Active</span>
-                                    </div>
-                                </button>
-                                <button
-                                    onClick={() => handleViewHealthList('leave')}
-                                    className="relative p-6 bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all active:scale-95 overflow-hidden group"
-                                >
-                                    <div className="absolute -top-4 -right-4 opacity-[0.05] text-7xl group-hover:scale-110 transition-transform duration-300">🏠</div>
-                                    <div className="relative flex flex-col items-start gap-1 z-10">
-                                        <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-2 shadow-sm">🏠</div>
-                                        <span className="font-black text-sm text-gray-800">Leave List</span>
-                                        <span className="text-[9px] font-bold uppercase tracking-widest text-purple-500">Planned Absence</span>
-                                    </div>
-                                </button>
-                            </div>
-                        </section>
-                    )}
-
                     {/* 1. SELECT CLASS */}
                     {(canManageMultipleClasses || !isClassTeacher) ? (
                         <section className="space-y-3">

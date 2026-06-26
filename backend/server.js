@@ -293,10 +293,13 @@ function buildAdminActivitySnapshot(reportDate, baseData = {}) {
             source: 'Web',
         }));
 
+    const ADMIN_ACTION_TYPES = new Set(['Admin', 'Database', 'Security', 'Login']);
+
     const mergedActions = [
         ...dbActions.map((action) => ({ ...action, source: 'Database' })),
         ...dayWebActions,
-    ].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+    ].filter((action) => !ADMIN_ACTION_TYPES.has(action.type))
+     .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
 
     const recentThreshold = Date.now() - ACTIVE_INTERACTION_WINDOW_MS;
     const recentUsersMap = new Map();
