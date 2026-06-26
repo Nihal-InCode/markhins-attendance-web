@@ -1391,7 +1391,7 @@ export default function DashboardPage() {
     <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
-      <header className="anim-header border-b border-white/10 px-4 py-3 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
+      <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-3 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] p-1 shadow-sm overflow-hidden">
