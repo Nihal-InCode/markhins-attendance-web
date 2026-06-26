@@ -5,3 +5,10 @@ attendance.db
 *.log
 frontend/node_modules
 backend/node_modules
+frontend/.next
+frontend/bun.lock
+*.pyc
+__pycache__
+schema_output.txt
+login_test.json
+attendance.absentee-test.db
