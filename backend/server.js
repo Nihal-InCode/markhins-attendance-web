@@ -146,6 +146,7 @@ function getIstTimestamp(date = new Date()) {
 
 function getUserRoleLabel(user = {}) {
     if (user.role === 'admin') return 'Admin';
+    if (user.role === 'Majlis') return 'Majlis';
     if (user.role === 'Principal') return 'Principal';
     if (user.role === 'Vice Principal') return 'Vice Principal';
     if (user.role === 'Urdu Principal') return 'Urdu Principal';
@@ -577,6 +578,32 @@ app.get('/health', (req, res) => {
 app.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+
+        // ── MAJLIS LOGIN (reports-only access) ──
+        if (username === 'majlis' && password === 'admin') {
+            const majlisUser = {
+                id: "majlis-user",
+                name: "Majlis",
+                username: "majlis",
+                role: "Majlis",
+                sessionId: require('crypto').randomBytes(16).toString('hex')
+            };
+            const token = jwt.sign(majlisUser, JWT_SECRET, { expiresIn: '7d' });
+            appendWebActivityEvent({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                timestamp: getIstTimestamp(new Date()),
+                date: getIstDateKey(new Date()),
+                epochMs: Date.now(),
+                actor: majlisUser.name,
+                username: majlisUser.username,
+                role: 'Majlis',
+                type: 'Login',
+                summary: 'Logged into the admin console',
+                meta: 'Majlis reports-only access',
+            });
+            console.log(`[Login] Majlis Access Granted`);
+            return res.json({ success: true, user: majlisUser, token });
+        }
 
         // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
         const sysAdminUser = process.env.WEB_ADMIN_USERNAME || "admin";
