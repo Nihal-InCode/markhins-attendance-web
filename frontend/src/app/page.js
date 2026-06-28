@@ -1647,7 +1647,8 @@ export default function DashboardPage() {
                 </select>
               </section>
 
-              <section>
+              {selectedClass && (
+              <section className="animate-fade-in">
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">2. Select Period</label>
                   <div className="flex items-center gap-2">
@@ -1729,6 +1730,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </section>
+              )}
 
               {!multiMode && (
                 <section className="pt-4 border-t border-gray-50">
