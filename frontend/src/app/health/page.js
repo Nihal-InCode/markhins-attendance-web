@@ -47,6 +47,7 @@ export default function HealthPage() {
 
     // Initial load: Classes
     useEffect(() => {
+        trackEvent('Opened health page');
         // If Class Teacher, auto-select their class and stop
         if (isClassTeacher && assignedClass && !canManageMultipleClasses) {
             setSelectedClass(assignedClass);

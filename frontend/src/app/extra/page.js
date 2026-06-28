@@ -32,6 +32,7 @@ export default function ExtraAttendancePage() {
 
     useEffect(() => {
         async function load() {
+            trackEvent('Opened extra class page');
             showLoader("Loading...");
             try {
                 const clsData = await getClasses();

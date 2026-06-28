@@ -627,6 +627,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
+      trackEvent('Opened dashboard');
       showLoader("Loading dashboard...");
       try {
         const classesRes = await getClasses();

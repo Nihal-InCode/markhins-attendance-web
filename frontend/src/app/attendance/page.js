@@ -119,6 +119,7 @@ export default function AttendancePage() {
         if (!stored) { router.push("/"); return; }
         const parsed = JSON.parse(stored);
         setParams(parsed);
+        trackEvent('Opened attendance page', parsed.classId || '');
         fetchStudents(parsed.classId, parsed.isEdit ? parsed : null, parsed.subjectId, parsed.date);
     }, [router]);
 

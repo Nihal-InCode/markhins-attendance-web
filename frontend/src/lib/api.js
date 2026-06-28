@@ -285,7 +285,10 @@ export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/peri
 });
 export const getAdminActivityLog = (date) => apiRequest(`/admin/activity-log?date=${date}`);
 
-export function trackEvent(action, meta = '') {
+let _lastHeartbeat = 0;
+const HEARTBEAT_INTERVAL = 2 * 60 * 1000;
+
+function sendPing(action, meta) {
     try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         if (!token) return;
@@ -295,4 +298,22 @@ export function trackEvent(action, meta = '') {
             body: JSON.stringify({ action, meta }),
         }).catch(() => {});
     } catch (_) {}
+}
+
+export function trackEvent(action, meta = '') {
+    sendPing(action, meta);
+}
+
+export function startActivityTracker() {
+    if (typeof window === 'undefined') return;
+    const fire = () => {
+        const now = Date.now();
+        if (now - _lastHeartbeat < HEARTBEAT_INTERVAL) return;
+        _lastHeartbeat = now;
+        sendPing('Active in app');
+    };
+    ['click', 'touchstart', 'keydown', 'scroll', 'focus'].forEach(evt => {
+        window.addEventListener(evt, fire, { passive: true });
+    });
+    fire();
 }

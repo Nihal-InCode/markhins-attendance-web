@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { validateToken as validateTokenApi } from "@/lib/api";
+import { validateToken as validateTokenApi, startActivityTracker } from "@/lib/api";
 
 const AuthContext = createContext();
 
@@ -51,6 +51,12 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         checkAuth();
     }, [checkAuth]);
+
+    useEffect(() => {
+        if (user && localStorage.getItem("token")) {
+            startActivityTracker();
+        }
+    }, [user]);
 
     /**
      * Enhanced login to handle token storage and state update

@@ -74,7 +74,7 @@ const ATTENDANCE_DB_PATH = resolveAttendanceDbPath();
 const TEACHER_PHOTO_DIR = process.env.TEACHER_PHOTO_DIR || path.join(path.dirname(ATTENDANCE_DB_PATH), 'teachers');
 const TEACHER_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const WEB_ACTIVITY_RETENTION = 600;
-const ACTIVE_INTERACTION_WINDOW_MS = 15 * 60 * 1000;
+const ACTIVE_INTERACTION_WINDOW_MS = 30 * 60 * 1000;
 const webActivityLog = [];
 
 function ensureTeacherPhotoDir() {
