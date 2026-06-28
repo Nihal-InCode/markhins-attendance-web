@@ -1415,10 +1415,10 @@ export default function DashboardPage() {
     <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
-      <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-4 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
+      <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-5 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.1] p-1.5 shadow-md overflow-hidden">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.1] p-1.5 shadow-md overflow-hidden">
               <img
                 src="/logo.png"
                 alt="MARKHINS HUB"
@@ -1426,12 +1426,12 @@ export default function DashboardPage() {
               />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg font-black leading-tight tracking-tight text-white sm:text-xl">MARKHINS HUB</h1>
+              <h1 className="text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">MARKHINS HUB</h1>
               <div className="mt-1 flex items-center gap-2">
                 <p className="truncate text-[11px] font-bold text-teal-200/80 max-w-[130px] sm:max-w-none">
                   {user?.name || 'Teacher'}
                 </p>
-                <span className={`inline-flex items-center truncate rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
+                <span className={`inline-flex items-center truncate rounded-full border px-3 py-0.5 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
                   {roleBadge.label}
                 </span>
               </div>
@@ -1441,13 +1441,13 @@ export default function DashboardPage() {
           <div className="relative shrink-0">
             <button
               onClick={() => setHeaderMenuOpen((prev) => !prev)}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
               title="Menu"
             >
               {headerMenuOpen ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
               )}
             </button>
 
