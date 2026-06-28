@@ -502,13 +502,13 @@ export default function DashboardPage() {
     setActiveTab(tab);
     setTimetableError("");
     setReportError("");
-    trackEvent(`Switched to ${tab} tab`);
     if (tab === "reports") {
       setReportType(null);
       router.push(`/?tab=reports`, { scroll: false });
     } else {
       router.push(`/?tab=${tab}`, { scroll: false });
     }
+    setTimeout(() => trackEvent(`Switched to ${tab} tab`), 0);
   }, [router, user?.role]);
 
   // On mount (and URL change): read tab from URL
@@ -2011,7 +2011,7 @@ export default function DashboardPage() {
                       ].map((card) => (
                         <button
                           key={card.id}
-                          onClick={() => { trackEvent(`Opened ${card.label} report`); setReportType(card.id); router.push(`/?tab=reports&type=${card.id}`, { scroll: false }); }}
+                          onClick={() => { setReportType(card.id); router.push(`/?tab=reports&type=${card.id}`, { scroll: false }); setTimeout(() => trackEvent(`Opened ${card.label} report`), 0); }}
                           className={`flex flex-col items-center gap-2 p-5 rounded-2xl border ${card.color} transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm`}
                         >
                           <span className="text-2xl">{card.emoji}</span>
