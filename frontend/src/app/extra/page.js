@@ -5,527 +5,226 @@ import { getClasses, getStudents, getExtraSubjects, markExtraAttendance } from "
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 
-// ──────────────────────────────────────────
-// STATUS CONFIG
-// ──────────────────────────────────────────
 const STATUS_CYCLE = ["present", "absent"];
-
 const statusConfig = {
-    present: {
-        label: "Present",
-        color: "bg-green-500",
-        text: "text-green-600",
-        bg: "bg-green-50",
-        border: "border-green-100",
-        badge: "🟢",
-    },
-    absent: {
-        label: "Absent",
-        color: "bg-red-500",
-        text: "text-red-600",
-        bg: "bg-red-50",
-        border: "border-red-100",
-        badge: "🔴",
-    },
+    present: { label: "Present", color: "bg-emerald-500", text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+    absent: { label: "Absent", color: "bg-red-500", text: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
 };
 
-// ──────────────────────────────────────────
-// EXTRA CLASS ATTENDANCE PAGE
-// ──────────────────────────────────────────
 export default function ExtraAttendancePage() {
     const router = useRouter();
     const { showLoader, hideLoader } = useLoading();
-
-    // Setup state
-    const [step, setStep] = useState("setup"); // "setup" | "marking" | "success"
-
-    // Setup form
+    const [step, setStep] = useState("setup");
     const [classes, setClasses] = useState([]);
     const [subjects, setSubjects] = useState([]);
     const [selectedClass, setSelectedClass] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
     const [customSubject, setCustomSubject] = useState("");
-    const [selectedPeriod, setSelectedPeriod] = useState("Extra");
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
     const [loadingSetup, setLoadingSetup] = useState(true);
     const [setupError, setSetupError] = useState("");
-
-    // Marking state
     const [students, setStudents] = useState([]);
     const [attendance, setAttendance] = useState({});
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
-
-    // Success state
     const [summary, setSummary] = useState(null);
 
-    // Load classes & subjects on mount
     useEffect(() => {
         async function load() {
-            showLoader("Loading setup data...");
+            showLoader("Loading...");
             try {
-                const [clsData, subData] = await Promise.all([
-                    getClasses(),
-                    getExtraSubjects(),
-                ]);
+                const [clsData, subData] = await Promise.all([getClasses(), getExtraSubjects()]);
                 setClasses(Array.isArray(clsData) ? clsData : []);
                 setSubjects(Array.isArray(subData) ? subData : []);
-            } catch (err) {
-                setSetupError("Failed to load setup data: " + err.message);
-            } finally {
-                setLoadingSetup(false);
-                hideLoader();
-            }
+            } catch (err) { setSetupError(err.message); }
+            finally { setLoadingSetup(false); hideLoader(); }
         }
         load();
     }, []);
 
-    // The final subject to use (custom overrides dropdown)
-    const effectiveSubject =
-        customSubject.trim() !== "" ? customSubject.trim() : selectedSubject;
+    const effectiveSubject = customSubject.trim() !== "" ? customSubject.trim() : selectedSubject;
 
-    // ──────────────────────────────────────────
-    // HANDLERS
-    // ──────────────────────────────────────────
     const handleStartMarking = async () => {
-        if (!selectedClass) return setSetupError("Please select a class.");
-        if (!effectiveSubject) return setSetupError("Please select or enter a subject.");
+        if (!selectedClass) return setSetupError("Select a class.");
+        if (!effectiveSubject) return setSetupError("Select or type a subject.");
         setSetupError("");
         setLoadingStudents(true);
         showLoader("Loading students...");
-
         try {
             const data = await getStudents(selectedClass);
-            const studentList = Array.isArray(data) ? data : [];
-            setStudents(studentList);
-            // Default everyone to present
+            const list = Array.isArray(data) ? data : [];
+            setStudents(list);
             const initial = {};
-            studentList.forEach((s) => (initial[s.id] = "present"));
+            list.forEach((s) => (initial[s.id] = "present"));
             setAttendance(initial);
             setStep("marking");
-        } catch (err) {
-            setSetupError("Failed to load students: " + err.message);
-        } finally {
-            setLoadingStudents(false);
-            hideLoader();
-        }
+        } catch (err) { setSetupError(err.message); }
+        finally { setLoadingStudents(false); hideLoader(); }
     };
 
-    const toggleStatus = (studentId) => {
+    const toggleStatus = (id) => {
         setAttendance((prev) => {
-            const current = prev[studentId];
-            const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(current) + 1) % STATUS_CYCLE.length];
-            return { ...prev, [studentId]: next };
+            const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(prev[id]) + 1) % STATUS_CYCLE.length];
+            return { ...prev, [id]: next };
         });
     };
 
     const handleSubmit = async () => {
         if (submitting) return;
         setSubmitting(true);
-        showLoader("Submitting attendance...", { vibrate: true, playSuccessSound: true });
+        showLoader("Submitting...");
         setSubmitError("");
-
         try {
-            const records = students.map((s) => ({
-                studentId: s.id,
-                rollNo: s.rollNo || s.roll_no,
-                status: attendance[s.id] || "present",
-            }));
-
-            const result = await markExtraAttendance({
-                classId: selectedClass,
-                subject: effectiveSubject,
-                period: selectedPeriod,
-                date,
-                records,
-            });
-
-            if (result.success !== false) {
-                setSummary(result.data || result);
-                setStep("success");
-            } else {
-                throw new Error(result.message || "Unknown error");
-            }
-        } catch (err) {
-            setSubmitError("Error: " + err.message);
-        } finally {
-            setSubmitting(false);
-            hideLoader();
-        }
+            const records = students.map((s) => ({ studentId: s.id, rollNo: s.rollNo || s.roll_no, status: attendance[s.id] || "present" }));
+            const result = await markExtraAttendance({ classId: selectedClass, subject: effectiveSubject, period: "Extra", date, records });
+            if (result.success !== false) { setSummary(result.data || result); setStep("success"); }
+            else throw new Error(result.message || "Failed");
+        } catch (err) { setSubmitError(err.message); }
+        finally { setSubmitting(false); hideLoader(); }
     };
 
-    const presentCount = students.filter(
-        (s) => attendance[s.id] === "present"
-    ).length;
+    const presentCount = students.filter((s) => attendance[s.id] === "present").length;
     const absentCount = students.length - presentCount;
 
-    // ──────────────────────────────────────────
-    // RENDER
-    // ──────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-amber-50/40 font-sans text-gray-900 pb-24">
+        <div className="min-h-screen font-sans" style={{ backgroundColor: 'rgba(55, 151, 169, 0.04)' }}>
+
             {/* Header */}
-            <header className="bg-white border-b border-amber-100 px-6 py-6 sticky top-0 z-20 shadow-sm">
-                <div className="max-w-md mx-auto flex justify-between items-center">
-                    <button
-                        onClick={() => (step === "marking" ? setStep("setup") : router.push("/"))}
-                        className="p-2 text-gray-400 hover:text-gray-700 transition-all"
-                        aria-label="Back"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 19l-7-7 7-7"
-                            />
-                        </svg>
-                    </button>
-                    <div className="text-center">
-                        <div className="inline-flex items-center gap-2 bg-amber-100 px-4 py-1.5 rounded-full mb-1">
-                            <span className="text-amber-600 text-sm">⚡</span>
-                            <span className="text-amber-700 text-[11px] font-black uppercase tracking-widest">
-                                Extra Class
-                            </span>
-                        </div>
-                        <h1 className="text-lg font-black text-gray-800">
-                            {step === "setup"
-                                ? "Setup Extra Class"
-                                : step === "marking"
-                                    ? `${selectedClass} • ${effectiveSubject}`
-                                    : "Done!"}
-                        </h1>
+            <div className="rounded-b-3xl px-4 pt-6 pb-8 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+                <div className="mx-auto max-w-md">
+                    <div className="flex items-center justify-between mb-4">
+                        <button onClick={() => step === "marking" ? setStep("setup") : router.push("/")}
+                            className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all">← Back</button>
+                        <span className="rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300">⚡ Extra</span>
                     </div>
-                    <div className="w-10" />
+                    <h1 className="text-xl font-black text-white">
+                        {step === "setup" ? "New Extra Class" : step === "marking" ? `${selectedClass} • ${effectiveSubject}` : "Done!"}
+                    </h1>
                 </div>
-            </header>
+            </div>
 
-            {/* ── STEP: SETUP ── */}
+            {/* Setup Step */}
             {step === "setup" && (
-                <main className="max-w-md mx-auto px-6 py-8 space-y-6">
-                    {/* Info Banner */}
-                    <div className="bg-amber-500/10 border border-amber-200 rounded-[2rem] p-5 flex gap-4">
-                        <div className="text-3xl select-none">⚡</div>
+                <main className="mx-auto max-w-md px-4 py-6 space-y-5">
+                    <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm space-y-5">
                         <div>
-                            <p className="font-black text-amber-800 text-sm mb-0.5">
-                                Extra Class Mode
-                            </p>
-                            <p className="text-amber-700 text-xs leading-relaxed">
-                                This is <strong>outside the regular timetable</strong>. Select
-                                the class and subject manually — no schedule is required.
-                            </p>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Class</label>
+                            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}
+                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                <option value="">Select class</option>
+                                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
                         </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Subject</label>
+                            <select value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setCustomSubject(""); }}
+                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                <option value="">Select subject</option>
+                                {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                            <input type="text" placeholder="Or type custom subject"
+                                className="mt-2 w-full rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20"
+                                value={customSubject} onChange={(e) => { setCustomSubject(e.target.value); if (e.target.value) setSelectedSubject(""); }} />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Date</label>
+                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                        </div>
+                        {setupError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{setupError}</div>}
+                        <button onClick={handleStartMarking} disabled={loadingStudents}
+                            className="w-full rounded-2xl bg-[#0d9488] py-4 text-sm font-bold text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all shadow-lg shadow-[#0d9488]/20">
+                            {loadingStudents ? "Loading..." : "Start Marking"}
+                        </button>
                     </div>
-
-                    {loadingSetup ? <PencilLoader /> : (
-                        <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-7 space-y-7">
-                            {/* Class */}
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">
-                                    1. Select Class
-                                </label>
-                                <select
-                                    className="w-full px-6 py-5 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-amber-100 outline-none text-xl font-bold transition-all appearance-none cursor-pointer"
-                                    value={selectedClass}
-                                    onChange={(e) => setSelectedClass(e.target.value)}
-                                >
-                                    <option value="">Choose Class</option>
-                                    {classes.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Subject */}
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">
-                                    2. Select Subject
-                                </label>
-                                <select
-                                    className="w-full px-6 py-4 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-amber-100 outline-none text-base font-bold appearance-none cursor-pointer"
-                                    value={selectedSubject}
-                                    onChange={(e) => {
-                                        setSelectedSubject(e.target.value);
-                                        setCustomSubject("");
-                                    }}
-                                >
-                                    <option value="">Choose Subject</option>
-                                    {subjects.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Or type custom subject…"
-                                        className="w-full px-6 py-4 rounded-3xl border border-dashed border-amber-200 bg-amber-50/50 focus:ring-4 focus:ring-amber-100 outline-none text-base font-bold transition-all"
-                                        value={customSubject}
-                                        onChange={(e) => {
-                                            setCustomSubject(e.target.value);
-                                            if (e.target.value) setSelectedSubject("");
-                                        }}
-                                    />
-                                    {customSubject && (
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-500 text-xs font-black uppercase tracking-wide">
-                                            Custom
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Period */}
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">
-                                    3. Period Label <span className="text-gray-300">(Optional)</span>
-                                </label>
-                                <div className="flex gap-2 flex-wrap">
-                                    {["Extra", "P1", "P2", "P3", "P4", "P5", "P6", "P7"].map(
-                                        (p) => (
-                                            <button
-                                                key={p}
-                                                onClick={() => setSelectedPeriod(p)}
-                                                className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border ${selectedPeriod === p
-                                                    ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100"
-                                                    : "bg-gray-50 text-gray-500 border-gray-100 hover:border-amber-200"
-                                                    }`}
-                                            >
-                                                {p}
-                                            </button>
-                                        )
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Date */}
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block">
-                                    4. Date <span className="text-gray-300">(Auto: today)</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    className="w-full px-6 py-4 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-amber-100 outline-none text-base font-bold cursor-pointer"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                />
-                            </div>
-
-                            {/* Error */}
-                            {setupError && (
-                                <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">
-                                    {setupError}
-                                </div>
-                            )}
-
-                            {/* Start Button */}
-                            <button
-                                onClick={handleStartMarking}
-                                disabled={loadingStudents}
-                                className="w-full py-5 rounded-[2rem] text-lg font-black bg-amber-500 hover:bg-amber-600 text-white shadow-2xl shadow-amber-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loadingStudents ? "Loading Students…" : "⚡ Start Marking"}
-                            </button>
-                        </div>
-                    )}
                 </main>
             )}
 
-            {/* ── STEP: MARKING ── */}
+            {/* Marking Step */}
             {step === "marking" && (
-                <main className="max-w-md mx-auto px-4 py-6 space-y-4">
-                    {/* Stats bar */}
-                    <div className="flex gap-3">
-                        <div className="flex-1 bg-green-50 border border-green-100 rounded-3xl p-4 text-center">
-                            <p className="text-2xl font-black text-green-600">{presentCount}</p>
-                            <p className="text-[9px] font-black text-green-500 uppercase tracking-widest mt-0.5">
-                                Present
-                            </p>
+                <main className="mx-auto max-w-md px-4 py-5 space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                            <p className="text-2xl font-black text-emerald-600">{presentCount}</p>
+                            <p className="text-[9px] font-bold text-emerald-500 uppercase">Present</p>
                         </div>
-                        <div className="flex-1 bg-red-50 border border-red-100 rounded-3xl p-4 text-center">
+                        <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-center">
                             <p className="text-2xl font-black text-red-500">{absentCount}</p>
-                            <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mt-0.5">
-                                Absent
-                            </p>
+                            <p className="text-[9px] font-bold text-red-400 uppercase">Absent</p>
                         </div>
-                        <div className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl p-4 text-center">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-center">
                             <p className="text-2xl font-black text-gray-600">{students.length}</p>
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
-                                Total
-                            </p>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase">Total</p>
                         </div>
                     </div>
 
-                    {/* Extra class badge */}
-                    <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 border border-amber-100 rounded-2xl">
-                        <span className="text-amber-500 text-base">⚡</span>
-                        <p className="text-amber-700 text-xs font-black uppercase tracking-wider">
-                            {effectiveSubject} • {selectedPeriod} • {date}
-                        </p>
+                    <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
+                        <span className="text-amber-500">⚡</span>
+                        <p className="text-xs font-bold text-amber-700">{effectiveSubject} • {date}</p>
                     </div>
 
-                    {/* Student list */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="divide-y divide-gray-50">
-                            {students.map((student) => {
-                                const status = attendance[student.id] || "present";
-                                const cfg = statusConfig[status];
-                                return (
-                                    <div
-                                        key={student.id}
-                                        className={`p-5 flex items-center justify-between transition-colors ${status === "absent" ? "bg-red-50/30" : ""
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div
-                                                className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black ${cfg.bg} ${cfg.text}`}
-                                            >
-                                                {student.rollNo || student.roll_no}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-gray-800 leading-tight">
-                                                    {student.name}
-                                                </p>
-                                                <p
-                                                    className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${cfg.text}`}
-                                                >
-                                                    {cfg.badge} {cfg.label}
-                                                </p>
-                                            </div>
+                    <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-50">
+                        {students.map((student) => {
+                            const status = attendance[student.id] || "present";
+                            const cfg = statusConfig[status];
+                            return (
+                                <div key={student.id} className={`p-4 flex items-center justify-between ${status === "absent" ? "bg-red-50/30" : ""}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black ${cfg.bg} ${cfg.text}`}>
+                                            {student.rollNo || student.roll_no}
                                         </div>
-                                        <button
-                                            onClick={() => toggleStatus(student.id)}
-                                            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border active:scale-95 ${cfg.bg} ${cfg.text} ${cfg.border}`}
-                                        >
-                                            Toggle
-                                        </button>
+                                        <p className="text-sm font-bold text-gray-800">{student.name}</p>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {submitError && (
-                        <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">
-                            {submitError}
-                        </div>
-                    )}
-
-                    {/* Submit */}
-                    <div className="pt-2">
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${submitting
-                                ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed"
-                                : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-100"
-                                }`}
-                        >
-                            {submitting ? "Saving…" : "⚡ Submit Extra Class"}
-                        </button>
-                    </div>
-                </main>
-            )}
-
-            {/* ── STEP: SUCCESS ── */}
-            {step === "success" && (
-                <main className="max-w-md mx-auto px-6 py-12 space-y-6 text-center">
-                    <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center text-5xl mx-auto shadow-xl shadow-amber-100">
-                        ⚡
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-gray-800 mb-1">
-                            Extra Class Recorded!
-                        </h2>
-                        <p className="text-gray-500 text-sm font-medium">
-                            Attendance saved to the <strong>extra_classes</strong> table.
-                        </p>
-                    </div>
-
-                    {summary && (
-                        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-7 shadow-sm text-left space-y-4">
-                            <div className="flex justify-between items-center border-b border-gray-50 pb-4">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                    Summary
-                                </span>
-                                <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                                    Extra Class
-                                </span>
-                            </div>
-                            <div className="space-y-3 text-sm font-bold">
-                                <Row label="Class" value={summary.class || selectedClass} />
-                                <Row label="Subject" value={summary.subject || effectiveSubject} />
-                                <Row label="Period" value={summary.period || selectedPeriod} />
-                                <Row label="Date" value={summary.date || date} />
-                                <div className="pt-3 border-t border-gray-50 grid grid-cols-3 gap-3 text-center">
-                                    <Stat label="Total" value={summary.total ?? students.length} color="text-gray-700" />
-                                    <Stat label="Present" value={summary.present ?? presentCount} color="text-green-600" />
-                                    <Stat label="Absent" value={summary.absent ?? absentCount} color="text-red-500" />
+                                    <button onClick={() => toggleStatus(student.id)}
+                                        className={`rounded-xl px-4 py-2 text-[10px] font-bold uppercase border transition-all active:scale-95 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                                        {cfg.label}
+                                    </button>
                                 </div>
+                            );
+                        })}
+                    </div>
+
+                    {submitError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{submitError}</div>}
+
+                    <button onClick={handleSubmit} disabled={submitting}
+                        className={`w-full rounded-2xl py-4 text-sm font-bold transition-all shadow-lg ${submitting ? "bg-gray-200 text-gray-400 shadow-none" : "bg-[#0d9488] text-white hover:bg-[#0a7a70] shadow-[#0d9488]/20"}`}>
+                        {submitting ? "Saving..." : "Submit Attendance"}
+                    </button>
+                </main>
+            )}
+
+            {/* Success Step */}
+            {step === "success" && (
+                <main className="mx-auto max-w-md px-4 py-10 space-y-5 text-center">
+                    <div className="mx-auto h-16 w-16 rounded-2xl bg-[#0d9488]/10 flex items-center justify-center text-3xl">✓</div>
+                    <div>
+                        <h2 className="text-xl font-black text-gray-900">Recorded!</h2>
+                        <p className="text-sm text-gray-500">Extra class attendance saved.</p>
+                    </div>
+                    {summary && (
+                        <div className="rounded-3xl border border-gray-100 bg-white p-5 text-left shadow-sm space-y-3">
+                            {[["Class", summary.class || selectedClass], ["Subject", summary.subject || effectiveSubject], ["Date", summary.date || date]].map(([l, v]) => (
+                                <div key={l} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">{l}</span>
+                                    <span className="text-sm font-black text-gray-800">{v}</span>
+                                </div>
+                            ))}
+                            <div className="grid grid-cols-3 gap-3 pt-2 text-center">
+                                <div><p className="text-lg font-black text-gray-700">{summary.total ?? students.length}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Total</p></div>
+                                <div><p className="text-lg font-black text-emerald-600">{summary.present ?? presentCount}</p><p className="text-[9px] font-bold text-emerald-500 uppercase">Present</p></div>
+                                <div><p className="text-lg font-black text-red-500">{summary.absent ?? absentCount}</p><p className="text-[9px] font-bold text-red-400 uppercase">Absent</p></div>
                             </div>
                         </div>
                     )}
-
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            onClick={() => {
-                                setStep("setup");
-                                setSummary(null);
-                                setStudents([]);
-                                setAttendance({});
-                                setSelectedClass("");
-                                setSelectedSubject("");
-                                setCustomSubject("");
-                                setSelectedPeriod("Extra");
-                                setDate(new Date().toISOString().split("T")[0]);
-                            }}
-                            className="flex-1 py-4 rounded-[2rem] font-black text-sm bg-amber-100 text-amber-700 hover:bg-amber-200 transition-all active:scale-95"
-                        >
-                            Mark Another
-                        </button>
-                        <button
-                            onClick={() => router.push("/")}
-                            className="flex-1 py-4 rounded-[2rem] font-black text-sm bg-gray-900 text-white hover:bg-gray-800 transition-all active:scale-95 shadow-xl shadow-gray-200"
-                        >
-                            Home
-                        </button>
+                    <div className="flex gap-3">
+                        <button onClick={() => { setStep("setup"); setSummary(null); setStudents([]); setAttendance({}); setSelectedClass(""); setSelectedSubject(""); setCustomSubject(""); setDate(new Date().toISOString().split("T")[0]); }}
+                            className="flex-1 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">New Class</button>
+                        <button onClick={() => router.push("/")}
+                            className="flex-1 rounded-2xl bg-gray-900 py-4 text-sm font-bold text-white hover:bg-black transition-all">Home</button>
                     </div>
                 </main>
             )}
-        </div>
-    );
-}
-
-// ──────────────────────────────────────────
-// SMALL HELPERS
-// ──────────────────────────────────────────
-function Row({ label, value }) {
-    return (
-        <div className="flex justify-between">
-            <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">
-                {label}
-            </span>
-            <span className="text-gray-800 font-black text-sm">{value}</span>
-        </div>
-    );
-}
-
-function Stat({ label, value, color }) {
-    return (
-        <div>
-            <p className={`text-xl font-black ${color}`}>{value}</p>
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
-                {label}
-            </p>
         </div>
     );
 }

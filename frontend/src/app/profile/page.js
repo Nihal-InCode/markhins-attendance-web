@@ -50,6 +50,7 @@ export default function ProfilePage() {
         e.preventDefault();
         setSuccessMsg(""); setError("");
         if (!formData.username || !formData.password) { setError("Both fields required."); return; }
+        if (!confirm(`Update login to:\nUsername: ${formData.username}\n\nContinue?`)) return;
         showLoader("Updating...");
         try {
             const res = await updateCredentials(formData);
@@ -227,8 +228,8 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Change Login Button */}
-                <button onClick={() => setShowModal(true)}
-                    className="w-full rounded-2xl border border-gray-100 bg-white py-4 text-sm font-bold text-gray-600 shadow-sm hover:bg-gray-50 transition-all">
+                <button onClick={() => { if (confirm("Change your username or password? You will need to log in again.")) setShowModal(true); }}
+                    className="w-full rounded-2xl border border-red-200 bg-red-50 py-4 text-sm font-bold text-red-600 shadow-sm hover:bg-red-100 transition-all">
                     🔑 Change Login Credentials
                 </button>
             </div>
