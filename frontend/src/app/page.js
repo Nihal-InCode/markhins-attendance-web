@@ -2261,12 +2261,12 @@ export default function DashboardPage() {
                                     <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
                                   </div>
                                   <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {config.semester} Syllabus</p>
-                                    <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
-                                  </div>
-                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
                                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
                                     <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedMonthTargetCompletionDate}>{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                                  </div>
+                                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {config.semester} Syllabus</p>
+                                    <p className="mt-1 text-xs font-black text-indigo-950 truncate" title={config.estimatedCompletionDate}>{config.estimatedCompletionDate}</p>
                                   </div>
                                 </div>
                               </div>
@@ -4180,12 +4180,12 @@ export default function DashboardPage() {
                                 </p>
                               </div>
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
-                                <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                                <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                               </div>
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
-                                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
-                                <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
+                                <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                               </div>
                             </div>
                           </div>
@@ -4313,12 +4313,12 @@ export default function DashboardPage() {
                               </p>
                             </div>
                             <div className="col-span-2 sm:col-span-3">
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
-                              <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                              <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                             </div>
                             <div className="col-span-2 sm:col-span-3">
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion Date of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
-                              <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
+                              <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                             </div>
                           </div>
 
@@ -4496,12 +4496,12 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion Date of {config.semester} Syllabus</p>
-                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
+                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
                         </div>
                         <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion Date of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
-                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
+                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
                         </div>
                       </div>
 
