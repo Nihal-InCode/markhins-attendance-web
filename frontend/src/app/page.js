@@ -483,6 +483,7 @@ export default function DashboardPage() {
   const [selectedSyllabusClassFilter, setSelectedSyllabusClassFilter] = useState("");
   const [selectedSyllabusTeacherFilter, setSelectedSyllabusTeacherFilter] = useState("");
   const [selectedSyllabusSubjectFilter, setSelectedSyllabusSubjectFilter] = useState("");
+  const [mySyllabusClassFilter, setMySyllabusClassFilter] = useState("");
   const [syllabusPageProgressData, setSyllabusPageProgressData] = useState({});
   const [principalAccessMode, setPrincipalAccessMode] = useState(false);
   const [multiMode, setMultiMode] = useState(false);
@@ -4358,20 +4359,42 @@ export default function DashboardPage() {
         {/* ── MY SYLLABUS TAB (TEACHERS ONLY) ── */}
         {activeTab === "my_syllabus" && user?.role && user?.role !== 'admin' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-[2.5rem] text-white shadow-xl shadow-blue-100/20">
-              <h4 className="text-lg font-black tracking-tight">📚 My Syllabus Dashboard</h4>
-              <p className="text-[10px] font-bold text-blue-200 mt-1 uppercase tracking-widest">Logged in as: {user?.name}</p>
+            <div className="rounded-3xl p-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+              <h4 className="text-lg font-black text-white">📚 My Syllabus</h4>
+              <p className="text-xs text-white/50 font-medium mt-1">Track your teaching progress</p>
             </div>
 
-            {loadingSyllabus ? (
-              <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading configurations...</div>
-            ) : syllabusConfigs.filter(c => c.teacherId === user?.id).length === 0 ? (
-              <div className="bg-white p-12 rounded-[2.5rem] border border-gray-100 text-center">
-                <p className="text-xs font-bold text-gray-400 italic">No syllabus configurations assigned to you.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {syllabusConfigs.filter(c => c.teacherId === user?.id).map(config => {
+            {(() => {
+              const myConfigs = syllabusConfigs.filter(c => c.teacherId === user?.id);
+              const myClasses = [...new Set(myConfigs.map(c => c.class))].filter(Boolean);
+              const filteredConfigs = mySyllabusClassFilter ? myConfigs.filter(c => c.class === mySyllabusClassFilter) : myConfigs;
+
+              return (
+                <>
+                  {myClasses.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      <button onClick={() => setMySyllabusClassFilter("")}
+                        className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold transition-all ${!mySyllabusClassFilter ? 'bg-[#0d9488] text-white shadow-lg shadow-[#0d9488]/20' : 'bg-white border border-gray-100 text-gray-500 hover:bg-gray-50'}`}>
+                        All Classes
+                      </button>
+                      {myClasses.map(cls => (
+                        <button key={cls} onClick={() => setMySyllabusClassFilter(cls)}
+                          className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold transition-all ${mySyllabusClassFilter === cls ? 'bg-[#0d9488] text-white shadow-lg shadow-[#0d9488]/20' : 'bg-white border border-gray-100 text-gray-500 hover:bg-gray-50'}`}>
+                          {cls}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {loadingSyllabus ? (
+                    <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading...</div>
+                  ) : filteredConfigs.length === 0 ? (
+                    <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center">
+                      <p className="text-xs font-bold text-gray-400">{myConfigs.length === 0 ? "No syllabus assigned to you." : "No syllabus for this class."}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {filteredConfigs.map(config => {
                   const pct = config.completionPercentage;
                   const progressValue = syllabusPageProgressData[config.id] || "";
                   const statusColors = {
@@ -4509,8 +4532,11 @@ export default function DashboardPage() {
                     </div>
                   );
                 })}
-              </div>
-            )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </main>
