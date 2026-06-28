@@ -365,6 +365,7 @@ button {
   position: relative;
   filter: url("#goo");
   animation: rotate-move 2s ease-in-out infinite;
+  background: transparent;
 }
 
 .dot {
