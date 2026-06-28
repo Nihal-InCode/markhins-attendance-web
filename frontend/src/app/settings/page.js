@@ -43,9 +43,18 @@ function getIstDateString() {
     return `${year}-${month}-${day}`;
 }
 
+const TABS = [
+    { id: "overview", label: "Overview", icon: "📊" },
+    { id: "teachers", label: "Teachers", icon: "👥" },
+    { id: "timetable", label: "Timetable", icon: "📅" },
+    { id: "broadcasts", label: "Broadcasts", icon: "📢" },
+    { id: "system", label: "System", icon: "⚙️" },
+];
+
 export default function SettingsPage() {
     const { user } = useAuth();
     const router = useRouter();
+    const [activeTab, setActiveTab] = useState("overview");
     const [sessions, setSessions] = useState([]);
     const [systemInfo, setSystemInfo] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -63,9 +72,7 @@ export default function SettingsPage() {
     const [teacherModalOpen, setTeacherModalOpen] = useState(false);
     const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "" });
     const [photoBusyTeacherId, setPhotoBusyTeacherId] = useState(null);
-    const [adminActivityLog, setAdminActivityLog] = useState({ activeUsers: [], liveUsers: [], actions: [], summary: {}, featureUsage: [] });
     const [namazApiMonitor, setNamazApiMonitor] = useState(null);
-    const [activityDate, setActivityDate] = useState(getIstDateString());
     const [selectedWeekday, setSelectedWeekday] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1);
     const [timetableRows, setTimetableRows] = useState([]);
     const [editingCell, setEditingCell] = useState(null);
@@ -92,102 +99,52 @@ export default function SettingsPage() {
         hideLoaderRef.current = hideLoader;
     }, [showLoader, hideLoader]);
 
-    const refreshAdminActivity = useCallback(async (targetDate = activityDate) => {
-        const activityRes = await getAdminActivityLog(targetDate);
-        setAdminActivityLog({
-            activeUsers: Array.isArray(activityRes?.activeUsers) ? activityRes.activeUsers : [],
-            liveUsers: Array.isArray(activityRes?.liveUsers) ? activityRes.liveUsers : [],
-            actions: Array.isArray(activityRes?.actions) ? activityRes.actions : [],
-            summary: activityRes?.summary || {},
-            featureUsage: Array.isArray(activityRes?.featureUsage) ? activityRes.featureUsage : [],
-        });
-    }, [activityDate]);
-
     const fetchData = useCallback(async () => {
         setLoading(true);
         setMsg("");
         setError("");
-        showLoaderRef.current("Fetching system settings...");
+        showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, activityRes, announcementRes, namazMonitorRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
                 getAdminTimetable(selectedWeekday),
-                getAdminActivityLog(activityDate),
                 getAdminAnnouncements(),
                 getNamazApiMonitor(),
             ]);
-
-            // apiRequest already unwraps .data if it exists
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
             setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
             setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
             setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
-            setAdminActivityLog({
-                activeUsers: Array.isArray(activityRes?.activeUsers) ? activityRes.activeUsers : [],
-                liveUsers: Array.isArray(activityRes?.liveUsers) ? activityRes.liveUsers : [],
-                actions: Array.isArray(activityRes?.actions) ? activityRes.actions : [],
-                summary: activityRes?.summary || {},
-                featureUsage: Array.isArray(activityRes?.featureUsage) ? activityRes.featureUsage : [],
-            });
             setNamazApiMonitor(namazMonitorRes || null);
         } catch (err) {
-            console.error(err);
-            setError("Failed to load admin data: " + err.message);
+            setError("Failed to load: " + err.message);
         } finally {
             setLoading(false);
             hideLoaderRef.current();
         }
-    }, [activityDate, selectedWeekday]);
+    }, [selectedWeekday]);
 
     useEffect(() => {
-        if (!user || user.role !== 'admin') {
-            router.push("/");
-            return;
-        }
+        if (!user || user.role !== 'admin') { router.push("/"); return; }
         fetchData();
     }, [fetchData, router, user]);
 
-    useEffect(() => {
-        if (!user || user.role !== 'admin') return;
-        const interval = setInterval(() => {
-            refreshAdminActivity(activityDate).catch(() => { });
-        }, ACTIVITY_POLL_MS);
-        return () => clearInterval(interval);
-    }, [activityDate, refreshAdminActivity, user]);
-
     async function refreshTeachers() {
-        const teacherRes = await getAdminTeachers();
-        setTeachers(Array.isArray(teacherRes) ? teacherRes : []);
+        const res = await getAdminTeachers();
+        setTeachers(Array.isArray(res) ? res : []);
     }
 
     async function refreshTimetable() {
-        const timetableRes = await getAdminTimetable(selectedWeekday);
-        setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
+        const res = await getAdminTimetable(selectedWeekday);
+        setTimetableRows(Array.isArray(res) ? res : []);
     }
 
     async function refreshSessions() {
-        const sessRes = await apiRequest("/admin/sessions");
-        setSessions(sessRes.sessions || []);
-    }
-
-    async function handleRefreshAdminActivity() {
-        try {
-            await refreshAdminActivity(activityDate);
-        } catch (err) {
-            setError(err.message);
-        }
-    }
-
-    async function refreshNamazApiMonitor() {
-        try {
-            const monitor = await getNamazApiMonitor();
-            setNamazApiMonitor(monitor || null);
-        } catch (err) {
-            setError(err.message);
-        }
+        const res = await apiRequest("/admin/sessions");
+        setSessions(res.sessions || []);
     }
 
     function getAuthToken() {
@@ -195,34 +152,25 @@ export default function SettingsPage() {
     }
 
     async function handleRevoke(teacherId) {
-        if (!confirm("Are you sure you want to log out this teacher?")) return;
+        if (!confirm("Log out this teacher?")) return;
         showLoader("Revoking session...");
         try {
-            await apiRequest("/admin/revoke-session", {
-                method: "POST",
-                body: JSON.stringify({ teacherId })
-            });
+            await apiRequest("/admin/revoke-session", { method: "POST", body: JSON.stringify({ teacherId }) });
             await refreshSessions();
-            setMsg("Session revoked successfully.");
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            hideLoader();
-        }
+            setMsg("Session revoked.");
+        } catch (err) { setError(err.message); }
+        finally { hideLoader(); }
     }
 
     async function handleUpload(e) {
         const file = e.target.files[0];
-        if (!file) return;
-        if (!confirm("This will REPLACE the web database. Are you sure?")) return;
-
+        if (!file || !confirm("REPLACE the database?")) return;
         setUploading(true);
         setError("");
-        showLoader("Uploading system database...", { showProgress: true, progress: 45 });
+        showLoader("Uploading...");
         const formData = new FormData();
         formData.append("file", file);
         const authToken = getAuthToken();
-
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/admin/upload-db`, {
                 method: "POST",
@@ -230,29 +178,15 @@ export default function SettingsPage() {
                 body: formData
             });
             const data = await res.json();
-            if (data.success) {
-                playSound('uploadSuccess');
-                setMsg("Database uploaded successfully!");
-                await fetchData();
-            } else {
-                playSound('error');
-                throw new Error(data.message || "Upload failed");
-            }
-        } catch (err) {
-            playSound('error');
-            setError("Upload Error: " + err.message);
-        } finally {
-            setUploading(false);
-            hideLoader();
-        }
+            if (data.success) { playSound('uploadSuccess'); setMsg("Database uploaded!"); await fetchData(); }
+            else { playSound('error'); throw new Error(data.message || "Upload failed"); }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setUploading(false); hideLoader(); }
     }
 
     function handleDownload() {
         const url = `${process.env.NEXT_PUBLIC_API_URL || ""}/admin/download-db`;
         const authToken = getAuthToken();
-        const a = document.createElement('a');
-        a.href = url + (authToken ? `?token=${authToken}` : ""); // Some browsers might need this if they don't support fetch-based download easily
-        // Better: use fetch with auth and create blob
         fetch(url, { headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {} })
             .then(res => res.blob())
             .then(blob => {
@@ -269,1338 +203,682 @@ export default function SettingsPage() {
 
     async function handlePasswordChange(e) {
         e.preventDefault();
-        if (newPassword !== confirmPassword) {
-            setError("Passwords do not match.");
-            return;
-        }
-        if (newPassword.length < 6) {
-            setError("Password must be at least 6 characters.");
-            return;
-        }
-
+        if (newPassword !== confirmPassword) { setError("Passwords don't match."); return; }
+        if (newPassword.length < 6) { setError("Min 6 characters."); return; }
         setUpdatingPassword(true);
         setError("");
-        showLoader("Updating admin password...");
-
+        showLoader("Updating password...");
         try {
-            const res = await apiRequest("/admin/update-password", {
-                method: "POST",
-                body: JSON.stringify({ password: newPassword })
-            });
-
-            if (res.success) {
-                playSound('success');
-                setMsg("Admin password updated successfully! Please note this down securely.");
-                setNewPassword("");
-                setConfirmPassword("");
-            } else {
-                throw new Error(res.message || "Failed to update password");
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setUpdatingPassword(false);
-            hideLoader();
-        }
+            const res = await apiRequest("/admin/update-password", { method: "POST", body: JSON.stringify({ password: newPassword }) });
+            if (res.success) { playSound('success'); setMsg("Password updated!"); setNewPassword(""); setConfirmPassword(""); }
+            else throw new Error(res.message || "Failed");
+        } catch (err) { setError(err.message); }
+        finally { setUpdatingPassword(false); hideLoader(); }
     }
 
     async function handleResetData() {
-        const confirmMsg = `WARNING: Are you sure you want to reset the selected data?\n` +
-            `- Category: ${resetConfig.category.toUpperCase()}\n` +
-            `- Class: ${resetConfig.className.toUpperCase()}\n` +
-            `- Date: ${resetConfig.date.toUpperCase()}\n` +
-            `This action CANNOT be undone. Proceed?`;
-            
-        if (!confirm(confirmMsg)) return;
-
+        if (!confirm(`Reset ${resetConfig.category.toUpperCase()} data for ${resetConfig.className.toUpperCase()}? This cannot be undone.`)) return;
         setResettingData(true);
         setError("");
-        setMsg("");
-        showLoader("Resetting database records...");
-
+        showLoader("Resetting...");
         try {
             const res = await apiRequest("/admin/reset-namaz-data", {
                 method: "POST",
-                body: JSON.stringify({
-                    category: resetConfig.category,
-                    className: resetConfig.className,
-                    date: resetConfig.date
-                })
+                body: JSON.stringify({ category: resetConfig.category, className: resetConfig.className, date: resetConfig.date })
             });
-
-            if (res.success) {
-                playSound('success');
-                setMsg(res.message || "Data reset successfully.");
-                await fetchData();
-            } else {
-                throw new Error(res.message || "Failed to reset data");
-            }
-        } catch (err) {
-            playSound('error');
-            setError("Reset Error: " + err.message);
-        } finally {
-            setResettingData(false);
-            hideLoader();
-        }
+            if (res.success) { playSound('success'); setMsg(res.message || "Reset done."); await fetchData(); }
+            else throw new Error(res.message || "Failed");
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setResettingData(false); hideLoader(); }
     }
 
-    function openCreateTeacherModal() {
-        setTeacherForm({ id: null, name: "", username: "", password: "" });
-        setTeacherModalOpen(true);
-    }
-
-    function openEditTeacherModal(teacher) {
-        setTeacherForm({
-            id: teacher.id,
-            name: teacher.name || "",
-            username: teacher.username || "",
-            password: "",
-        });
-        setTeacherModalOpen(true);
-    }
+    function openCreateTeacherModal() { setTeacherForm({ id: null, name: "", username: "", password: "" }); setTeacherModalOpen(true); }
+    function openEditTeacherModal(teacher) { setTeacherForm({ id: teacher.id, name: teacher.name || "", username: teacher.username || "", password: "" }); setTeacherModalOpen(true); }
 
     async function submitTeacherForm(e) {
         e.preventDefault();
         setTeachersBusy(true);
         setError("");
-        setMsg("");
         try {
-            if (teacherForm.id) {
-                await updateAdminTeacher(teacherForm.id, teacherForm);
-                setMsg("Teacher updated successfully.");
-            } else {
-                await createAdminTeacher(teacherForm);
-                setMsg("Teacher added successfully.");
-            }
+            if (teacherForm.id) { await updateAdminTeacher(teacherForm.id, teacherForm); setMsg("Teacher updated."); }
+            else { await createAdminTeacher(teacherForm); setMsg("Teacher created."); }
             playSound('success');
             setTeacherModalOpen(false);
             await Promise.all([refreshTeachers(), refreshSessions()]);
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setTeachersBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setTeachersBusy(false); }
     }
 
     async function handleTeacherPhotoUpload(teacher, file) {
         if (!file) return;
         setPhotoBusyTeacherId(teacher.id);
-        setError("");
-        setMsg("");
-        showLoader(`Uploading photo for ${teacher.name}...`);
+        showLoader(`Uploading photo...`);
         try {
             await uploadTeacherPhoto(teacher.id, file, getAuthToken());
             playSound('uploadSuccess');
             setMsg(`Photo updated for ${teacher.name}.`);
             await refreshTeachers();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setPhotoBusyTeacherId(null);
-            hideLoader();
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setPhotoBusyTeacherId(null); hideLoader(); }
     }
 
     async function handleTeacherPhotoRemove(teacher) {
-        if (!confirm(`Remove the profile photo for "${teacher.name}"?`)) return;
+        if (!confirm(`Remove photo for "${teacher.name}"?`)) return;
         setPhotoBusyTeacherId(teacher.id);
-        setError("");
-        setMsg("");
-        showLoader(`Removing photo for ${teacher.name}...`);
+        showLoader(`Removing photo...`);
         try {
             await deleteTeacherPhoto(teacher.id);
             playSound('success');
-            setMsg(`Photo removed for ${teacher.name}.`);
+            setMsg(`Photo removed.`);
             await refreshTeachers();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setPhotoBusyTeacherId(null);
-            hideLoader();
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setPhotoBusyTeacherId(null); hideLoader(); }
     }
 
     async function handleTeacherDelete(teacher) {
-        if (!confirm(`Delete teacher "${teacher.name}"? This will remove current timetable assignments.`)) return;
+        if (!confirm(`Delete "${teacher.name}"?`)) return;
         setTeachersBusy(true);
-        setError("");
-        setMsg("");
         try {
             await deleteAdminTeacher(teacher.id);
             playSound('success');
-            setMsg("Teacher deleted successfully.");
+            setMsg("Teacher deleted.");
             await Promise.all([refreshTeachers(), refreshSessions(), refreshTimetable()]);
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setTeachersBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setTeachersBusy(false); }
     }
 
     async function refreshAnnouncements() {
-        const announcementRes = await getAdminAnnouncements();
-        setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
+        const res = await getAdminAnnouncements();
+        setAnnouncements(Array.isArray(res) ? res : []);
     }
 
     function resetAnnouncementForm() {
-        setAnnouncementForm({
-            id: null,
-            heading: "A fresh semester begins",
-            content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.",
-            footer: "If anything goes wrong or does not work correctly, please inform the developer.",
-            active: true,
-        });
+        setAnnouncementForm({ id: null, heading: "A fresh semester begins", content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.", footer: "If anything goes wrong or does not work correctly, please inform the developer.", active: true });
     }
 
     async function handleSaveAnnouncement(e) {
         if (e) e.preventDefault();
         setAnnouncementBusy(true);
-        setError("");
-        setMsg("");
         try {
-            if (announcementForm.id) {
-                await updateAdminAnnouncement(announcementForm.id, announcementForm);
-                setMsg("Broadcast updated successfully.");
-            } else {
-                await createAdminAnnouncement(announcementForm);
-                setMsg("Broadcast created successfully.");
-            }
+            if (announcementForm.id) { await updateAdminAnnouncement(announcementForm.id, announcementForm); setMsg("Broadcast updated."); }
+            else { await createAdminAnnouncement(announcementForm); setMsg("Broadcast created."); }
             playSound('success');
             resetAnnouncementForm();
             await refreshAnnouncements();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setAnnouncementBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setAnnouncementBusy(false); }
     }
 
-    function handleEditAnnouncement(announcement) {
-        setAnnouncementForm({
-            id: announcement.id,
-            heading: announcement.heading || "",
-            content: announcement.content || "",
-            footer: announcement.footer || "",
-            active: announcement.active ?? true,
-        });
+    function handleEditAnnouncement(ann) {
+        setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true });
     }
 
-    async function handleDeleteAnnouncement(announcement) {
-        if (!confirm(`Delete announcement "${announcement.heading}"? This will also remove dismissal records.`)) return;
+    async function handleDeleteAnnouncement(ann) {
+        if (!confirm(`Delete "${ann.heading}"?`)) return;
         setAnnouncementBusy(true);
-        setError("");
-        setMsg("");
         try {
-            await deleteAdminAnnouncement(announcement.id);
+            await deleteAdminAnnouncement(ann.id);
             playSound('success');
-            setMsg("Broadcast deleted successfully.");
-            if (announcementForm.id === announcement.id) {
-                resetAnnouncementForm();
-            }
+            setMsg("Deleted.");
+            if (announcementForm.id === ann.id) resetAnnouncementForm();
             await refreshAnnouncements();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setAnnouncementBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setAnnouncementBusy(false); }
     }
 
-    async function handleToggleAnnouncementActive(announcement) {
+    async function handleToggleAnnouncementActive(ann) {
         setAnnouncementBusy(true);
-        setError("");
-        setMsg("");
         try {
-            const updatedActive = !announcement.active;
-            await updateAdminAnnouncement(announcement.id, {
-                heading: announcement.heading,
-                content: announcement.content,
-                footer: announcement.footer,
-                active: updatedActive
-            });
+            const updated = !ann.active;
+            await updateAdminAnnouncement(ann.id, { heading: ann.heading, content: ann.content, footer: ann.footer, active: updated });
             playSound('success');
-            setMsg(`Broadcast "${announcement.heading}" is now ${updatedActive ? 'active' : 'inactive'}.`);
+            setMsg(`"${ann.heading}" is now ${updated ? 'active' : 'inactive'}.`);
             await refreshAnnouncements();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setAnnouncementBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setAnnouncementBusy(false); }
     }
 
-    async function handleOpenViewers(announcement) {
-        setViewersModal({
-            open: true,
-            key: announcement.announcementKey,
-            heading: announcement.heading,
-            list: [],
-            loading: true
-        });
+    async function handleOpenViewers(ann) {
+        setViewersModal({ open: true, key: ann.announcementKey, heading: ann.heading, list: [], loading: true });
         try {
-            const list = await getAnnouncementViewers(announcement.announcementKey);
-            setViewersModal(prev => ({
-                ...prev,
-                list: Array.isArray(list) ? list : [],
-                loading: false
-            }));
-        } catch (err) {
-            setError("Failed to fetch viewers: " + err.message);
-            setViewersModal(prev => ({ ...prev, open: false, loading: false }));
-        }
+            const list = await getAnnouncementViewers(ann.announcementKey);
+            setViewersModal(prev => ({ ...prev, list: Array.isArray(list) ? list : [], loading: false }));
+        } catch (err) { setError(err.message); setViewersModal(prev => ({ ...prev, open: false, loading: false })); }
     }
 
     async function openTimetableEditor(classId, period, cell) {
-        if (editingCell?.classId === classId && editingCell?.period === period) {
-            setEditingCell(null);
-            setSubjectOptions([]);
-            setManualSubjectEntry(false);
-            setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
-            return;
-        }
+        if (editingCell?.classId === classId && editingCell?.period === period) { setEditingCell(null); setSubjectOptions([]); setManualSubjectEntry(false); setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" }); return; }
         setEditingCell({ classId, period });
-        const teacherId = cell?.teacherId ? String(cell.teacherId) : "";
-        setTimetableEditor({
-            classId,
-            period,
-            teacherId,
-            subject: cell?.subject || "",
-        });
+        setTimetableEditor({ classId, period, teacherId: cell?.teacherId ? String(cell.teacherId) : "", subject: cell?.subject || "" });
         setManualSubjectEntry(false);
-        if (!teacherId) {
-            setSubjectOptions([]);
-            return;
-        }
+        const teacherId = cell?.teacherId ? String(cell.teacherId) : "";
+        if (!teacherId) { setSubjectOptions([]); return; }
         try {
             const options = await getTeacherSubjectOptions(teacherId);
-            const normalizedOptions = Array.isArray(options) ? options : [];
-            setSubjectOptions(normalizedOptions);
-            if (cell?.subject && !normalizedOptions.includes(cell.subject)) {
-                setManualSubjectEntry(true);
-            }
-        } catch (err) {
-            setSubjectOptions([]);
-            setError(err.message);
-        }
+            const normalized = Array.isArray(options) ? options : [];
+            setSubjectOptions(normalized);
+            if (cell?.subject && !normalized.includes(cell.subject)) setManualSubjectEntry(true);
+        } catch (err) { setSubjectOptions([]); setError(err.message); }
     }
 
     async function handleTeacherChangeForCell(teacherId) {
         setTimetableEditor((prev) => ({ ...prev, teacherId, subject: "" }));
         setManualSubjectEntry(false);
-        if (!teacherId) {
-            setSubjectOptions([]);
-            return;
-        }
-        try {
-            const options = await getTeacherSubjectOptions(teacherId);
-            setSubjectOptions(Array.isArray(options) ? options : []);
-        } catch (err) {
-            setSubjectOptions([]);
-            setError(err.message);
-        }
+        if (!teacherId) { setSubjectOptions([]); return; }
+        try { const opts = await getTeacherSubjectOptions(teacherId); setSubjectOptions(Array.isArray(opts) ? opts : []); }
+        catch (err) { setSubjectOptions([]); setError(err.message); }
     }
 
     async function saveTimetableCell() {
         if (!editingCell) return;
         setTimetableBusy(true);
-        setError("");
-        setMsg("");
         try {
-            await updateTimetablePeriod({
-                classId: timetableEditor.classId,
-                weekday: selectedWeekday,
-                period: timetableEditor.period,
-                teacherId: timetableEditor.teacherId || null,
-                subject: timetableEditor.subject,
-            });
+            await updateTimetablePeriod({ classId: timetableEditor.classId, weekday: selectedWeekday, period: timetableEditor.period, teacherId: timetableEditor.teacherId || null, subject: timetableEditor.subject });
             playSound('success');
-            setMsg("Timetable updated successfully.");
-            setEditingCell(null);
-            setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
-            setSubjectOptions([]);
-            setManualSubjectEntry(false);
+            setMsg("Timetable updated.");
+            setEditingCell(null); setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" }); setSubjectOptions([]); setManualSubjectEntry(false);
             await refreshTimetable();
-        } catch (err) {
-            playSound('error');
-            setError(err.message);
-        } finally {
-            setTimetableBusy(false);
-        }
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setTimetableBusy(false); }
     }
 
     const filteredTeachers = useMemo(() => {
-        const query = teacherSearch.trim().toLowerCase();
-        if (!query) return teachers;
-        return teachers.filter((teacher) =>
-            [teacher.name, teacher.username, teacher.passwordStatus, teacher.classTeacherOf]
-                .filter(Boolean)
-                .some((value) => String(value).toLowerCase().includes(query))
-        );
+        const q = teacherSearch.trim().toLowerCase();
+        if (!q) return teachers;
+        return teachers.filter(t => [t.name, t.username, t.passwordStatus, t.classTeacherOf].filter(Boolean).some(v => String(v).toLowerCase().includes(q)));
     }, [teacherSearch, teachers]);
 
     if (loading) return <PencilLoader />;
 
     return (
-        <div className="min-h-screen bg-gray-50 px-4 py-6 font-sans sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-7xl space-y-8">
-                <div className="flex flex-col gap-4 rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Administration</p>
-                        <h1 className="mt-2 text-3xl font-black text-gray-900">Admin Settings</h1>
-                        <p className="mt-2 text-sm font-medium text-gray-500">Manage teacher accounts, timetable assignments and system access from one place.</p>
-                    </div>
-                    <button
-                        onClick={() => router.push("/")}
-                        className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-5 py-3 text-sm font-black text-gray-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                    >
-                        Back to Dashboard
-                    </button>
-                </div>
+        <div className="min-h-screen bg-white/90 px-4 py-6 font-sans sm:px-6" style={{ backgroundColor: 'rgba(55, 151, 169, 0.04)' }}>
+            <div className="mx-auto max-w-5xl space-y-6">
 
-                {msg && <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-700 anim-fade-in">{msg}</div>}
-                {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700 anim-fade-in">{error}</div>}
-
-                {/* System Info */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>🖥️</span> System Overview</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div className="bg-blue-50 p-4 rounded-3xl">
-                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Database Students</p>
-                            <p className="text-2xl font-black text-blue-900">{systemInfo?.totalStudents}</p>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded-3xl">
-                            <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Total Teachers</p>
-                            <p className="text-2xl font-black text-purple-900">{systemInfo?.totalTeachers}</p>
-                        </div>
-                        <div className="bg-amber-50 p-4 rounded-3xl">
-                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Periods Marked</p>
-                            <p className="text-2xl font-black text-amber-900">{systemInfo?.totalClasses}</p>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded-3xl">
-                            <p className="text-[10px] font-black text-green-500 uppercase tracking-widest">Uptime</p>
-                            <p className="text-lg font-black text-green-900">{systemInfo?.serverUptime}</p>
-                        </div>
-                    </div>
-                    <p className="mt-4 text-[10px] font-bold text-gray-400">DB PATH: {systemInfo?.dbPath}</p>
-                </section>
-
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                {/* Header */}
+                <div className="rounded-3xl p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-black text-gray-900">Namaz API Monitor</h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Android session ingestion status</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#5eead4]">Administration</p>
+                            <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">Settings</h1>
+                            <p className="mt-2 text-sm text-white/60">Manage teachers, timetable & system</p>
                         </div>
-                        <button
-                            onClick={refreshNamazApiMonitor}
-                            className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-black transition-all"
-                        >
-                            Refresh API
+                        <button onClick={() => router.push("/")} className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/20 transition-all">
+                            Dashboard
                         </button>
                     </div>
-                    <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        <div className="rounded-[1.75rem] border border-emerald-100 bg-emerald-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">API Status</p>
-                            <p className="mt-2 text-2xl font-black text-emerald-900">{namazApiMonitor?.apiStatus || "Unknown"}</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                    {TABS.map(tab => (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-2 whitespace-nowrap rounded-2xl px-5 py-3 text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-[#0d9488] text-white shadow-lg shadow-[#0d9488]/20' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}>
+                            <span>{tab.icon}</span> {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Messages */}
+                {msg && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-700">{msg}</div>}
+                {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700">{error}</div>}
+
+                {/* Overview Tab */}
+                {activeTab === "overview" && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                { label: "Students", value: systemInfo?.totalStudents, color: "teal" },
+                                { label: "Teachers", value: systemInfo?.totalTeachers, color: "slate" },
+                                { label: "Periods", value: systemInfo?.totalClasses, color: "cyan" },
+                                { label: "Uptime", value: systemInfo?.serverUptime, color: "emerald" },
+                            ].map(s => (
+                                <div key={s.label} className={`rounded-2xl border border-${s.color}-100 bg-${s.color}-50/50 p-5`}>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{s.label}</p>
+                                    <p className={`mt-2 text-2xl font-black text-${s.color}-900`}>{s.value || "—"}</p>
+                                </div>
+                            ))}
                         </div>
-                        <div className="rounded-[1.75rem] border border-blue-100 bg-blue-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Sessions Today</p>
-                            <p className="mt-2 text-2xl font-black text-blue-900">{namazApiMonitor?.sessionsReceivedToday ?? 0}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-purple-100 bg-purple-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-500">Last Sync Time</p>
-                            <p className="mt-2 text-sm font-black text-purple-900 break-words">{namazApiMonitor?.lastSyncTime || "No sync yet"}</p>
-                        </div>
-                        <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Last Session Received</p>
-                            <p className="mt-2 text-sm font-black text-amber-950 break-words">
-                                {namazApiMonitor?.lastSessionReceived
-                                    ? `${namazApiMonitor.lastSessionReceived.sessionName} ${namazApiMonitor.lastSessionReceived.className}`
-                                    : "No sessions"}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[720px] text-left">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        {["Time", "Status", "Session", "Source", "Message"].map((heading) => (
-                                            <th key={heading} className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">{heading}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {(namazApiMonitor?.recentEvents || []).map((event, idx) => (
-                                        <tr key={`${event.createdAt}-${idx}`}>
-                                            <td className="px-5 py-4 text-xs font-bold text-gray-500">{event.createdAt}</td>
-                                            <td className="px-5 py-4">
-                                                <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${event.status === "received" ? "bg-green-50 text-green-700" : event.status === "unauthorized" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>
-                                                    {event.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-xs font-black text-gray-800">{event.sessionId || "-"}</td>
-                                            <td className="px-5 py-4 text-xs font-bold text-gray-500">{event.source || "-"}</td>
-                                            <td className="px-5 py-4 text-xs font-medium text-gray-600">{event.message || "-"}</td>
-                                        </tr>
-                                    ))}
-                                    {(!namazApiMonitor?.recentEvents || namazApiMonitor.recentEvents.length === 0) && (
+
+                        {/* Sessions */}
+                        <div className="rounded-3xl border border-gray-100 bg-white overflow-hidden">
+                            <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
+                                <h2 className="text-lg font-black text-gray-900">Active Sessions</h2>
+                                <span className="text-xs font-bold text-gray-400">{sessions.length} teachers</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50/80">
                                         <tr>
-                                            <td colSpan="5" className="px-5 py-10 text-center text-xs font-black uppercase tracking-widest text-gray-400">No API activity recorded</td>
+                                            {["Teacher", "Username", "Class", "Last Login", "Status", ""].map(h => (
+                                                <th key={h} className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                            ))}
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Reset Namaz & Event Data Section */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                                <span>⚠️</span> Reset Namaz & Event Data
-                            </h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
-                                Delete attendance database records selectively or fully
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Category
-                            </label>
-                            <select
-                                value={resetConfig.category}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All (Namaz & Events)</option>
-                                <option value="namaz">Namaz Sessions Only</option>
-                                <option value="program">Special Events Only</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Class
-                            </label>
-                            <select
-                                value={resetConfig.className}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All Classes</option>
-                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
-                                    .filter(Boolean)
-                                    .map(cls => (
-                                        <option key={cls} value={cls}>{cls}</option>
-                                    ))
-                                }
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Date Filter
-                            </label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={resetConfig.dateMode}
-                                    onChange={(e) => {
-                                        const mode = e.target.value;
-                                        setResetConfig(prev => ({
-                                            ...prev,
-                                            dateMode: mode,
-                                            date: mode === "all" ? "all" : getIstDateString()
-                                        }));
-                                    }}
-                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                >
-                                    <option value="all">All Time</option>
-                                    <option value="single">Select Date</option>
-                                </select>
-                                {resetConfig.dateMode === "single" && (
-                                    <input
-                                        type="date"
-                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
-                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
-                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    />
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <button
-                                onClick={handleResetData}
-                                disabled={resettingData}
-                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
-                            >
-                                {resettingData ? "Resetting..." : "Reset Data"}
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)] gap-8">
-                        {/* Form */}
-                        <div className="rounded-[2rem] border border-gray-100 bg-gray-50/50 p-6 space-y-4 h-fit">
-                            <h3 className="text-sm font-black text-gray-900">{announcementForm.id ? "Edit Broadcast" : "Create New Broadcast"}</h3>
-                            <form onSubmit={handleSaveAnnouncement} className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Heading</label>
-                                    <input
-                                        type="text"
-                                        value={announcementForm.heading}
-                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, heading: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm"
-                                        placeholder="e.g. A fresh semester begins"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Content</label>
-                                    <textarea
-                                        value={announcementForm.content}
-                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
-                                        className="w-full h-32 px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm resize-none"
-                                        placeholder="e.g. Respected {teacherName}, welcome to the new semester..."
-                                        required
-                                    />
-                                    <p className="mt-1.5 text-[9px] font-bold text-blue-500 uppercase tracking-wider">💡 Tip: Use {"{teacherName}"} to personalize content</p>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Footer Text</label>
-                                    <input
-                                        type="text"
-                                        value={announcementForm.footer}
-                                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, footer: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-white outline-none focus:ring-4 focus:ring-blue-100 font-bold transition-all text-sm"
-                                        placeholder="e.g. If anything goes wrong, inform the developer."
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-gray-100">
-                                    <span className="text-xs font-black uppercase tracking-wider text-gray-500">Active Status</span>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={announcementForm.active}
-                                            onChange={(e) => setAnnouncementForm(prev => ({ ...prev, active: e.target.checked }))}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                    </label>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="submit"
-                                        disabled={announcementBusy}
-                                        className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 disabled:opacity-50 transition-all"
-                                    >
-                                        {announcementForm.id ? "Save Changes" : "Publish Broadcast"}
-                                    </button>
-                                    {announcementForm.id && (
-                                        <button
-                                            type="button"
-                                            onClick={resetAnnouncementForm}
-                                            className="px-4 bg-gray-200 text-gray-700 py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-gray-300 transition-all"
-                                        >
-                                            Cancel
-                                        </button>
-                                    )}
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* List */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-black text-gray-900">Broadcast History</h3>
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                                {announcements.map((ann) => (
-                                    <div key={ann.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-md transition-all">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="min-w-0 flex-1">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${ann.active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500'}`}>
-                                                        {ann.active ? "Active" : "Inactive"}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => handleOpenViewers(ann)}
-                                                        className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest hover:bg-blue-100 hover:text-blue-700 transition-all flex items-center gap-1"
-                                                        title="Click to see who has viewed this broadcast"
-                                                    >
-                                                        👁️ Dismissed by {ann.dismissedCount || 0}
-                                                    </button>
-                                                </div>
-                                                <h4 className="mt-3 text-base font-black text-gray-900 truncate">{ann.heading}</h4>
-                                                <p className="mt-1 text-sm font-medium text-gray-600 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
-                                                {ann.footer && (
-                                                    <p className="mt-2 text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg w-fit border border-gray-100">
-                                                        📢 {ann.footer}
-                                                    </p>
-                                                )}
-                                                <p className="mt-3 text-[9px] font-bold text-gray-300 uppercase tracking-wider">
-                                                    Key: {ann.announcementKey} • Published {ann.createdAt}
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-col gap-2 shrink-0">
-                                                <button
-                                                    onClick={() => handleEditAnnouncement(ann)}
-                                                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-700 hover:bg-gray-50 transition-all"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToggleAnnouncementActive(ann)}
-                                                    className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${ann.active ? 'border-amber-200 text-amber-600 hover:bg-amber-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}
-                                                >
-                                                    {ann.active ? "Disable" : "Enable"}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteAnnouncement(ann)}
-                                                    className="px-3 py-1.5 rounded-lg border border-red-200 text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50 transition-all"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {announcements.length === 0 && (
-                                    <div className="rounded-2xl border border-dashed border-gray-200 p-8 text-center bg-gray-50/50">
-                                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">No broadcasts found</p>
-                                        <p className="mt-1 text-[10px] font-medium text-gray-400">Create one on the left to get started.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Reset Namaz & Event Data Section */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                                <span>⚠️</span> Reset Namaz & Event Data
-                            </h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
-                                Delete attendance database records selectively or fully
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Category
-                            </label>
-                            <select
-                                value={resetConfig.category}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All (Namaz & Events)</option>
-                                <option value="namaz">Namaz Sessions Only</option>
-                                <option value="program">Special Events Only</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Class
-                            </label>
-                            <select
-                                value={resetConfig.className}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All Classes</option>
-                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
-                                    .filter(Boolean)
-                                    .map(cls => (
-                                        <option key={cls} value={cls}>{cls}</option>
-                                    ))
-                                }
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Date Filter
-                            </label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={resetConfig.dateMode}
-                                    onChange={(e) => {
-                                        const mode = e.target.value;
-                                        setResetConfig(prev => ({
-                                            ...prev,
-                                            dateMode: mode,
-                                            date: mode === "all" ? "all" : getIstDateString()
-                                        }));
-                                    }}
-                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                >
-                                    <option value="all">All Time</option>
-                                    <option value="single">Select Date</option>
-                                </select>
-                                {resetConfig.dateMode === "single" && (
-                                    <input
-                                        type="date"
-                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
-                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
-                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    />
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <button
-                                onClick={handleResetData}
-                                disabled={resettingData}
-                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
-                            >
-                                {resettingData ? "Resetting..." : "Reset Data"}
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900">Manage Teachers</h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Create, edit and delete teacher accounts</p>
-                        </div>
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <input
-                                type="text"
-                                value={teacherSearch}
-                                onChange={(e) => setTeacherSearch(e.target.value)}
-                                placeholder="Search teachers"
-                                className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            />
-                            <button
-                                onClick={openCreateTeacherModal}
-                                className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 transition-all"
-                            >
-                                Add Teacher
-                            </button>
-                        </div>
-                    </div>
-                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
-                        <div className="max-h-[28rem] overflow-auto">
-                            <table className="w-full min-w-[980px] text-left">
-                                <thead className="bg-gray-50 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Photo</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Name</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {filteredTeachers.map((teacher) => (
-                                        <tr key={teacher.id}>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    {teacher.imageUrl ? (
-                                                        <img
-                                                            src={teacher.imageUrl}
-                                                            alt={`${teacher.name} photo`}
-                                                            className="h-16 w-16 rounded-2xl object-cover border border-gray-100 shadow-sm"
-                                                        />
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {sessions.map(s => (
+                                            <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-6 py-4 font-bold text-gray-800">{s.name}</td>
+                                                <td className="px-6 py-4 font-mono text-xs font-bold text-[#0d9488]">{s.username}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{s.class || "—"}</td>
+                                                <td className="px-6 py-4 text-xs text-gray-400">{s.last_login || "Never"}</td>
+                                                <td className="px-6 py-4">
+                                                    {s.session_active ? (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700 uppercase">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
+                                                        </span>
                                                     ) : (
-                                                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-lg font-black text-gray-400">
-                                                            {teacher.name?.charAt(0) || "T"}
-                                                        </div>
+                                                        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black text-gray-400 uppercase">Offline</span>
                                                     )}
-                                                    <div className="space-y-2">
-                                                        <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all ${photoBusyTeacherId === teacher.id ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"}`}>
-                                                            {photoBusyTeacherId === teacher.id ? "Uploading..." : "Upload"}
-                                                            <input
-                                                                type="file"
-                                                                accept="image/png,image/jpeg,image/webp"
-                                                                className="hidden"
-                                                                disabled={photoBusyTeacherId === teacher.id}
-                                                                onChange={(e) => {
-                                                                    const file = e.target.files?.[0];
-                                                                    e.target.value = "";
-                                                                    handleTeacherPhotoUpload(teacher, file);
-                                                                }}
-                                                            />
-                                                        </label>
-                                                        <button
-                                                            onClick={() => handleTeacherPhotoRemove(teacher)}
-                                                            disabled={!teacher.imageUrl || photoBusyTeacherId === teacher.id}
-                                                            className="block w-full rounded-xl border border-red-200 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300"
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <p className="font-black text-gray-800">{teacher.name}</p>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-1">
-                                                    ID {teacher.id} · {teacher.sessionActive ? "Session active" : "No active session"}
-                                                </p>
-                                            </td>
-                                            <td className="px-6 py-4 font-mono text-sm font-bold text-blue-700">{teacher.username}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${teacher.hasPassword ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                                                    {teacher.passwordStatus}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-gray-500">{teacher.classTeacherOf || "-"}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => openEditTeacherModal(teacher)}
-                                                        className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-black uppercase tracking-wider text-gray-700 hover:bg-gray-50"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleTeacherDelete(teacher)}
-                                                        disabled={teachersBusy}
-                                                        className="px-3 py-2 rounded-xl border border-red-200 text-xs font-black uppercase tracking-wider text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredTeachers.length === 0 && (
-                                        <tr>
-                                            <td colSpan="6" className="px-6 py-10 text-center text-xs font-bold uppercase tracking-widest text-gray-400">
-                                                No teachers found
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Reset Namaz & Event Data Section */}
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                                <span>⚠️</span> Reset Namaz & Event Data
-                            </h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">
-                                Delete attendance database records selectively or fully
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Category
-                            </label>
-                            <select
-                                value={resetConfig.category}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, category: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All (Namaz & Events)</option>
-                                <option value="namaz">Namaz Sessions Only</option>
-                                <option value="program">Special Events Only</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Class
-                            </label>
-                            <select
-                                value={resetConfig.className}
-                                onChange={(e) => setResetConfig(prev => ({ ...prev, className: e.target.value }))}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                            >
-                                <option value="all">All Classes</option>
-                                {Array.from(new Set([...timetableRows.map(r => r.class), "HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"]))
-                                    .filter(Boolean)
-                                    .map(cls => (
-                                        <option key={cls} value={cls}>{cls}</option>
-                                    ))
-                                }
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Date Filter
-                            </label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={resetConfig.dateMode}
-                                    onChange={(e) => {
-                                        const mode = e.target.value;
-                                        setResetConfig(prev => ({
-                                            ...prev,
-                                            dateMode: mode,
-                                            date: mode === "all" ? "all" : getIstDateString()
-                                        }));
-                                    }}
-                                    className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                >
-                                    <option value="all">All Time</option>
-                                    <option value="single">Select Date</option>
-                                </select>
-                                {resetConfig.dateMode === "single" && (
-                                    <input
-                                        type="date"
-                                        value={resetConfig.date === "all" ? getIstDateString() : resetConfig.date}
-                                        onChange={(e) => setResetConfig(prev => ({ ...prev, date: e.target.value }))}
-                                        className="w-1/2 rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    />
-                                )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {s.session_active && (
+                                                        <button onClick={() => handleRevoke(s.id)} className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors">Revoke</button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    </div>
+                )}
 
-                        <div>
-                            <button
-                                onClick={handleResetData}
-                                disabled={resettingData}
-                                className="w-full rounded-2xl bg-red-600 px-5 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-red-700 disabled:opacity-50 transition-all shadow-lg shadow-red-100"
-                            >
-                                {resettingData ? "Resetting..." : "Reset Data"}
+                {/* Teachers Tab */}
+                {activeTab === "teachers" && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <input type="text" value={teacherSearch} onChange={(e) => setTeacherSearch(e.target.value)} placeholder="Search teachers..."
+                                className="rounded-2xl border border-gray-100 bg-white px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-[#0d9488]/10 flex-1 sm:max-w-xs" />
+                            <button onClick={openCreateTeacherModal} className="rounded-2xl bg-[#0d9488] px-6 py-3 text-sm font-bold text-white hover:bg-[#0a7a70] transition-all shadow-lg shadow-[#0d9488]/20">
+                                + Add Teacher
                             </button>
                         </div>
-                    </div>
-                </section>
-
-                <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900">Editable Timetable</h2>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">Click any period cell to edit teacher and subject</p>
+                        <div className="rounded-3xl border border-gray-100 bg-white overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[800px] text-left">
+                                    <thead className="bg-gray-50/80">
+                                        <tr>
+                                            {["Photo", "Name", "Username", "Status", "Class", "Actions"].map(h => (
+                                                <th key={h} className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {filteredTeachers.map(teacher => (
+                                            <tr key={teacher.id} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {teacher.imageUrl ? (
+                                                            <img src={teacher.imageUrl} alt="" className="h-12 w-12 rounded-xl object-cover border border-gray-100" />
+                                                        ) : (
+                                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-sm font-black text-gray-400">
+                                                                {teacher.name?.charAt(0) || "T"}
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-col gap-1">
+                                                            <label className={`cursor-pointer rounded-lg px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white text-center transition-all ${photoBusyTeacherId === teacher.id ? "bg-gray-300" : "bg-[#0d9488] hover:bg-[#0a7a70]"}`}>
+                                                                {photoBusyTeacherId === teacher.id ? "..." : "Photo"}
+                                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; handleTeacherPhotoUpload(teacher, f); }} />
+                                                            </label>
+                                                            <button onClick={() => handleTeacherPhotoRemove(teacher)} disabled={!teacher.imageUrl} className="rounded-lg border border-gray-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-gray-400 hover:text-red-500 disabled:opacity-30 transition-all">
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="font-bold text-gray-800">{teacher.name}</p>
+                                                    <p className="text-[10px] text-gray-400">ID {teacher.id}</p>
+                                                </td>
+                                                <td className="px-6 py-4 font-mono text-xs font-bold text-[#0d9488]">{teacher.username}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${teacher.hasPassword ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                                                        {teacher.passwordStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{teacher.classTeacherOf || "—"}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => openEditTeacherModal(teacher)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50 transition-all">Edit</button>
+                                                        <button onClick={() => handleTeacherDelete(teacher)} disabled={teachersBusy} className="rounded-lg border border-red-100 px-3 py-1.5 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 disabled:opacity-50 transition-all">Delete</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Timetable Tab */}
+                {activeTab === "timetable" && (
+                    <div className="space-y-6">
                         <div className="flex flex-wrap gap-2">
                             {DAYS.map((day, idx) => (
-                                <button
-                                    key={day}
-                                    onClick={() => setSelectedWeekday(idx)}
-                                    className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all ${selectedWeekday === idx ? "bg-blue-600 text-white shadow-lg shadow-blue-100" : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"}`}
-                                >
+                                <button key={day} onClick={() => setSelectedWeekday(idx)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all ${selectedWeekday === idx ? "bg-[#0d9488] text-white shadow-lg shadow-[#0d9488]/20" : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"}`}>
                                     {day.slice(0, 3)}
                                 </button>
                             ))}
                         </div>
-                    </div>
-                    <div className="mt-6 overflow-hidden rounded-[2rem] border border-gray-100">
-                        <div className="overflow-auto">
-                            <table className="w-full min-w-[980px] text-left">
-                                <thead className="bg-gray-50 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                        {PERIODS.map((period) => (
-                                            <th key={period} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{period}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {timetableRows.map((row) => (
-                                        <tr key={row.class}>
-                                            <td className="px-6 py-4 font-black text-gray-800">{row.class}</td>
-                                            {PERIODS.map((period) => {
-                                                const cell = row.periods?.[period] || {};
-                                                const isEditing = editingCell?.classId === row.class && editingCell?.period === period;
-                                                return (
-                                                    <td key={period} className="px-4 py-4 align-top">
-                                                        <div className={`rounded-[1.5rem] border p-3 transition-all ${isEditing ? "border-blue-300 bg-blue-50 shadow-lg shadow-blue-100/40" : "border-gray-100 bg-gray-50 hover:border-blue-200 hover:bg-white"}`}>
-                                                            <button
-                                                                onClick={() => openTimetableEditor(row.class, period, cell)}
-                                                                className="w-full text-left"
-                                                            >
-                                                                <div className="flex items-start justify-between gap-3">
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-sm font-black text-gray-800">{cell.subject || "No subject assigned"}</p>
-                                                                        <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{cell.teacher || "Select teacher"}</p>
-                                                                    </div>
-                                                                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${isEditing ? "bg-blue-600 text-white" : "bg-white text-gray-400"}`}>
-                                                                        {isEditing ? "Editing" : "Edit"}
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-
+                        <div className="rounded-3xl border border-gray-100 bg-white overflow-hidden">
+                            <div className="overflow-auto">
+                                <table className="w-full min-w-[900px] text-left">
+                                    <thead className="bg-gray-50/80">
+                                        <tr>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
+                                            {PERIODS.map(p => <th key={p} className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{p}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {timetableRows.map(row => (
+                                            <tr key={row.class}>
+                                                <td className="px-6 py-4 font-bold text-gray-800">{row.class}</td>
+                                                {PERIODS.map(period => {
+                                                    const cell = row.periods?.[period] || {};
+                                                    const isEditing = editingCell?.classId === row.class && editingCell?.period === period;
+                                                    return (
+                                                        <td key={period} className="px-4 py-3 align-top">
+                                                            <div className={`rounded-2xl border p-3 transition-all cursor-pointer ${isEditing ? "border-[#0d9488]/30 bg-[#0d9488]/5 shadow-md" : "border-gray-100 bg-gray-50/50 hover:border-gray-200"}`}
+                                                                onClick={() => openTimetableEditor(row.class, period, cell)}>
+                                                                <p className="text-xs font-bold text-gray-700">{cell.subject || "—"}</p>
+                                                                <p className="text-[10px] text-gray-400 mt-0.5">{cell.teacher || "Empty"}</p>
+                                                            </div>
                                                             {isEditing && (
-                                                                <div className="mt-3 space-y-3 rounded-[1.25rem] border border-blue-200 bg-white p-3">
-                                                                    <div>
-                                                                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Teacher</label>
-                                                                        <select
-                                                                            value={timetableEditor.teacherId}
-                                                                            onChange={(e) => handleTeacherChangeForCell(e.target.value)}
-                                                                            className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                                                        >
-                                                                            <option value="">Clear assignment</option>
-                                                                            {teachers.map((teacher) => (
-                                                                                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
-                                                                            ))}
+                                                                <div className="mt-2 space-y-2 rounded-xl border border-[#0d9488]/20 bg-white p-3 shadow-lg" onClick={e => e.stopPropagation()}>
+                                                                    <select value={timetableEditor.teacherId} onChange={(e) => handleTeacherChangeForCell(e.target.value)}
+                                                                        className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                                                        <option value="">Clear</option>
+                                                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                                    </select>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Subject</label>
+                                                                        <button onClick={() => setManualSubjectEntry(p => !p)} disabled={!timetableEditor.teacherId}
+                                                                            className="text-[10px] font-bold text-[#0d9488] disabled:text-gray-300">{manualSubjectEntry ? "List" : "Type"}</button>
+                                                                    </div>
+                                                                    {manualSubjectEntry ? (
+                                                                        <input list={`sub-${row.class}-${period}`} value={timetableEditor.subject} onChange={(e) => setTimetableEditor(p => ({ ...p, subject: e.target.value }))} disabled={!timetableEditor.teacherId}
+                                                                            className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0d9488]/20 disabled:bg-gray-100" />
+                                                                    ) : (
+                                                                        <select value={timetableEditor.subject} onChange={(e) => setTimetableEditor(p => ({ ...p, subject: e.target.value }))} disabled={!timetableEditor.teacherId}
+                                                                            className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0d9488]/20 disabled:bg-gray-100">
+                                                                            <option value="">Select</option>
+                                                                            {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                                                         </select>
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Subject</label>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    if (manualSubjectEntry && subjectOptions.length > 0 && !subjectOptions.includes(timetableEditor.subject)) {
-                                                                                        setTimetableEditor((prev) => ({ ...prev, subject: "" }));
-                                                                                    }
-                                                                                    setManualSubjectEntry((prev) => !prev);
-                                                                                }}
-                                                                                disabled={!timetableEditor.teacherId}
-                                                                                className="text-[10px] font-black uppercase tracking-widest text-blue-600 disabled:text-gray-300"
-                                                                            >
-                                                                                {manualSubjectEntry ? "Use list" : "Type manually"}
-                                                                            </button>
-                                                                        </div>
-
-                                                                        {manualSubjectEntry ? (
-                                                                            <>
-                                                                                <input
-                                                                                    list={`subjects-${row.class}-${period}`}
-                                                                                    value={timetableEditor.subject}
-                                                                                    onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
-                                                                                    disabled={!timetableEditor.teacherId}
-                                                                                    placeholder={timetableEditor.teacherId ? "Enter subject name" : "Select a teacher first"}
-                                                                                    className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                                                                />
-                                                                                <datalist id={`subjects-${row.class}-${period}`}>
-                                                                                    {subjectOptions.map((subject) => (
-                                                                                        <option key={subject} value={subject} />
-                                                                                    ))}
-                                                                                </datalist>
-                                                                            </>
-                                                                        ) : (
-                                                                            <select
-                                                                                value={timetableEditor.subject}
-                                                                                onChange={(e) => setTimetableEditor((prev) => ({ ...prev, subject: e.target.value }))}
-                                                                                disabled={!timetableEditor.teacherId}
-                                                                                className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                                                            >
-                                                                                <option value="">Select subject</option>
-                                                                                {subjectOptions.map((subject) => (
-                                                                                    <option key={subject} value={subject}>{subject}</option>
-                                                                                ))}
-                                                                            </select>
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="grid grid-cols-3 gap-2">
-                                                                        <button
-                                                                            onClick={() => setTimetableEditor((prev) => ({ ...prev, teacherId: "", subject: "" }))}
-                                                                            className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500"
-                                                                        >
-                                                                            Clear
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setEditingCell(null);
-                                                                                setSubjectOptions([]);
-                                                                                setManualSubjectEntry(false);
-                                                                                setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" });
-                                                                            }}
-                                                                            className="rounded-2xl border border-gray-100 bg-white px-3 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={saveTimetableCell}
-                                                                            disabled={timetableBusy}
-                                                                            className="rounded-2xl bg-blue-600 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-blue-700 disabled:opacity-50"
-                                                                        >
-                                                                            Save
-                                                                        </button>
+                                                                    )}
+                                                                    <div className="flex gap-2">
+                                                                        <button onClick={() => { setEditingCell(null); setSubjectOptions([]); setManualSubjectEntry(false); setTimetableEditor({ classId: "", period: "", teacherId: "", subject: "" }); }}
+                                                                            className="flex-1 rounded-xl border border-gray-100 py-2 text-[10px] font-bold uppercase text-gray-500">Cancel</button>
+                                                                        <button onClick={saveTimetableCell} disabled={timetableBusy}
+                                                                            className="flex-1 rounded-xl bg-[#0d9488] py-2 text-[10px] font-bold uppercase text-white hover:bg-[#0a7a70] disabled:opacity-50">Save</button>
                                                                     </div>
                                                                 </div>
                                                             )}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
+                )}
 
-                </section>
-
-                {/* Teacher Sessions */}
-                <section className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-8 border-b border-gray-50">
-                        <h2 className="text-xl font-black flex items-center gap-2"><span>👥</span> Active Teacher Sessions</h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Teacher</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Username</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Class</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Last Login (IST)</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
-                                    <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {sessions.map(s => (
-                                    <tr key={s.id}>
-                                        <td className="px-8 py-5 font-bold text-gray-800">{s.name}</td>
-                                        <td className="px-8 py-5 text-blue-600 font-mono text-xs font-bold bg-blue-50/30">{s.username}</td>
-                                        <td className="px-8 py-5 text-indigo-600 font-mono text-xs font-bold bg-indigo-50/20">{s.password}</td>
-                                        <td className="px-8 py-5 text-gray-500 font-medium">{s.class || "-"}</td>
-                                        <td className="px-8 py-5 text-gray-400 text-sm text-center">{s.last_login || "Never"}</td>
-                                        <td className="px-8 py-5 text-center">
-                                            {s.session_active ? (
-                                                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">Active</span>
-                                            ) : (
-                                                <span className="bg-gray-100 text-gray-400 px-3 py-1 rounded-full text-[10px] font-black uppercase">None</span>
-                                            )}
-                                        </td>
-                                        <td className="px-8 py-5 text-right">
-                                            {s.session_active && (
-                                                <button
-                                                    onClick={() => handleRevoke(s.id)}
-                                                    className="text-red-500 font-black text-xs uppercase tracking-wider hover:underline"
-                                                >
-                                                    Revoke
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-                {teacherModalOpen && (
-                    <div
-                        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-                        onClick={(e) => {
-                            if (e.target === e.currentTarget) setTeacherModalOpen(false);
-                        }}
-                    >
-                        <div className="w-full max-w-lg rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-2xl">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Manage Teacher</p>
-                                    <h3 className="mt-2 text-2xl font-black text-gray-900">{teacherForm.id ? "Edit Teacher" : "Add Teacher"}</h3>
+                {/* Broadcasts Tab */}
+                {activeTab === "broadcasts" && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+                            <div className="rounded-3xl border border-gray-100 bg-white p-6 h-fit">
+                                <h3 className="text-sm font-bold text-gray-900 mb-4">{announcementForm.id ? "Edit Broadcast" : "New Broadcast"}</h3>
+                                <form onSubmit={handleSaveAnnouncement} className="space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Heading</label>
+                                        <input type="text" value={announcementForm.heading} onChange={(e) => setAnnouncementForm(p => ({ ...p, heading: e.target.value }))}
+                                            className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Content</label>
+                                        <textarea value={announcementForm.content} onChange={(e) => setAnnouncementForm(p => ({ ...p, content: e.target.value }))} rows={4}
+                                            className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 resize-none" required />
+                                        <p className="mt-1 text-[9px] font-bold text-[#0d9488] uppercase">Use {"{teacherName}"} for personalization</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Footer</label>
+                                        <input type="text" value={announcementForm.footer} onChange={(e) => setAnnouncementForm(p => ({ ...p, footer: e.target.value }))}
+                                            className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                    </div>
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" checked={announcementForm.active} onChange={(e) => setAnnouncementForm(p => ({ ...p, active: e.target.checked }))}
+                                            className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
+                                        <span className="text-sm font-bold text-gray-600">Active</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button type="submit" disabled={announcementBusy}
+                                            className="flex-1 rounded-xl bg-[#0d9488] py-3 text-xs font-bold uppercase text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all">
+                                            {announcementForm.id ? "Save" : "Publish"}
+                                        </button>
+                                        {announcementForm.id && (
+                                            <button type="button" onClick={resetAnnouncementForm}
+                                                className="rounded-xl border border-gray-200 px-4 py-3 text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
+                                        )}
+                                    </div>
+                                </form>
+                            </div>
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold text-gray-900">History</h3>
+                                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                                    {announcements.map(ann => (
+                                        <div key={ann.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-md transition-all">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${ann.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                            {ann.active ? "Active" : "Off"}
+                                                        </span>
+                                                        <button onClick={() => handleOpenViewers(ann)} className="text-[9px] font-bold text-[#0d9488] hover:underline">
+                                                            {ann.dismissedCount || 0} dismissed
+                                                        </button>
+                                                    </div>
+                                                    <h4 className="mt-2 font-bold text-gray-900">{ann.heading}</h4>
+                                                    <p className="mt-1 text-sm text-gray-500 line-clamp-2">{ann.content}</p>
+                                                    <p className="mt-2 text-[9px] text-gray-300 uppercase">{ann.createdAt}</p>
+                                                </div>
+                                                <div className="flex gap-1.5 shrink-0">
+                                                    <button onClick={() => handleEditAnnouncement(ann)} className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50">Edit</button>
+                                                    <button onClick={() => handleToggleAnnouncementActive(ann)}
+                                                        className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold uppercase ${ann.active ? 'border-amber-200 text-amber-600 hover:bg-amber-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
+                                                        {ann.active ? "Disable" : "Enable"}
+                                                    </button>
+                                                    <button onClick={() => handleDeleteAnnouncement(ann)} className="rounded-lg border border-red-100 px-2.5 py-1.5 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50">Del</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <button
-                                    onClick={() => setTeacherModalOpen(false)}
-                                    className="px-3 py-2 rounded-2xl bg-gray-100 text-xs font-black uppercase tracking-wider text-gray-500"
-                                >
-                                    Close
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* System Tab */}
+                {activeTab === "system" && (
+                    <div className="space-y-6">
+                        {/* Namaz Monitor */}
+                        <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                            <div className="flex items-center justify-between mb-5">
+                                <h2 className="text-lg font-black text-gray-900">Namaz API</h2>
+                                <button onClick={async () => { const m = await getNamazApiMonitor(); setNamazApiMonitor(m || null); }}
+                                    className="rounded-xl bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-black transition-all">Refresh</button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="rounded-xl bg-emerald-50/50 border border-emerald-100 p-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Status</p>
+                                    <p className="mt-1 text-lg font-black text-emerald-700">{namazApiMonitor?.apiStatus || "—"}</p>
+                                </div>
+                                <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Sessions</p>
+                                    <p className="mt-1 text-lg font-black text-blue-700">{namazApiMonitor?.sessionsReceivedToday ?? 0}</p>
+                                </div>
+                                <div className="rounded-xl bg-purple-50/50 border border-purple-100 p-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Last Sync</p>
+                                    <p className="mt-1 text-xs font-bold text-purple-700 break-words">{namazApiMonitor?.lastSyncTime || "—"}</p>
+                                </div>
+                                <div className="rounded-xl bg-amber-50/50 border border-amber-100 p-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Last Session</p>
+                                    <p className="mt-1 text-xs font-bold text-amber-700 break-words">
+                                        {namazApiMonitor?.lastSessionReceived ? `${namazApiMonitor.lastSessionReceived.sessionName} ${namazApiMonitor.lastSessionReceived.className}` : "—"}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-5 rounded-2xl border border-gray-100 overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50/80">
+                                        <tr>
+                                            {["Time", "Status", "Session", "Source", "Message"].map(h => (
+                                                <th key={h} className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {(namazApiMonitor?.recentEvents || []).map((e, i) => (
+                                            <tr key={`${e.createdAt}-${i}`}>
+                                                <td className="px-5 py-3 text-xs text-gray-500">{e.createdAt}</td>
+                                                <td className="px-5 py-3">
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${e.status === "received" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{e.status}</span>
+                                                </td>
+                                                <td className="px-5 py-3 text-xs font-bold text-gray-700">{e.sessionId || "—"}</td>
+                                                <td className="px-5 py-3 text-xs text-gray-500">{e.source || "—"}</td>
+                                                <td className="px-5 py-3 text-xs text-gray-500">{e.message || "—"}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Reset Data */}
+                        <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                            <h2 className="text-lg font-black text-gray-900 mb-4">Reset Data</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Category</label>
+                                    <select value={resetConfig.category} onChange={(e) => setResetConfig(p => ({ ...p, category: e.target.value }))}
+                                        className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                        <option value="all">All</option>
+                                        <option value="namaz">Namaz</option>
+                                        <option value="program">Events</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Class</label>
+                                    <select value={resetConfig.className} onChange={(e) => setResetConfig(p => ({ ...p, className: e.target.value }))}
+                                        className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                        <option value="all">All</option>
+                                        {["HS1", "HSU1", "HS2", "HSU2", "BS1", "BS2", "BS3", "BS4", "BS5"].map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Date</label>
+                                    <select value={resetConfig.dateMode} onChange={(e) => setResetConfig(p => ({ ...p, dateMode: e.target.value, date: e.target.value === "all" ? "all" : getIstDateString() }))}
+                                        className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                        <option value="all">All Time</option>
+                                        <option value="single">Specific</option>
+                                    </select>
+                                </div>
+                                <button onClick={handleResetData} disabled={resettingData}
+                                    className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold uppercase text-white hover:bg-red-700 disabled:opacity-50 transition-all">
+                                    {resettingData ? "..." : "Reset"}
                                 </button>
                             </div>
-                            <form onSubmit={submitTeacherForm} className="mt-6 space-y-4">
-                                <input
-                                    type="text"
-                                    value={teacherForm.name}
-                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, name: e.target.value }))}
-                                    placeholder="Teacher name"
-                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    required
-                                />
-                                <input
-                                    type="text"
-                                    value={teacherForm.username}
-                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, username: e.target.value }))}
-                                    placeholder="Unique username"
-                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                    required
-                                />
-                                <input
-                                    type="password"
-                                    value={teacherForm.password}
-                                    onChange={(e) => setTeacherForm((prev) => ({ ...prev, password: e.target.value }))}
-                                    placeholder={teacherForm.id ? "Leave blank to keep current password" : "Leave blank to use default login"}
-                                    className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-100"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={teachersBusy}
-                                    className="w-full px-5 py-4 rounded-2xl bg-blue-600 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                    {teacherForm.id ? "Save Teacher" : "Create Teacher"}
-                                </button>
+                        </div>
+
+                        {/* Password + DB */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                                <h2 className="text-lg font-black text-gray-900 mb-4">Change Password</h2>
+                                <form onSubmit={handlePasswordChange} className="space-y-3">
+                                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password"
+                                        className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                    <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm password"
+                                        className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                    <button type="submit" disabled={updatingPassword}
+                                        className="w-full rounded-xl bg-[#0d9488] py-3 text-sm font-bold uppercase text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all">
+                                        {updatingPassword ? "Updating..." : "Update Password"}
+                                    </button>
+                                </form>
+                            </div>
+                            <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                                <h2 className="text-lg font-black text-gray-900 mb-4">Database</h2>
+                                <div className="space-y-3">
+                                    <button onClick={handleDownload} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-5 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all">
+                                        ⬇ Download DB
+                                    </button>
+                                    <label className={`block w-full rounded-xl px-5 py-3 text-center text-sm font-bold cursor-pointer transition-all ${uploading ? "bg-gray-200 text-gray-500" : "bg-[#0d9488] text-white hover:bg-[#0a7a70]"}`}>
+                                        {uploading ? "Uploading..." : "⬆ Upload DB"}
+                                        <input type="file" className="hidden" accept=".db" onChange={handleUpload} disabled={uploading} />
+                                    </label>
+                                    <p className="text-[10px] text-gray-400 text-center">{systemInfo?.dbPath}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Teacher Modal */}
+                {teacherModalOpen && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setTeacherModalOpen(false); }}>
+                        <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl">
+                            <h3 className="text-lg font-black text-gray-900">{teacherForm.id ? "Edit Teacher" : "Add Teacher"}</h3>
+                            <form onSubmit={submitTeacherForm} className="mt-5 space-y-3">
+                                <input type="text" value={teacherForm.name} onChange={(e) => setTeacherForm(p => ({ ...p, name: e.target.value }))} placeholder="Name" required
+                                    className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                <input type="text" value={teacherForm.username} onChange={(e) => setTeacherForm(p => ({ ...p, username: e.target.value }))} placeholder="Username" required
+                                    className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                <input type="password" value={teacherForm.password} onChange={(e) => setTeacherForm(p => ({ ...p, password: e.target.value }))}
+                                    placeholder={teacherForm.id ? "Leave blank to keep" : "Default password"}
+                                    className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                <div className="flex gap-2 pt-2">
+                                    <button type="button" onClick={() => setTeacherModalOpen(false)}
+                                        className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                                    <button type="submit" disabled={teachersBusy}
+                                        className="flex-1 rounded-xl bg-[#0d9488] py-3 text-sm font-bold text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all">
+                                        {teachersBusy ? "..." : (teacherForm.id ? "Save" : "Create")}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
                 )}
-                {viewersModal.open && (
-                    <div
-                        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-                        onClick={(e) => {
-                            if (e.target === e.currentTarget) setViewersModal(prev => ({ ...prev, open: false }));
-                        }}
-                    >
-                        <div className="w-full max-w-xl rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-2xl">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Broadcast Viewers</p>
-                                    <h3 className="mt-2 text-xl font-black text-gray-900 leading-snug">{viewersModal.heading}</h3>
-                                </div>
-                                <button
-                                    onClick={() => setViewersModal(prev => ({ ...prev, open: false }))}
-                                    className="px-3 py-2 rounded-2xl bg-gray-100 text-xs font-black uppercase tracking-wider text-gray-500 hover:bg-gray-200 transition-all"
-                                >
-                                    Close
-                                </button>
-                            </div>
 
-                            <div className="mt-6">
+                {/* Viewers Modal */}
+                {viewersModal.open && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) setViewersModal(p => ({ ...p, open: false })); }}>
+                        <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-black text-gray-900 truncate">{viewersModal.heading}</h3>
+                                <button onClick={() => setViewersModal(p => ({ ...p, open: false }))} className="text-gray-400 hover:text-gray-600">✕</button>
+                            </div>
+                            <div className="mt-5 max-h-[350px] overflow-y-auto space-y-2">
                                 {viewersModal.loading ? (
-                                    <div className="py-12 flex justify-center items-center">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                    </div>
+                                    <div className="py-12 flex justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0d9488] border-t-transparent" /></div>
                                 ) : (
-                                    <div className="max-h-[350px] overflow-y-auto pr-1 space-y-3">
-                                        {viewersModal.list.map((viewer) => (
-                                            <div key={viewer.id} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-100 transition-all">
-                                                <div>
-                                                    <p className="text-sm font-black text-gray-800">{viewer.name}</p>
-                                                    <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mt-0.5">@{viewer.username}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs font-bold text-gray-700">{viewer.dismissedAt}</p>
-                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Seen Time</p>
-                                                </div>
+                                    viewersModal.list.map(v => (
+                                        <div key={v.id} className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-100 p-4">
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{v.name}</p>
+                                                <p className="text-[10px] font-bold text-[#0d9488]">@{v.username}</p>
                                             </div>
-                                        ))}
-                                        {viewersModal.list.length === 0 && (
-                                            <div className="py-12 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                                                <p className="text-xs font-black uppercase tracking-widest text-gray-400">No one has seen this broadcast yet</p>
-                                            </div>
-                                        )}
-                                    </div>
+                                            <p className="text-xs text-gray-500">{v.dismissedAt}</p>
+                                        </div>
+                                    ))
+                                )}
+                                {!viewersModal.loading && viewersModal.list.length === 0 && (
+                                    <p className="py-12 text-center text-xs font-bold text-gray-400 uppercase">No viewers yet</p>
                                 )}
                             </div>
                         </div>
