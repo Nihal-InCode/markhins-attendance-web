@@ -4,7 +4,7 @@ import React from 'react';
 export default function PencilLoader({ text = "Loading...", isFadingOut = false }) {
     return (
         <div className={`fixed inset-0 z-[10000] flex flex-col items-center justify-center transition-opacity duration-300 ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
-            <svg className="absolute w-0 h-0">
+            <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
                 <defs>
                     <filter id="goo">
                         <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
