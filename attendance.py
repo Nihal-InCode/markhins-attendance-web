@@ -5505,7 +5505,7 @@ if __name__ == "__main__":
                 elif action == "get_extra_subjects":
                     # Return all known subjects for manual selection (only from timetable)
                     c.execute("""
-                        SELECT DISTINCT subject FROM timetable 
+                        SELECT DISTINCT subject FROM timetable
                         WHERE subject IS NOT NULL AND subject != ''
                         ORDER BY subject
                     """)
@@ -5514,6 +5514,20 @@ if __name__ == "__main__":
                     if not subjects:
                         subjects = [{"id": "General", "name": "General"}]
                     result = {"success": True, "data": subjects}
+
+                elif action == "get_subjects_by_class":
+                    class_id = str(data.get("class_id") or "").strip()
+                    if not class_id:
+                        result = {"success": True, "data": []}
+                    else:
+                        c.execute("""
+                            SELECT DISTINCT subject FROM timetable
+                            WHERE UPPER(class) = UPPER(?) AND subject IS NOT NULL AND subject != ''
+                            ORDER BY subject
+                        """, (class_id,))
+                        rows = c.fetchall()
+                        subjects = [{"id": r[0], "name": r[0]} for r in rows]
+                        result = {"success": True, "data": subjects}
 
                 
                 elif action == "get_extra_classes_report":

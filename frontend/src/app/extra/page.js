@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getClasses, getStudents, getExtraSubjects, markExtraAttendance } from "@/lib/api";
+import { getClasses, getStudents, getSubjectsByClass, markExtraAttendance } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 
@@ -34,14 +34,26 @@ export default function ExtraAttendancePage() {
         async function load() {
             showLoader("Loading...");
             try {
-                const [clsData, subData] = await Promise.all([getClasses(), getExtraSubjects()]);
+                const clsData = await getClasses();
                 setClasses(Array.isArray(clsData) ? clsData : []);
-                setSubjects(Array.isArray(subData) ? subData : []);
             } catch (err) { setSetupError(err.message); }
             finally { setLoadingSetup(false); hideLoader(); }
         }
         load();
     }, []);
+
+    useEffect(() => {
+        if (!selectedClass) { setSubjects([]); setSelectedSubject(""); return; }
+        async function loadSubjects() {
+            try {
+                const subData = await getSubjectsByClass(selectedClass);
+                setSubjects(Array.isArray(subData) ? subData : []);
+                setSelectedSubject("");
+                setCustomSubject("");
+            } catch (err) { setSubjects([]); }
+        }
+        loadSubjects();
+    }, [selectedClass]);
 
     const effectiveSubject = customSubject.trim() !== "" ? customSubject.trim() : selectedSubject;
 
@@ -91,50 +103,61 @@ export default function ExtraAttendancePage() {
         <div className="min-h-screen font-sans" style={{ backgroundColor: 'rgba(55, 151, 169, 0.04)' }}>
 
             {/* Header */}
-            <div className="rounded-b-3xl px-4 pt-6 pb-8 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+            <div className="rounded-b-3xl px-4 pt-6 pb-10 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
                 <div className="mx-auto max-w-md">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-5">
                         <button onClick={() => step === "marking" ? setStep("setup") : router.push("/")}
                             className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all">← Back</button>
-                        <span className="rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300">⚡ Extra</span>
+                        <span className="rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 animate-pulse">⚡ Extra</span>
                     </div>
-                    <h1 className="text-xl font-black text-white">
-                        {step === "setup" ? "New Extra Class" : step === "marking" ? `${selectedClass} • ${effectiveSubject}` : "Done!"}
-                    </h1>
+                    <div className="text-center">
+                        <h1 className="text-xl font-black text-white animate-fade-in">
+                            {step === "setup" ? "New Extra Class" : step === "marking" ? `${selectedClass} • ${effectiveSubject}` : "Done!"}
+                        </h1>
+                        {step === "setup" && (
+                            <p className="mt-2 text-xs text-white/50 font-medium animate-fade-in">Outside regular timetable — select class & subject manually</p>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Setup Step */}
             {step === "setup" && (
                 <main className="mx-auto max-w-md px-4 py-6 space-y-5">
-                    <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm space-y-5">
+                    <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm space-y-5 animate-fade-in">
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Class</label>
                             <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}
-                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20 transition-all">
                                 <option value="">Select class</option>
                                 {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Subject</label>
-                            <select value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setCustomSubject(""); }}
-                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20">
-                                <option value="">Select subject</option>
-                                {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            <input type="text" placeholder="Or type custom subject"
-                                className="mt-2 w-full rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20"
-                                value={customSubject} onChange={(e) => { setCustomSubject(e.target.value); if (e.target.value) setSelectedSubject(""); }} />
-                        </div>
+                        {selectedClass && (
+                            <div className="animate-fade-in">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Subject</label>
+                                {subjects.length > 0 ? (
+                                    <select value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setCustomSubject(""); }}
+                                        className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20 transition-all">
+                                        <option value="">Select subject</option>
+                                        {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                ) : (
+                                    <p className="text-xs text-gray-400 mb-2">No subjects in timetable for this class</p>
+                                )}
+                                <input type="text" placeholder="Or type custom subject"
+                                    className="mt-2 w-full rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20 transition-all"
+                                    value={customSubject} onChange={(e) => { setCustomSubject(e.target.value); if (e.target.value) setSelectedSubject(""); }} />
+                            </div>
+                        )}
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Date</label>
                             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20 transition-all" />
                         </div>
-                        {setupError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{setupError}</div>}
-                        <button onClick={handleStartMarking} disabled={loadingStudents}
-                            className="w-full rounded-2xl bg-[#0d9488] py-4 text-sm font-bold text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all shadow-lg shadow-[#0d9488]/20">
+                        {setupError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 animate-fade-in">{setupError}</div>}
+                        <button onClick={handleStartMarking} disabled={loadingStudents || !effectiveSubject}
+                            className="w-full rounded-2xl bg-[#0d9488] py-4 text-sm font-bold text-white hover:bg-[#0a7a70] disabled:opacity-50 transition-all shadow-lg shadow-[#0d9488]/20 active:scale-[0.98]">
                             {loadingStudents ? "Loading..." : "Start Marking"}
                         </button>
                     </div>
@@ -143,35 +166,37 @@ export default function ExtraAttendancePage() {
 
             {/* Marking Step */}
             {step === "marking" && (
-                <main className="mx-auto max-w-md px-4 py-5 space-y-4">
+                <main className="mx-auto max-w-md px-4 py-5 space-y-4 animate-fade-in">
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center transition-all hover:scale-[1.02]">
                             <p className="text-2xl font-black text-emerald-600">{presentCount}</p>
                             <p className="text-[9px] font-bold text-emerald-500 uppercase">Present</p>
                         </div>
-                        <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-center">
+                        <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-center transition-all hover:scale-[1.02]">
                             <p className="text-2xl font-black text-red-500">{absentCount}</p>
                             <p className="text-[9px] font-bold text-red-400 uppercase">Absent</p>
                         </div>
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-center">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-center transition-all hover:scale-[1.02]">
                             <p className="text-2xl font-black text-gray-600">{students.length}</p>
                             <p className="text-[9px] font-bold text-gray-400 uppercase">Total</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
+                    <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5 animate-fade-in">
                         <span className="text-amber-500">⚡</span>
                         <p className="text-xs font-bold text-amber-700">{effectiveSubject} • {date}</p>
                     </div>
 
                     <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-50">
-                        {students.map((student) => {
+                        {students.map((student, idx) => {
                             const status = attendance[student.id] || "present";
                             const cfg = statusConfig[status];
                             return (
-                                <div key={student.id} className={`p-4 flex items-center justify-between ${status === "absent" ? "bg-red-50/30" : ""}`}>
+                                <div key={student.id}
+                                    className={`p-4 flex items-center justify-between transition-all hover:bg-gray-50/50 ${status === "absent" ? "bg-red-50/30" : ""}`}
+                                    style={{ animationDelay: `${idx * 30}ms` }}>
                                     <div className="flex items-center gap-3">
-                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black ${cfg.bg} ${cfg.text}`}>
+                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black transition-all ${cfg.bg} ${cfg.text}`}>
                                             {student.rollNo || student.roll_no}
                                         </div>
                                         <p className="text-sm font-bold text-gray-800">{student.name}</p>
@@ -188,7 +213,7 @@ export default function ExtraAttendancePage() {
                     {submitError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{submitError}</div>}
 
                     <button onClick={handleSubmit} disabled={submitting}
-                        className={`w-full rounded-2xl py-4 text-sm font-bold transition-all shadow-lg ${submitting ? "bg-gray-200 text-gray-400 shadow-none" : "bg-[#0d9488] text-white hover:bg-[#0a7a70] shadow-[#0d9488]/20"}`}>
+                        className={`w-full rounded-2xl py-4 text-sm font-bold transition-all shadow-lg active:scale-[0.98] ${submitting ? "bg-gray-200 text-gray-400 shadow-none" : "bg-[#0d9488] text-white hover:bg-[#0a7a70] shadow-[#0d9488]/20"}`}>
                         {submitting ? "Saving..." : "Submit Attendance"}
                     </button>
                 </main>
@@ -196,8 +221,8 @@ export default function ExtraAttendancePage() {
 
             {/* Success Step */}
             {step === "success" && (
-                <main className="mx-auto max-w-md px-4 py-10 space-y-5 text-center">
-                    <div className="mx-auto h-16 w-16 rounded-2xl bg-[#0d9488]/10 flex items-center justify-center text-3xl">✓</div>
+                <main className="mx-auto max-w-md px-4 py-10 space-y-5 text-center animate-fade-in">
+                    <div className="mx-auto h-16 w-16 rounded-2xl bg-[#0d9488]/10 flex items-center justify-center text-3xl animate-bounce">✓</div>
                     <div>
                         <h2 className="text-xl font-black text-gray-900">Recorded!</h2>
                         <p className="text-sm text-gray-500">Extra class attendance saved.</p>
@@ -219,9 +244,9 @@ export default function ExtraAttendancePage() {
                     )}
                     <div className="flex gap-3">
                         <button onClick={() => { setStep("setup"); setSummary(null); setStudents([]); setAttendance({}); setSelectedClass(""); setSelectedSubject(""); setCustomSubject(""); setDate(new Date().toISOString().split("T")[0]); }}
-                            className="flex-1 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">New Class</button>
+                            className="flex-1 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-[0.98]">New Class</button>
                         <button onClick={() => router.push("/")}
-                            className="flex-1 rounded-2xl bg-gray-900 py-4 text-sm font-bold text-white hover:bg-black transition-all">Home</button>
+                            className="flex-1 rounded-2xl bg-gray-900 py-4 text-sm font-bold text-white hover:bg-black transition-all active:scale-[0.98]">Home</button>
                     </div>
                 </main>
             )}

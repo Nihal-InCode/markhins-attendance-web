@@ -143,6 +143,7 @@ export const editLastAttendance = (records, { classId, period, date } = {}) =>
  * Extra Class Attendance
  */
 export const getExtraSubjects = () => apiRequest('/extra-subjects');
+export const getSubjectsByClass = (classId) => apiRequest(`/extra-subjects?classId=${classId}`);
 export async function getTeacherRegisterReport(params = {}) {
     const { classId, teacherId, fromDate, toDate } = params;
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;

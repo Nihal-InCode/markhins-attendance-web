@@ -1157,7 +1157,10 @@ app.post('/health/:type', authenticateToken, async (req, res) => {
 // Extra Class Subjects (used for manual subject selection)
 app.get('/extra-subjects', authenticateToken, async (req, res) => {
     try {
-        const result = await callPython({ action: "get_extra_subjects" });
+        const classId = req.query.classId;
+        const action = classId ? "get_subjects_by_class" : "get_extra_subjects";
+        const params = classId ? { class_id: classId } : {};
+        const result = await callPython({ action, ...params });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
