@@ -10,6 +10,7 @@ import {
   resolvePeriod,
   getBatchReport,
   getWeeklyReport,
+  getClassAverages,
   getSickLeaveOverview,
   getSickList,
   getLeaveList,
@@ -408,6 +409,8 @@ export default function DashboardPage() {
   const [adminActivityLog, setAdminActivityLog] = useState(null);
   const [batchReport, setBatchReport] = useState(null);
   const [selectedClassForAnalysis, setSelectedClassForAnalysis] = useState("");
+  const [classAverages, setClassAverages] = useState(null);
+  const [loadingClassAverages, setLoadingClassAverages] = useState(false);
   const [sickLeaveOverview, setSickLeaveOverview] = useState(null);
   const [viewingHealthList, setViewingHealthList] = useState(null);
   const [healthListData, setHealthListData] = useState(null);
@@ -718,6 +721,7 @@ export default function DashboardPage() {
         fetchAdminLog(todayIst);
         fetchExtraClassesReport(todayIst);
         fetchTeachers();
+        fetchClassAverages();
         if (selectedClassForAnalysis) {
           fetchBatchReport(selectedClassForAnalysis);
           loadAbsenteesReport(todayIst);
@@ -810,6 +814,7 @@ export default function DashboardPage() {
       fetchAdminLog(selectedDate);
       fetchExtraClassesReport();
       fetchTeachers();
+      fetchClassAverages();
     }
   }, [activeTab, selectedDate, dailyRefreshTs, user?.role, selectedTeacherForExtra, selectedClassForExtra]);
 
@@ -908,6 +913,25 @@ export default function DashboardPage() {
       setReportError("Failed to load batch report.");
     } finally {
       setLoadingFeature(false);
+    }
+  };
+
+  const fetchClassAverages = async () => {
+    setLoadingClassAverages(true);
+    try {
+      const res = await getClassAverages();
+      if (res && Array.isArray(res)) {
+        setClassAverages(res);
+      } else if (res && res.success && Array.isArray(res.data)) {
+        setClassAverages(res.data);
+      } else {
+        setClassAverages([]);
+      }
+    } catch (err) {
+      setReportError("Failed to load class averages.");
+      setClassAverages([]);
+    } finally {
+      setLoadingClassAverages(false);
     }
   };
 
@@ -3383,6 +3407,95 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* 2. Class Average Attendance */}
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
+                        <div>
+                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Class Average Attendance</h3>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Average attendance percentage per class</p>
+                        </div>
+                      </div>
+
+                      {loadingClassAverages ? (
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                      ) : Array.isArray(classAverages) && classAverages.length > 0 ? (
+                        <div className="space-y-4">
+                          {/* Summary Cards */}
+                          {(() => {
+                            const withData = classAverages.filter(c => c.attendancePercentage !== null);
+                            if (withData.length === 0) return null;
+                            const sorted = [...withData].sort((a, b) => b.attendancePercentage - a.attendancePercentage);
+                            const highest = sorted[0];
+                            const lowest = sorted[sorted.length - 1];
+                            const overallAvg = withData.reduce((sum, c) => sum + c.attendancePercentage, 0) / withData.length;
+                            return (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 p-5 rounded-[1.5rem] border border-green-100 text-center">
+                                  <p className="text-lg font-black text-green-700">{highest.class}</p>
+                                  <p className="text-2xl font-black text-green-600 mt-1">{highest.attendancePercentage}%</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-green-500 mt-1">Highest Attendance</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-amber-500/5 to-orange-500/5 p-5 rounded-[1.5rem] border border-amber-100 text-center">
+                                  <p className="text-lg font-black text-amber-700">{lowest.class}</p>
+                                  <p className="text-2xl font-black text-amber-600 mt-1">{lowest.attendancePercentage}%</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">Lowest Attendance</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-blue-500/5 to-indigo-500/5 p-5 rounded-[1.5rem] border border-blue-100 text-center">
+                                  <p className="text-2xl font-black text-blue-700">{overallAvg.toFixed(1)}%</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-blue-500 mt-2">Overall Average</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Class List */}
+                          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                            {(() => {
+                              const sorted = [...classAverages].sort((a, b) => {
+                                if (a.attendancePercentage === null) return 1;
+                                if (b.attendancePercentage === null) return -1;
+                                return b.attendancePercentage - a.attendancePercentage;
+                              });
+                              return sorted.map((item, idx) => (
+                                <div key={item.class} className={`flex items-center gap-4 p-4 ${idx !== sorted.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
+                                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-xs text-gray-500 shadow-inner flex-shrink-0">
+                                    {idx + 1}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="font-black text-gray-800 text-sm">{item.class}</p>
+                                      <p className="font-black text-sm text-gray-800">
+                                        {item.attendancePercentage !== null ? `${item.attendancePercentage}%` : 'No Data'}
+                                      </p>
+                                    </div>
+                                    {item.attendancePercentage !== null ? (
+                                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all duration-500 ${
+                                            item.attendancePercentage >= 90 ? 'bg-green-500' :
+                                            item.attendancePercentage >= 75 ? 'bg-blue-500' :
+                                            item.attendancePercentage >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                                          }`}
+                                          style={{ width: `${Math.min(item.attendancePercentage, 100)}%` }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">No attendance records found</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
+                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No attendance data available</p>
+                        </div>
+                      )}
+                    </div>
 
                     {/* 4. Batch-wise Report */}
                     <div className="space-y-4">

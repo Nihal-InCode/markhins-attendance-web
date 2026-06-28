@@ -4624,6 +4624,61 @@ if __name__ == "__main__":
                     
                     result = {"success": True, "data": report_data}
 
+                elif action == "get_class_average_attendance":
+                    c.execute("""
+                        SELECT DISTINCT class FROM students
+                        WHERE class IS NOT NULL AND class != ''
+                        AND UPPER(class) NOT IN ('DEVELOPER', 'MAIN PANEL', 'PRINCIPAL')
+                        ORDER BY class
+                    """)
+                    all_classes = [row[0] for row in c.fetchall()]
+
+                    class_averages = []
+                    for cls in all_classes:
+                        c.execute("""
+                            SELECT COUNT(*), SUM(CASE WHEN status = 'P' THEN 1 ELSE 0 END)
+                            FROM period_attendance WHERE class = ?
+                        """, (cls,))
+                        row = c.fetchone()
+                        total = row[0] or 0
+                        present = row[1] or 0
+
+                        c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?", (cls,))
+                        extra_count = c.fetchone()[0] or 0
+
+                        if extra_count > 0:
+                            c.execute("SELECT absent_rolls FROM extra_classes WHERE class = ?", (cls,))
+                            for (absent_str,) in c.fetchall():
+                                absent_list = [x.strip() for x in absent_str.split(",")] if absent_str else []
+                                total += 1
+                                if not absent_list:
+                                    present += 1
+                                else:
+                                    c.execute("SELECT COUNT(*) FROM students WHERE class = ? AND roll_no NOT IN ({})".format(
+                                        ",".join("?" * len(absent_list)) if absent_list else "NULL"
+                                    ), [cls] + (absent_list if absent_list else []))
+                                    present += c.fetchone()[0] or 0
+
+                        if total == 0:
+                            percent = None
+                        else:
+                            percent = round((present / total) * 100, 1)
+
+                        class_averages.append({
+                            "class": cls,
+                            "attendancePercentage": percent,
+                            "total": total,
+                            "present": present
+                        })
+
+                    order_map = {
+                        'bs1': 1, 'bs2': 2, 'bs3': 3, 'bs4': 4, 'bs5': 5,
+                        'hs1': 6, 'hsu1': 7, 'hs2': 8, 'hsu2': 9
+                    }
+                    class_averages.sort(key=lambda x: order_map.get(x["class"].lower(), 999))
+
+                    result = {"success": True, "data": class_averages}
+
                 elif action == "get_batch_report":
                     class_id = data.get("classId")
                     c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))

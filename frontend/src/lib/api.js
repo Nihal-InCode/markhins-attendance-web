@@ -108,6 +108,8 @@ export const getDailyReport = (date) => apiRequest(`/daily-report?date=${date}`)
 
 export const getBatchReport = (classId) => apiRequest(`/batch-report/${classId}`);
 
+export const getClassAverages = () => apiRequest('/class-averages');
+
 export const getWeeklyReport = () => apiRequest('/weekly-report');
 
 export const getSickLeaveOverview = () => apiRequest('/sick-leave-overview');

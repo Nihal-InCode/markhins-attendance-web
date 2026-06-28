@@ -736,6 +736,15 @@ app.get('/daily-report', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/class-averages', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({ action: "get_class_average_attendance" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/batch-report/:classId', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_batch_report", classId: req.params.classId });
