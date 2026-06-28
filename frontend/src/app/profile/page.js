@@ -66,54 +66,47 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen font-sans" style={{ backgroundColor: 'rgba(55, 151, 169, 0.04)' }}>
             {/* Hero Header */}
-            <div className="relative overflow-hidden rounded-b-3xl px-4 pt-5 pb-12 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+            <div className="relative overflow-hidden rounded-b-[2.5rem] px-4 pt-6 pb-24 sm:px-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
                 <div className="mx-auto max-w-3xl">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between mb-6">
+                        <button onClick={() => router.push("/")} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all">
+                            ← Back
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-5">
                         <div className="shrink-0">
                             {profile?.imageUrl ? (
-                                <img src={profile.imageUrl} alt="" className="h-14 w-14 rounded-xl object-cover border-2 border-white/20 shadow-lg" />
+                                <img src={profile.imageUrl} alt="" className="h-20 w-20 rounded-2xl object-cover border-2 border-white/20 shadow-lg" />
                             ) : (
-                                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/15 text-xl font-black text-white border border-white/20">
+                                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black text-white border border-white/20">
                                     {profile?.name?.charAt(0) || "T"}
                                 </div>
                             )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-lg font-black text-white truncate">{profile?.name}</h1>
-                                <span className="shrink-0 rounded-full bg-[#5eead4] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#082231]">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-black text-white truncate">{profile?.name}</h1>
+                            <p className="text-sm text-white/50 font-medium">@{profile?.username}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="rounded-full bg-[#5eead4] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#082231]">
                                     {profile?.role}
                                 </span>
+                                {profile?.class_teacher_of && (
+                                    <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/80">
+                                        {profile.class_teacher_of} Class Teacher
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-xs text-white/50 font-medium">@{profile?.username}</p>
                         </div>
-                        <button onClick={() => router.push("/")} className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-bold text-white hover:bg-white/20 transition-all">
-                            ← Back
-                        </button>
                     </div>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="mx-auto max-w-3xl -mt-6 px-4 pb-8 sm:px-6 space-y-5">
+            <div className="mx-auto max-w-3xl -mt-12 px-4 pb-8 sm:px-6 space-y-5">
 
                 {/* Messages */}
                 {successMsg && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-700">{successMsg}</div>}
                 {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700">{error}</div>}
-
-                {/* Quick Stats */}
-                <div className="grid grid-cols-3 gap-3">
-                    {[
-                        { label: "Role", value: profile?.role, color: "teal" },
-                        { label: "Subjects", value: profile?.subjects?.length || 0, color: "slate" },
-                        { label: "This Week", value: stats?.thisWeek ?? "—", color: "cyan" },
-                    ].map(s => (
-                        <div key={s.label} className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.label}</p>
-                            <p className="mt-1.5 text-xl font-black text-gray-800 truncate">{s.value}</p>
-                        </div>
-                    ))}
-                </div>
 
                 {/* Profile Info */}
                 <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
