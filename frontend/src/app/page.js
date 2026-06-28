@@ -1412,7 +1412,7 @@ export default function DashboardPage() {
   const roleBadge = getDashboardRoleBadge(user);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-gray-50/50 font-sans text-gray-900">
+    <div className="flex min-h-dvh flex-col bg-white font-sans text-gray-900">
 
       {/* ── HEADER — scrolls away, not sticky ── */}
       <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-5 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
