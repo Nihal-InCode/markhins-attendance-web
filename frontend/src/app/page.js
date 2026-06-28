@@ -4358,7 +4358,7 @@ export default function DashboardPage() {
 
         {/* ── MY SYLLABUS TAB (TEACHERS ONLY) ── */}
         {activeTab === "my_syllabus" && user?.role && user?.role !== 'admin' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="space-y-5 animate-in fade-in">
             <div className="rounded-3xl p-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
               <h4 className="text-lg font-black text-white">📚 My Syllabus</h4>
               <p className="text-xs text-white/50 font-medium mt-1">Track your teaching progress</p>
@@ -4387,151 +4387,134 @@ export default function DashboardPage() {
                   )}
 
                   {loadingSyllabus ? (
-                    <div className="py-20 text-center animate-pulse text-xs font-bold text-gray-400">Loading...</div>
+                    <div className="py-20 text-center"><div className="h-10 w-10 mx-auto animate-spin rounded-full border-2 border-[#0d9488] border-t-transparent" /></div>
                   ) : filteredConfigs.length === 0 ? (
                     <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center">
-                      <p className="text-xs font-bold text-gray-400">{myConfigs.length === 0 ? "No syllabus assigned to you." : "No syllabus for this class."}</p>
+                      <p className="text-sm font-bold text-gray-400">{myConfigs.length === 0 ? "No syllabus assigned to you." : "No syllabus for this class."}</p>
                     </div>
                   ) : (
                     <div className="space-y-5">
                       {filteredConfigs.map(config => {
-                  const pct = config.completionPercentage;
-                  const progressValue = syllabusPageProgressData[config.id] || "";
-                  const statusColors = {
-                    Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
-                    Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
-                    Red: { text: "text-red-500", bg: "bg-red-50", border: "border-red-100", bar: "bg-red-500" }
-                  }[config.statusColor] || { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", bar: "bg-blue-500" };
-
-                  return (
-                    <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
-                      <div className="flex items-start justify-between gap-3 border-b border-gray-50 pb-4">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black uppercase tracking-wider">{config.class}</span>
-                            <span className="px-3 py-1 rounded-xl bg-gray-50 text-gray-500 border border-gray-100 text-[10px] font-black uppercase tracking-wider">{config.semester}</span>
-                            <span className="px-3 py-1 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-black uppercase tracking-wider">{config.academicYear}</span>
-                          </div>
-                          <h4 className="font-black text-gray-900 text-lg mt-3">{config.subject}</h4>
-                          {config.bookName && (
-                            <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 Book: {config.bookName}</p>
-                          )}
-                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages) | Current Page: {config.currentPage}</p>
-                        </div>
-
-                        <div className="relative flex items-center justify-center h-16 w-16 shrink-0">
-                          <svg className="absolute w-full h-full transform -rotate-90">
-                            <circle cx="32" cy="32" r="26" stroke="#f3f4f6" strokeWidth="6" fill="transparent" />
-                            <circle cx="32" cy="32" r="26" stroke={config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#fbbf24"} strokeWidth="6" fill="transparent"
-                              strokeDasharray={2 * Math.PI * 26}
-                              strokeDashoffset={2 * Math.PI * 26 * (1 - Math.min(100, pct) / 100)}
-                            />
-                          </svg>
-                          <span className="text-sm font-black text-gray-800 relative z-10">{Math.round(pct)}%</span>
-                        </div>
-                      </div>
-
-                      {/* Status Message */}
-                      <div className={`px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border flex items-center gap-2.5 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
-                        <span className="text-base">{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
-                        <span>{config.statusMessage}</span>
-                      </div>
-
-                      {/* Large Modern Progress Bar */}
-                      {(() => {
+                        const pct = config.completionPercentage;
+                        const progressValue = syllabusPageProgressData[config.id] || "";
+                        const statusColor = config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#f59e0b";
+                        const statusBg = config.statusColor === "Green" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : config.statusColor === "Red" ? "bg-red-50 border-red-200 text-red-600" : "bg-amber-50 border-amber-200 text-amber-700";
                         const mTargetTotal = Math.max(1, Number(config.targetPage) - Number(config.startPage) + 1);
                         const mCompleted = Math.max(0, (config.currentPage === "-" ? 0 : Number(config.currentPage)) - Number(config.startPage) + 1);
-                        const mPct = config.targetPage !== "-" && config.targetPage !== null
-                          ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100))
-                          : 0;
-                        const pagesNeeded = config.targetPage !== "-" && config.targetPage !== null && config.currentPage !== "-"
-                          ? Math.max(0, Number(config.targetPage) - Number(config.currentPage))
-                          : 999;
-                        const mBarColor = mPct >= 90 ? "bg-emerald-500" : (mPct >= 70 || pagesNeeded <= 5 ? "bg-amber-400" : "bg-red-500");
+                        const mPct = config.targetPage !== "-" && config.targetPage !== null ? Math.min(100, Math.round((mCompleted / mTargetTotal) * 100)) : 0;
+                        const pagesLeft = config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : null;
 
                         return (
-                          <div className="space-y-4">
-                            {config.targetPage !== "-" && config.targetPage !== null && (
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                  <span>📅 Monthly Target Progress</span>
-                                  <span className="font-bold text-gray-600">{mPct}% ({mCompleted} of {mTargetTotal} Pages)</span>
+                          <div key={config.id} className="rounded-3xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                            {/* Top bar with subject and percentage */}
+                            <div className="px-6 py-5 flex items-center justify-between" style={{ background: `linear-gradient(135deg, ${statusColor}08, ${statusColor}03)` }}>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="rounded-lg bg-[#0d9488]/10 px-2.5 py-1 text-[10px] font-black text-[#0d9488] uppercase">{config.class}</span>
+                                  <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-500 uppercase">{config.semester}</span>
                                 </div>
-                                <div className="w-full bg-gray-100 rounded-lg h-3">
-                                  <div className={`h-3 rounded-lg transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
+                                <h4 className="font-black text-gray-900 text-lg mt-2">{config.subject}</h4>
+                                {config.bookName && <p className="text-xs font-bold text-gray-400 mt-1">📖 {config.bookName}</p>}
+                              </div>
+                              {/* Circular progress */}
+                              <div className="relative h-16 w-16 shrink-0">
+                                <svg className="h-full w-full -rotate-90">
+                                  <circle cx="32" cy="32" r="28" stroke="#f3f4f6" strokeWidth="5" fill="none" />
+                                  <circle cx="32" cy="32" r="28" stroke={statusColor} strokeWidth="5" fill="none" strokeLinecap="round"
+                                    strokeDasharray={2 * Math.PI * 28} strokeDashoffset={2 * Math.PI * 28 * (1 - Math.min(100, pct) / 100)}
+                                    className="transition-all duration-700" />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                  <span className="text-sm font-black text-gray-800">{Math.round(pct)}%</span>
+                                  <span className="text-[7px] font-bold text-gray-400 uppercase">done</span>
                                 </div>
                               </div>
-                            )}
+                            </div>
 
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                <span>📚 Semester Syllabus Progress</span>
-                                <span className="font-bold text-gray-650">{Math.round(pct)}% ({config.completedPages} of {config.totalPages} Pages)</span>
+                            {/* Status badge */}
+                            <div className="px-6 pt-4">
+                              <div className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 ${statusBg}`}>
+                                <span className="text-sm">{config.statusColor === "Green" ? "✅" : config.statusColor === "Red" ? "⚠️" : "ℹ️"}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider">{config.statusMessage}</span>
                               </div>
-                              <div className="w-full bg-gray-100 rounded-lg h-5">
-                                <div className={`h-5 rounded-lg transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
+                            </div>
+
+                            {/* Futuristic Progress Bars */}
+                            <div className="px-6 pt-5 space-y-4">
+                              {/* Monthly Target */}
+                              {config.targetPage !== "-" && config.targetPage !== null && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Monthly Target</span>
+                                    <span className="text-[10px] font-black text-gray-600">{mCompleted}/{mTargetTotal} pages</span>
+                                  </div>
+                                  <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="absolute inset-0 h-full rounded-full transition-all duration-700" style={{ width: `${mPct}%`, background: `linear-gradient(90deg, ${statusColor}, ${statusColor}cc)` }} />
+                                    <div className="absolute inset-0 h-full rounded-full opacity-30" style={{ width: `${mPct}%`, background: `linear-gradient(90deg, transparent, white, transparent)`, animation: 'shimmer 2s infinite' }} />
+                                  </div>
+                                  <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{mPct}% complete{pagesLeft !== null && pagesLeft > 0 ? ` • ${pagesLeft} pages left` : ''}</p>
+                                </div>
+                              )}
+
+                              {/* Semester Progress */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Semester Progress</span>
+                                  <span className="text-[10px] font-black text-gray-600">{config.completedPages}/{config.totalPages} pages</span>
+                                </div>
+                                <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className="absolute inset-0 h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, pct)}%`, background: `linear-gradient(90deg, #0d9488, #14b8a6)` }} />
+                                  <div className="absolute inset-0 h-full rounded-full opacity-30" style={{ width: `${Math.min(100, pct)}%`, background: `linear-gradient(90deg, transparent, white, transparent)`, animation: 'shimmer 2s infinite' }} />
+                                </div>
+                                <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{config.remainingPages} pages remaining</p>
                               </div>
-                              <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                <span>{config.remainingPages} Pages Remaining</span>
+                            </div>
+
+                            {/* Quick Stats */}
+                            <div className="px-6 pt-5 grid grid-cols-3 gap-3">
+                              {[
+                                { label: "Current", value: config.currentPage, color: "text-gray-800" },
+                                { label: "Target", value: config.targetPage, color: "text-gray-800" },
+                                { label: "Pages Left", value: pagesLeft ?? "N/A", color: pagesLeft !== null && pagesLeft <= 5 ? "text-amber-600" : "text-gray-800" },
+                              ].map(s => (
+                                <div key={s.label} className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">{s.label}</p>
+                                  <p className={`mt-1 text-sm font-black ${s.color}`}>{s.value}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Estimation Dates */}
+                            <div className="px-6 pt-4 grid grid-cols-2 gap-3">
+                              <div className="rounded-xl bg-[#0d9488]/5 border border-[#0d9488]/10 p-3">
+                                <p className="text-[9px] font-bold text-[#0d9488]/60 uppercase">{new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Est.</p>
+                                <p className="mt-1 text-xs font-black text-[#0d9488]">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
+                              </div>
+                              <div className="rounded-xl bg-indigo-50/50 border border-indigo-100 p-3">
+                                <p className="text-[9px] font-bold text-indigo-400 uppercase">{config.semester} Est.</p>
+                                <p className="mt-1 text-xs font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
+                              </div>
+                            </div>
+
+                            {/* Update Section */}
+                            <div className="px-6 py-5 mt-4 border-t border-gray-50 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Update Page</p>
+                                <p className="text-[9px] text-gray-400">Log your book progress</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <input type="number" min={config.startPage} max={config.endPage} placeholder="Page #"
+                                  value={progressValue} onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
+                                  className="w-20 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                <button onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)} disabled={!progressValue}
+                                  className="rounded-xl bg-[#0d9488] px-4 py-2 text-xs font-bold text-white hover:bg-[#0a7a70] disabled:opacity-40 transition-all">
+                                  Save
+                                </button>
                               </div>
                             </div>
                           </div>
                         );
-                      })()}
-
-                      {/* Advanced Analytics Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
-                          <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
-                        </div>
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Month Target</p>
-                          <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
-                        </div>
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Pages needed for Target</p>
-                          <p className="mt-1 text-sm font-black text-gray-800">
-                            {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
-                          </p>
-                        </div>
-                        <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Est. Completion of {new Date().toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' })} Target</p>
-                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedMonthTargetCompletionDate || "N/A"}</p>
-                        </div>
-                        <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Estimated Completion of {config.semester} Syllabus</p>
-                          <p className="mt-1 text-sm font-black text-indigo-600">{config.estimatedCompletionDate || "N/A"}</p>
-                        </div>
-                      </div>
-
-                      {/* Current Page Update Input */}
-                      <div className="pt-4 border-t border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Update Current Page Number</label>
-                          <p className="text-[9px] font-bold text-gray-400">Log your active classroom book progress</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            min={config.startPage}
-                            max={config.endPage}
-                            placeholder="e.g. 187"
-                            value={progressValue}
-                            onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
-                            className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-black w-24 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <button
-                            onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all"
-                          >
-                            Update
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      })}
                     </div>
                   )}
                 </>
