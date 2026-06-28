@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getClasses, getStudents, getSubjectsByClass, markExtraAttendance } from "@/lib/api";
+import { getClasses, getStudents, getSubjectsByClass, markExtraAttendance, trackEvent } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 
@@ -90,7 +90,10 @@ export default function ExtraAttendancePage() {
         try {
             const records = students.map((s) => ({ studentId: s.id, rollNo: s.rollNo || s.roll_no, status: attendance[s.id] || "present" }));
             const result = await markExtraAttendance({ classId: selectedClass, subject: effectiveSubject, period: "Extra", date, records });
-            if (result.success !== false) { setSummary(result.data || result); setStep("success"); }
+            if (result.success !== false) {
+                trackEvent('Marked extra class', `${selectedClass} ${effectiveSubject}`);
+                setSummary(result.data || result); setStep("success");
+            }
             else throw new Error(result.message || "Failed");
         } catch (err) { setSubmitError(err.message); }
         finally { setSubmitting(false); hideLoader(); }

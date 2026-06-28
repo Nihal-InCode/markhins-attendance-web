@@ -649,6 +649,28 @@ app.get('/validate-token', authenticateToken, (req, res) => {
     res.json({ success: true, user: req.user });
 });
 
+app.post('/api/track-event', authenticateToken, (req, res) => {
+    try {
+        const { action, target, meta } = req.body || {};
+        if (!action) return res.json({ success: true });
+        appendWebActivityEvent({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            timestamp: getIstTimestamp(new Date()),
+            date: getIstDateKey(new Date()),
+            epochMs: Date.now(),
+            actor: req.user.name || req.user.username || 'Unknown',
+            username: req.user.username || '',
+            role: getUserRoleLabel(req.user || {}),
+            type: 'UI',
+            summary: action,
+            meta: meta || target || '',
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: true });
+    }
+});
+
 app.post('/api/namaz-session', async (req, res) => {
     const providedKey = String(req.headers['x-api-key'] || '').trim();
     const source = req.body?.source || 'unknown';

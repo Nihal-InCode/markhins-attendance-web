@@ -284,3 +284,15 @@ export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/peri
     body: JSON.stringify(data),
 });
 export const getAdminActivityLog = (date) => apiRequest(`/admin/activity-log?date=${date}`);
+
+export function trackEvent(action, meta = '') {
+    try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (!token) return;
+        fetch(`${BASE_URL}/api/track-event`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action, meta }),
+        }).catch(() => {});
+    } catch (_) {}
+}

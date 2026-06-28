@@ -19,6 +19,7 @@ import {
   getMarkedPeriods,
   apiRequest,
   getAdminActivityLog,
+  trackEvent,
   getExtraClassesReport,
   getTeachersList,
   getTeacherRegisterReport,
@@ -500,6 +501,7 @@ export default function DashboardPage() {
     setActiveTab(tab);
     setTimetableError("");
     setReportError("");
+    trackEvent(`Switched to ${tab} tab`);
     if (tab === "reports") {
       setReportType(null);
       router.push(`/?tab=reports`, { scroll: false });
@@ -891,6 +893,7 @@ export default function DashboardPage() {
 
   const handleStudentSearch = async () => {
     if (!searchRollNo) return;
+    trackEvent(`Searched student roll ${searchRollNo}`);
     setLoadingFeature(true);
     showLoader("Searching student...");
     try {
@@ -981,6 +984,7 @@ export default function DashboardPage() {
 
       const res = await saveSyllabusConfig(payload);
       if (res.success) {
+        trackEvent('Saved syllabus config', syllabusFormData.className || '');
         setSyllabusPopupOpen(false);
         fetchSyllabusConfigs();
       } else {
@@ -1002,6 +1006,7 @@ export default function DashboardPage() {
         current_page: Number(pageNum)
       });
       if (res.success) {
+        trackEvent('Updated syllabus progress', `page ${pageNum}`);
         setSyllabusPageProgressData(prev => ({ ...prev, [configId]: "" }));
         fetchSyllabusConfigs();
       } else {
@@ -1020,6 +1025,7 @@ export default function DashboardPage() {
     try {
       const res = await deleteSyllabusConfig(configId);
       if (res.success) {
+        trackEvent('Deleted syllabus config');
         fetchSyllabusConfigs();
       } else {
         alert(res.message || "Failed to delete.");
@@ -2000,7 +2006,7 @@ export default function DashboardPage() {
                       ].map((card) => (
                         <button
                           key={card.id}
-                          onClick={() => { setReportType(card.id); router.push(`/?tab=reports&type=${card.id}`, { scroll: false }); }}
+                          onClick={() => { trackEvent(`Opened ${card.label} report`); setReportType(card.id); router.push(`/?tab=reports&type=${card.id}`, { scroll: false }); }}
                           className={`flex flex-col items-center gap-2 p-5 rounded-2xl border ${card.color} transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm`}
                         >
                           <span className="text-2xl">{card.emoji}</span>
@@ -2511,6 +2517,7 @@ export default function DashboardPage() {
                                   Login: "bg-emerald-50 text-emerald-700 border-emerald-100",
                                   AttendanceEdit: "bg-orange-50 text-orange-700 border-orange-100",
                                   Substitute: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
+                                  UI: "bg-sky-50 text-sky-700 border-sky-100",
                                 };
                                 let lastDate = "";
                                 return actions.map((row, idx) => {

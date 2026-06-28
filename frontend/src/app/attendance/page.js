@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getStudents, markAttendance, editLastAttendance } from "@/lib/api";
+import { getStudents, markAttendance, editLastAttendance, trackEvent } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
@@ -199,6 +199,7 @@ export default function AttendancePage() {
                     date: params.date,
                 });
                 if (result.success) {
+                    trackEvent('Edited attendance', `${params.classId} ${params.period}`);
                     playSound('attendanceSuccess');
                     setShowConfirm(true);
                 } else {
@@ -222,6 +223,7 @@ export default function AttendancePage() {
                 }
 
                 if (result.success) {
+                    trackEvent('Marked attendance', `${params.classId} ${params.period}`);
                     playSound('attendanceSuccess');
                     setShowConfirm(true);
                 } else {

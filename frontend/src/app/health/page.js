@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { markHealthStatus, getClasses, getStudents, getSickList, getLeaveList } from "@/lib/api";
+import { markHealthStatus, getClasses, getStudents, getSickList, getLeaveList, trackEvent } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 import { useLoading } from "@/context/LoadingContext";
 
@@ -177,6 +177,7 @@ export default function HealthPage() {
             const result = await markHealthStatus(selectedAction.id, rollNos, selectedClass);
 
             if (result.success) {
+                trackEvent(`Marked ${selectedAction.id}`, `${rollNos.length} students`);
                 playSound('attendanceSuccess');
                 setLastResult({
                     action: selectedAction,
