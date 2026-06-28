@@ -2477,7 +2477,14 @@ export default function DashboardPage() {
                           <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-sm font-black text-[#1e3a8a] tracking-tight">Activity Feed</h4>
-                              <span className="text-[10px] font-bold text-gray-400">{adminActivityLog?.actions?.length || 0} entries</span>
+                              <span className="text-[10px] font-bold text-gray-400">{(() => {
+                                const acts = (adminActivityLog?.actions || []).filter(a => {
+                                  const r = String(a.role || '').toLowerCase();
+                                  const n = String(a.actor || '').trim().toLowerCase();
+                                  return r !== 'admin' && n !== 'system administrator';
+                                });
+                                return acts.length;
+                              })()} entries</span>
                             </div>
                             <div className="space-y-1.5 max-h-[28rem] overflow-auto pr-1">
                               {(() => {
@@ -2500,8 +2507,10 @@ export default function DashboardPage() {
                                   Reports: "bg-amber-50 text-amber-700 border-amber-100",
                                   Timetable: "bg-teal-50 text-teal-700 border-teal-100",
                                   Profile: "bg-indigo-50 text-indigo-700 border-indigo-100",
+                                  Syllabus: "bg-cyan-50 text-cyan-700 border-cyan-100",
                                   Login: "bg-emerald-50 text-emerald-700 border-emerald-100",
                                   AttendanceEdit: "bg-orange-50 text-orange-700 border-orange-100",
+                                  Substitute: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
                                 };
                                 let lastDate = "";
                                 return actions.map((row, idx) => {

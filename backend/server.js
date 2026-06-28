@@ -184,8 +184,23 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/extra-classes-report' && method === 'GET') {
         return { type: 'Reports', summary: 'Viewed extra classes report', meta: req.query?.date || 'Today' };
     }
+    if (routePath === '/class-averages' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed class averages', meta: 'Performance overview' };
+    }
+    if (routePath === '/period-summary' && method === 'GET') {
+        return { type: 'Reports', summary: `Viewed period summary for ${req.query?.class || '-'} ${req.query?.period || ''}`, meta: req.query?.date || 'Today' };
+    }
+    if (routePath === '/teacher-register-report' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed teacher register report', meta: `${req.query?.fromDate || ''} to ${req.query?.toDate || ''}` };
+    }
+    if (routePath === '/event-attendance' && method === 'GET') {
+        return { type: 'Reports', summary: 'Viewed event attendance', meta: 'Event analytics' };
+    }
     if (routePath === '/full-timetable/:weekday' && method === 'GET') {
         return { type: 'Timetable', summary: 'Viewed full timetable', meta: `Weekday ${req.params?.weekday || '-'}` };
+    }
+    if (routePath === '/timetable/:class' && method === 'GET') {
+        return { type: 'Timetable', summary: `Viewed timetable for ${req.params?.class || '-'}`, meta: 'Class schedule' };
     }
     if (routePath === '/resolve-period' && method === 'GET') {
         return { type: 'Attendance', summary: 'Resolved timetable period', meta: `${req.query?.class || '-'} ${req.query?.period || '-'}` };
@@ -197,7 +212,7 @@ function getRequestActivityDescriptor(req) {
         return { type: 'Attendance', summary: 'Checked marked periods', meta: `${req.query?.class || '-'} ${req.query?.date || ''}`.trim() };
     }
     if (routePath === '/attendance/edit-last' && method === 'PUT') {
-        return { type: 'Attendance', summary: 'Edited last attendance', meta: 'Manual correction' };
+        return { type: 'AttendanceEdit', summary: 'Edited last attendance', meta: 'Manual correction' };
     }
     if (routePath === '/mark-attendance' && method === 'POST') {
         return { type: 'Attendance', summary: 'Submitted attendance', meta: `${req.body?.classId || req.body?.class || '-'} ${req.body?.period || '-'}` };
@@ -208,11 +223,35 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/health/:type' && method === 'POST') {
         return { type: 'Health', summary: `Updated health status: ${req.params?.type || 'action'}`, meta: req.body?.classId || 'Class update' };
     }
+    if (routePath === '/health/:listType(sick-list|leave-list)' && method === 'GET') {
+        return { type: 'Health', summary: `Viewed ${req.params?.listType === 'sick-list' ? 'sick list' : 'leave list'}`, meta: 'Health overview' };
+    }
     if (routePath === '/profile/me' && method === 'GET') {
         return { type: 'Profile', summary: 'Opened My Profile', meta: 'Profile view' };
     }
+    if (routePath === '/profile/teaching-stats' && method === 'GET') {
+        return { type: 'Profile', summary: 'Viewed teaching stats', meta: 'Performance data' };
+    }
     if (routePath === '/profile/update-credentials' && method === 'POST') {
         return { type: 'Profile', summary: 'Updated login credentials', meta: 'Credentials changed' };
+    }
+    if (routePath === '/api/syllabus' && method === 'GET') {
+        return { type: 'Syllabus', summary: 'Viewed syllabus topics', meta: req.query?.classId || 'All classes' };
+    }
+    if (routePath === '/api/syllabus/config' && method === 'POST') {
+        return { type: 'Syllabus', summary: 'Saved syllabus config', meta: req.body?.className || 'Config update' };
+    }
+    if (routePath === '/api/syllabus/progress' && method === 'POST') {
+        return { type: 'Syllabus', summary: 'Updated syllabus progress', meta: req.body?.className || 'Progress update' };
+    }
+    if (routePath === '/api/syllabus/config/:id' && method === 'DELETE') {
+        return { type: 'Syllabus', summary: 'Deleted syllabus config', meta: `Config ${req.params?.id || ''}` };
+    }
+    if (routePath === '/extra-subjects' && method === 'GET') {
+        return { type: 'Extra Class', summary: 'Viewed extra class subjects', meta: req.query?.classId || 'All' };
+    }
+    if (routePath === '/announcements/:announcementKey/dismiss' && method === 'POST') {
+        return { type: 'Profile', summary: 'Dismissed announcement', meta: req.params?.announcementKey || '' };
     }
     if (routePath === '/admin/teachers' && method === 'POST') {
         return { type: 'Admin', summary: 'Created teacher account', meta: req.body?.name || '' };
@@ -246,6 +285,21 @@ function getRequestActivityDescriptor(req) {
     }
     if (routePath === '/admin/download-db' && method === 'GET') {
         return { type: 'Database', summary: 'Downloaded database export', meta: 'Database export' };
+    }
+    if (routePath === '/admin/announcements' && method === 'POST') {
+        return { type: 'Admin', summary: 'Created announcement', meta: req.body?.heading || '' };
+    }
+    if (routePath === '/admin/announcements/:announcementId' && method === 'PUT') {
+        return { type: 'Admin', summary: 'Updated announcement', meta: `Announcement ${req.params?.announcementId || ''}` };
+    }
+    if (routePath === '/admin/announcements/:announcementId' && method === 'DELETE') {
+        return { type: 'Admin', summary: 'Deleted announcement', meta: `Announcement ${req.params?.announcementId || ''}` };
+    }
+    if (routePath === '/admin/reset-namaz-data' && method === 'POST') {
+        return { type: 'Admin', summary: 'Reset namaz data', meta: 'Namaz reset' };
+    }
+    if (routePath === '/absentees-report' && method === 'POST') {
+        return { type: 'Reports', summary: 'Generated absentees report', meta: req.body?.classId || 'All classes' };
     }
     return null;
 }
