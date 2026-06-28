@@ -456,8 +456,8 @@ const authenticateToken = (req, res, next) => {
         if (err) return res.status(403).json({ message: 'Invalid or expired token.' });
 
         // --- SINGLE ACTIVE SESSION CHECK ---
-        // Skip for system admin (they don't have a DB record)
-        if (user.id !== 'system-admin' && user.role !== 'admin') {
+        // Skip for system admin and majlis (they don't have a DB record)
+        if (user.id !== 'system-admin' && user.role !== 'admin' && user.id !== 'majlis-user') {
             try {
                 // Verify session with Python helper
                 const result = await callPython({
