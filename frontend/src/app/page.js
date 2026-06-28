@@ -3274,54 +3274,65 @@ export default function DashboardPage() {
 
                 {reportType === "analysis" && (
                   <div className="space-y-6">
+
                     {/* 1. Student Search */}
-                    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-                      <label className="text-xs font-black text-gray-400 uppercase tracking-[0.18em] block px-1">Student Search (Roll No)</label>
+                    <div className="rounded-[2rem] border border-blue-100 bg-gradient-to-b from-blue-50/50 to-white p-5 shadow-sm">
+                      <label className="text-[10px] font-black text-[#1e3a8a] uppercase tracking-[0.2em] block mb-3 px-1">Student Lookup</label>
                       <div className="flex flex-col gap-3 sm:flex-row">
-                        <input
-                          type="text"
-                          placeholder="Enter Roll No"
-                          className="flex-1 bg-gray-50 border border-gray-100 rounded-3xl px-6 py-4 text-base focus:border-blue-200 focus:ring-2 focus:ring-blue-100 transition-all font-medium min-w-0"
-                          value={searchRollNo}
-                          onChange={(e) => setSearchRollNo(e.target.value)}
-                        />
+                        <div className="relative flex-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                          <input
+                            type="text"
+                            placeholder="Enter student roll number"
+                            className="w-full bg-white border border-blue-100 rounded-2xl pl-11 pr-6 py-4 text-sm font-semibold text-gray-800 placeholder:text-gray-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition-all min-w-0"
+                            value={searchRollNo}
+                            onChange={(e) => setSearchRollNo(e.target.value)}
+                          />
+                        </div>
                         <button
                           onClick={handleStudentSearch}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-3xl font-bold transition-all active:opacity-80 shadow-lg shadow-blue-100 sm:self-stretch"
+                          className="bg-[#1e3a8a] hover:bg-[#162d6b] text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all active:scale-[0.97] shadow-lg shadow-blue-200/50 sm:self-stretch"
                         >
                           Search
                         </button>
                       </div>
                     </div>
 
+                    {/* Student History Card */}
                     {studentHistory && (
-                      <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 animate-in fade-in duration-300 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                      <div className="rounded-[2rem] bg-gradient-to-br from-[#1e3a8a] via-[#1e3a8a] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-200/40 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20"></div>
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16"></div>
                         <div className="relative z-10">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-6">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-5">
                             <div>
-                              <h3 className="text-2xl font-black tracking-tight">{studentHistory.name}</h3>
-                              <p className="text-blue-100 text-sm font-bold opacity-80 mt-1">
-                                Roll: {studentHistory.rollNo} • Class {studentHistory.class}
-                              </p>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="w-11 h-11 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-sm font-black border border-white/20">
+                                  {(studentHistory.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <h3 className="text-xl font-black tracking-tight leading-tight">{studentHistory.name}</h3>
+                                  <p className="text-blue-200 text-[11px] font-bold mt-0.5">Roll {studentHistory.rollNo} &middot; Class {studentHistory.class}</p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-left sm:text-right">
-                              <p className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}%</p>
-                              <p className="text-xs text-blue-200 uppercase font-black tracking-widest mt-1">Attendance</p>
+                            <div className="flex items-baseline gap-1.5 sm:text-right">
+                              <span className="text-4xl font-black tracking-tighter">{studentHistory.stats?.percent}</span>
+                              <span className="text-lg font-black text-blue-200">%</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                              <p className="text-xl font-black">{studentHistory.stats?.total}</p>
-                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total</p>
+                          <div className="grid grid-cols-3 gap-2.5">
+                            <div className="bg-white/10 backdrop-blur-sm p-3.5 rounded-xl border border-white/10 text-center">
+                              <p className="text-lg font-black">{studentHistory.stats?.total}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-blue-200">Total</p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                              <p className="text-xl font-black">{studentHistory.stats?.attended}</p>
-                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Present</p>
+                            <div className="bg-white/10 backdrop-blur-sm p-3.5 rounded-xl border border-white/10 text-center">
+                              <p className="text-lg font-black">{studentHistory.stats?.attended}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-blue-200">Present</p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
-                              <p className="text-xl font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
-                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Absent</p>
+                            <div className="bg-white/10 backdrop-blur-sm p-3.5 rounded-xl border border-white/10 text-center">
+                              <p className="text-lg font-black">{(studentHistory.stats?.total || 0) - (studentHistory.stats?.attended || 0)}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-blue-200">Absent</p>
                             </div>
                           </div>
                         </div>
@@ -3330,18 +3341,15 @@ export default function DashboardPage() {
 
                     {/* 2. Class Average Attendance */}
                     <div className="space-y-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
-                        <div>
-                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Class Average Attendance</h3>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Average attendance percentage per class</p>
-                        </div>
+                      <div className="px-1">
+                        <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Class Averages</h3>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Attendance percentage ranked by class</p>
                       </div>
 
                       {loadingClassAverages ? (
-                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-[#1e3a8a] border-t-transparent shadow-sm"></div></div>
                       ) : Array.isArray(classAverages) && classAverages.length > 0 ? (
                         <div className="space-y-4">
-                          {/* Summary Cards */}
                           {(() => {
                             const withData = classAverages.filter(c => c.attendancePercentage !== null);
                             if (withData.length === 0) return null;
@@ -3350,27 +3358,27 @@ export default function DashboardPage() {
                             const lowest = sorted[sorted.length - 1];
                             const overallAvg = withData.reduce((sum, c) => sum + c.attendancePercentage, 0) / withData.length;
                             return (
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 p-5 rounded-[1.5rem] border border-green-100 text-center">
-                                  <p className="text-lg font-black text-green-700">{highest.class}</p>
-                                  <p className="text-2xl font-black text-green-600 mt-1">{highest.attendancePercentage}%</p>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-green-500 mt-1">Highest Attendance</p>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-center">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-1">Highest</p>
+                                  <p className="text-sm font-black text-emerald-700">{highest.class}</p>
+                                  <p className="text-xl font-black text-emerald-600 mt-0.5">{highest.attendancePercentage}%</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-amber-500/5 to-orange-500/5 p-5 rounded-[1.5rem] border border-amber-100 text-center">
-                                  <p className="text-lg font-black text-amber-700">{lowest.class}</p>
-                                  <p className="text-2xl font-black text-amber-600 mt-1">{lowest.attendancePercentage}%</p>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mt-1">Lowest Attendance</p>
+                                <div className="rounded-xl bg-[#1e3a8a]/5 border border-blue-100 p-4 text-center">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]/60 mb-1">Overall</p>
+                                  <p className="text-[10px] font-bold text-[#1e3a8a]/40 mt-0.5">{withData.length} classes</p>
+                                  <p className="text-xl font-black text-[#1e3a8a] mt-0.5">{overallAvg.toFixed(1)}%</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-blue-500/5 to-indigo-500/5 p-5 rounded-[1.5rem] border border-blue-100 text-center">
-                                  <p className="text-2xl font-black text-blue-700">{overallAvg.toFixed(1)}%</p>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-blue-500 mt-2">Overall Average</p>
+                                <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-center">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">Lowest</p>
+                                  <p className="text-sm font-black text-amber-700">{lowest.class}</p>
+                                  <p className="text-xl font-black text-amber-600 mt-0.5">{lowest.attendancePercentage}%</p>
                                 </div>
                               </div>
                             );
                           })()}
 
-                          {/* Class List */}
-                          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                          <div className="rounded-[1.5rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
                             {(() => {
                               const sorted = [...classAverages].sort((a, b) => {
                                 if (a.attendancePercentage === null) return 1;
@@ -3378,30 +3386,31 @@ export default function DashboardPage() {
                                 return b.attendancePercentage - a.attendancePercentage;
                               });
                               return sorted.map((item, idx) => (
-                                <div key={item.class} className={`flex items-center gap-4 p-4 ${idx !== sorted.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
-                                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-xs text-gray-500 shadow-inner flex-shrink-0">
-                                    {idx + 1}
-                                  </div>
+                                <div key={item.class} className={`flex items-center gap-3.5 px-5 py-3.5 ${idx !== sorted.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/60 transition-colors`}>
+                                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                    idx === 0 ? 'bg-emerald-100 text-emerald-700' :
+                                    idx === 1 ? 'bg-blue-50 text-blue-500' :
+                                    idx === 2 ? 'bg-amber-100 text-amber-600' :
+                                    'bg-gray-50 text-gray-400'
+                                  }`}>{idx + 1}</span>
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <p className="font-black text-gray-800 text-sm">{item.class}</p>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="font-bold text-gray-800 text-sm">{item.class}</p>
                                       <p className="font-black text-sm text-gray-800">
-                                        {item.attendancePercentage !== null ? `${item.attendancePercentage}%` : 'No Data'}
+                                        {item.attendancePercentage !== null ? `${item.attendancePercentage}%` : '—'}
                                       </p>
                                     </div>
-                                    {item.attendancePercentage !== null ? (
-                                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    {item.attendancePercentage !== null && (
+                                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                                         <div
                                           className={`h-full rounded-full transition-all duration-500 ${
-                                            item.attendancePercentage >= 90 ? 'bg-green-500' :
-                                            item.attendancePercentage >= 75 ? 'bg-blue-500' :
-                                            item.attendancePercentage >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                                            item.attendancePercentage >= 90 ? 'bg-emerald-500' :
+                                            item.attendancePercentage >= 75 ? 'bg-[#1e3a8a]' :
+                                            item.attendancePercentage >= 60 ? 'bg-amber-500' : 'bg-red-400'
                                           }`}
                                           style={{ width: `${Math.min(item.attendancePercentage, 100)}%` }}
                                         />
                                       </div>
-                                    ) : (
-                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">No attendance records found</p>
                                     )}
                                   </div>
                                 </div>
@@ -3410,19 +3419,21 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
-                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No attendance data available</p>
+                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-gray-50/40 py-12 text-center">
+                          <p className="text-gray-300 font-bold uppercase tracking-widest text-[10px]">No attendance data available</p>
                         </div>
                       )}
                     </div>
 
-                    {/* 4. Batch-wise Report */}
+                    {/* 3. Batch-wise Report */}
                     <div className="space-y-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
-                        <h3 className="font-black text-gray-800 tracking-tight text-lg">Batch-wise Analysis</h3>
+                        <div>
+                          <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Batch-wise Breakdown</h3>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Individual student attendance for selected class</p>
+                        </div>
                         <select
-                          className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[180px]"
+                          className="bg-white px-4 py-3 rounded-xl border border-blue-100 text-xs font-black text-[#1e3a8a] uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[160px]"
                           value={selectedClassForAnalysis}
                           onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
                         >
@@ -3432,98 +3443,94 @@ export default function DashboardPage() {
                       </div>
 
                       {Array.isArray(batchReport) ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="space-y-2">
                           {batchReport.map((student, idx) => (
-                            <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
-                              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-sm shadow-inner ${student.percent > 75 ? 'bg-green-50 text-green-600' : student.percent > 50 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
+                            <div key={idx} className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                                student.percent > 75 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                student.percent > 50 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                'bg-red-50 text-red-500 border border-red-100'
+                              }`}>
                                 {Math.round(student.percent)}%
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">Roll: {student.rollNo}</p>
+                                <p className="font-bold text-gray-800 text-sm truncate">{student.name}</p>
+                                <p className="text-[10px] font-semibold text-gray-400">Roll {student.rollNo}</p>
                               </div>
-                              <div className="text-right">
-                                <p className="text-xs font-black text-gray-600">{student.attended}/{student.total}</p>
-                                <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-black text-gray-700">{student.attended}<span className="text-gray-300 font-medium">/{student.total}</span></p>
+                                <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Periods</p>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">📊</div>
-                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select a class to view batch percentages</p>
+                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-gray-50/40 py-12 text-center">
+                          <p className="text-gray-300 font-bold uppercase tracking-widest text-[10px]">Select a class to view breakdown</p>
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-4 pt-8 border-t-2 border-dashed border-gray-100 mt-8">
-                      {/* 4.5 Full-Day Absentees List */}
-                      <div className="flex flex-col gap-4 px-1">
-                        <div className="flex justify-between items-center">
-                          <h3 className="font-black text-gray-800 tracking-tight text-lg">Full-Day Absentees</h3>
-                          <div className="flex gap-2">
-                            <select
-                              className="bg-gray-100 px-4 py-3 rounded-2xl border-none text-xs font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100"
-                              value={selectedClassForAnalysis}
-                              onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                            >
-                              <option value="">Select Class</option>
-                              {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                          </div>
+                    {/* 4. Full-Day Absentees */}
+                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center px-1">
+                        <div>
+                          <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Full-Day Absentees</h3>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Students absent for all periods today</p>
                         </div>
-
-                        {selectedClassForAnalysis && (
-                          <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                            {[
-                              { id: 'ALL', label: 'All Absentees', emoji: '📋' },
-                              { id: 'A', label: 'Absent Only', emoji: '❌' },
-                              { id: 'S', label: 'Sick Only', emoji: '💊' },
-                              { id: 'L', label: 'Leave Only', emoji: '🏠' }
-                            ].map(f => (
-                              <button
-                                key={f.id}
-                                onClick={() => setAbsenteeFilter(f.id)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
-                              >
-                                <span>{f.emoji}</span> {f.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                        <select
+                          className="bg-white px-4 py-3 rounded-xl border border-blue-100 text-xs font-black text-[#1e3a8a] uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[160px]"
+                          value={selectedClassForAnalysis}
+                          onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                        >
+                          <option value="">Select Class</option>
+                          {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                       </div>
 
+                      {selectedClassForAnalysis && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                          {[
+                            { id: 'ALL', label: 'All', color: 'bg-[#1e3a8a] text-white shadow-lg shadow-blue-200/50', idle: 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50' },
+                            { id: 'A', label: 'Absent', color: 'bg-red-500 text-white shadow-lg shadow-red-200/50', idle: 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50' },
+                            { id: 'S', label: 'Sick', color: 'bg-amber-500 text-white shadow-lg shadow-amber-200/50', idle: 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50' },
+                            { id: 'L', label: 'Leave', color: 'bg-purple-500 text-white shadow-lg shadow-purple-200/50', idle: 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50' },
+                          ].map(f => (
+                            <button
+                              key={f.id}
+                              onClick={() => setAbsenteeFilter(f.id)}
+                              className={`px-4 py-2 rounded-xl whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${absenteeFilter === f.id ? f.color : f.id === 'ALL' ? 'bg-[#1e3a8a]/5 text-[#1e3a8a] border border-blue-100' : f.id === 'A' ? 'bg-red-50 text-red-400 border border-red-100' : f.id === 'S' ? 'bg-amber-50 text-amber-400 border border-amber-100' : 'bg-purple-50 text-purple-400 border border-purple-100'}`}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       {loadingAbsentees ? (
-                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent shadow-sm"></div></div>
+                        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-10 w-10 border-[3px] border-[#1e3a8a] border-t-transparent shadow-sm"></div></div>
                       ) : Array.isArray(absenteeReport) && absenteeReport.length > 0 ? (
-                        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                          <div className="p-5 bg-gray-50/50 flex justify-between items-center">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Student List ({absenteeReport.length})</p>
-                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-gray-100">{selectedClassForAnalysis}</p>
+                        <div className="rounded-[1.5rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
+                          <div className="px-5 py-3 bg-gray-50/70 border-b border-gray-100 flex justify-between items-center">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{absenteeReport.length} students</p>
+                            <p className="text-[10px] font-black text-[#1e3a8a] uppercase tracking-widest bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-100">{selectedClassForAnalysis}</p>
                           </div>
                           {absenteeReport.map((student, idx) => (
-                            <div key={idx} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-xs shadow-sm">
-                                  {student.rollNo}
-                                </div>
-                                <div>
-                                  <p className="font-black text-gray-800 text-sm leading-tight">{student.name}</p>
-                                  <div className="flex gap-1.5 mt-1">
-                                    <div className="text-[9px] font-black uppercase tracking-tight text-gray-500">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black uppercase tracking-tight text-gray-500">
-                                          {student.status.split('(')[0].trim()}
-                                        </span>
-                                        {student.status.includes('(') && (
-                                          <span className="bg-red-50 text-red-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-100 animate-pulse">
-                                            {student.status.match(/\((\d+)/)?.[1]} P
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
+                            <div key={idx} className={`flex items-center gap-3.5 px-5 py-3.5 ${idx !== absenteeReport.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
+                              <div className="w-9 h-9 rounded-lg bg-[#1e3a8a]/5 flex items-center justify-center font-black text-[11px] text-[#1e3a8a] shrink-0">
+                                {student.rollNo}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-800 text-sm truncate">{student.name}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                    {student.status.split('(')[0].trim()}
+                                  </span>
+                                  {student.status.includes('(') && (
+                                    <span className="bg-red-50 text-red-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-red-100">
+                                      {student.status.match(/\((\d+)/)?.[1]} periods
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <button
@@ -3532,9 +3539,9 @@ export default function DashboardPage() {
                                   handleStudentSearch();
                                   window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
-                                className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-all active:opacity-70"
+                                className="w-8 h-8 rounded-lg bg-gray-50 text-gray-300 hover:bg-blue-50 hover:text-[#1e3a8a] transition-all flex items-center justify-center shrink-0"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                                 </svg>
                               </button>
@@ -3542,9 +3549,8 @@ export default function DashboardPage() {
                           ))}
                         </div>
                       ) : selectedClassForAnalysis ? (
-                        <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
-                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">✅</div>
-                          <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No absentees found for this class today</p>
+                        <div className="rounded-[1.5rem] border border-dashed border-gray-200 bg-gray-50/40 py-10 text-center">
+                          <p className="text-gray-300 font-bold uppercase tracking-widest text-[10px]">No absentees for this class today</p>
                         </div>
                       ) : null}
                     </div>
