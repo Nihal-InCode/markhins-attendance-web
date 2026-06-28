@@ -277,10 +277,17 @@ function appendWebActivityEvent(event) {
 }
 
 function buildAdminActivitySnapshot(reportDate, baseData = {}) {
-    const activeUsers = Array.isArray(baseData.activeUsers) ? baseData.activeUsers : [];
+    const isNonAdmin = (event) => {
+        const role = String(event.role || '').toLowerCase();
+        const name = String(event.actor || event.name || '').trim().toLowerCase();
+        return role !== 'admin' && name !== 'system administrator';
+    };
+
+    const activeUsers = (Array.isArray(baseData.activeUsers) ? baseData.activeUsers : [])
+        .filter(isNonAdmin);
     const dbActions = Array.isArray(baseData.actions) ? baseData.actions : [];
     const dayWebActions = webActivityLog
-        .filter((event) => event.date === reportDate)
+        .filter((event) => event.date === reportDate && isNonAdmin(event))
         .map((event) => ({
             timestamp: event.timestamp,
             time: event.timestamp.split(' ')[1] || event.timestamp,
@@ -298,13 +305,14 @@ function buildAdminActivitySnapshot(reportDate, baseData = {}) {
     const mergedActions = [
         ...dbActions.map((action) => ({ ...action, source: 'Database' })),
         ...dayWebActions,
-    ].filter((action) => !ADMIN_ACTION_TYPES.has(action.type))
+    ].filter((action) => !ADMIN_ACTION_TYPES.has(action.type) && isNonAdmin(action))
      .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
 
     const recentThreshold = Date.now() - ACTIVE_INTERACTION_WINDOW_MS;
     const recentUsersMap = new Map();
     for (const event of webActivityLog) {
         if (event.epochMs < recentThreshold) continue;
+        if (!isNonAdmin(event)) continue;
         const key = event.username || event.actor;
         if (!key) continue;
         const existing = recentUsersMap.get(key);

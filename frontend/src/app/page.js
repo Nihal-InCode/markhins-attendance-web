@@ -2379,36 +2379,40 @@ export default function DashboardPage() {
                     </div>
 
                     {user?.role === "admin" && (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
+                        {/* Header */}
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
                           <div>
-                            <h3 className="font-black text-gray-800 tracking-tight text-lg">Activity Log</h3>
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live sessions and teacher activity for {selectedDate}</p>
+                            <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Teacher Activity Monitor</h3>
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live teacher sessions &amp; actions for {selectedDate}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
                               {(adminActivityLog?.liveUsers?.length || 0) + (adminActivityLog?.activeUsers?.length || 0)} online
                             </span>
-                            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700">
-                              {adminActivityLog?.actions?.length || 0} teacher actions
+                            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#1e3a8a]">
+                              {adminActivityLog?.actions?.length || 0} actions
                             </span>
                             <button
                               onClick={() => fetchAdminLog(selectedDate)}
-                              className="rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-100"
+                              className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-50 hover:border-gray-300"
                             >
                               Refresh
                             </button>
                           </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-                          {/* Users Online Panel */}
-                          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-black text-gray-800">Users Online</h4>
-                              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+                          {/* Teachers Online Panel */}
+                          <div className="rounded-[2rem] border border-blue-100 bg-gradient-to-b from-blue-50/60 to-white p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-sm font-black text-[#1e3a8a] tracking-tight">Teachers Online</h4>
+                              <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                              </span>
                             </div>
-                            <div className="mt-4 space-y-2">
+                            <div className="space-y-2">
                               {(() => {
                                 const live = adminActivityLog?.liveUsers || [];
                                 const sessions = adminActivityLog?.activeUsers || [];
@@ -2418,8 +2422,8 @@ export default function DashboardPage() {
                                 }
                                 if (allUsers.length === 0) {
                                   return (
-                                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No users online</p>
+                                    <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 py-8 text-center">
+                                      <p className="text-xs font-bold text-blue-300">No teachers online</p>
                                     </div>
                                   );
                                 }
@@ -2430,19 +2434,27 @@ export default function DashboardPage() {
                                   let displayTime = timePart || "";
                                   if (displayTime) {
                                     const [h, m] = displayTime.split(":").map(Number);
-                                    const ampm = h >= 12 ? "PM" : "AM";
-                                    const h12 = h % 12 || 12;
-                                    displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                                    if (!isNaN(h)) {
+                                      const ampm = h >= 12 ? "PM" : "AM";
+                                      const h12 = h % 12 || 12;
+                                      displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                                    }
                                   }
+                                  const initials = (person.name || person.username || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
                                   return (
-                                    <div key={person.username || i} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLive ? "bg-emerald-500" : "bg-gray-300"}`} />
+                                    <div key={person.username || i} className="flex items-center gap-3 rounded-xl bg-white border border-blue-100/60 px-3.5 py-2.5 shadow-sm transition-all hover:shadow-md hover:border-blue-200">
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${isLive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
+                                        {initials}
+                                      </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-black text-gray-900">{person.name || person.username}</p>
-                                        <p className="truncate text-[10px] font-bold text-gray-400">
+                                        <p className="truncate text-sm font-bold text-gray-900">{person.name || person.username}</p>
+                                        <p className="truncate text-[10px] font-semibold text-gray-400">
                                           {person.role || "Teacher"}{displayTime ? ` · ${displayTime}` : ""}
                                         </p>
                                       </div>
+                                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${isLive ? "text-emerald-600" : "text-gray-300"}`}>
+                                        {isLive ? "LIVE" : "IDLE"}
+                                      </span>
                                     </div>
                                   );
                                 });
@@ -2451,15 +2463,22 @@ export default function DashboardPage() {
                           </div>
 
                           {/* Teacher Action Feed */}
-                          <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm">
-                            <h4 className="text-sm font-black text-gray-800">Teacher Activity</h4>
-                            <div className="mt-4 space-y-2 max-h-[28rem] overflow-auto pr-1">
+                          <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-sm font-black text-[#1e3a8a] tracking-tight">Activity Feed</h4>
+                              <span className="text-[10px] font-bold text-gray-400">{adminActivityLog?.actions?.length || 0} entries</span>
+                            </div>
+                            <div className="space-y-1.5 max-h-[28rem] overflow-auto pr-1">
                               {(() => {
-                                const actions = adminActivityLog?.actions || [];
+                                const actions = (adminActivityLog?.actions || []).filter(a => {
+                                  const r = String(a.role || '').toLowerCase();
+                                  const n = String(a.actor || '').trim().toLowerCase();
+                                  return r !== 'admin' && n !== 'system administrator';
+                                });
                                 if (actions.length === 0) {
                                   return (
-                                    <div className="rounded-[2rem] border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No teacher activity for this date</p>
+                                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-300">No teacher activity for this date</p>
                                     </div>
                                   );
                                 }
@@ -2470,7 +2489,10 @@ export default function DashboardPage() {
                                   Reports: "bg-amber-50 text-amber-700 border-amber-100",
                                   Timetable: "bg-teal-50 text-teal-700 border-teal-100",
                                   Profile: "bg-indigo-50 text-indigo-700 border-indigo-100",
+                                  Login: "bg-emerald-50 text-emerald-700 border-emerald-100",
+                                  AttendanceEdit: "bg-orange-50 text-orange-700 border-orange-100",
                                 };
+                                let lastDate = "";
                                 return actions.map((row, idx) => {
                                   let displayTime = row.time || "";
                                   if (displayTime) {
@@ -2481,19 +2503,21 @@ export default function DashboardPage() {
                                       displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
                                     }
                                   }
-                                  const colorClass = TYPE_COLORS[row.type] || "bg-gray-50 text-gray-600 border-gray-100";
+                                  const colorClass = TYPE_COLORS[row.type] || "bg-gray-50 text-gray-500 border-gray-100";
+                                  const initials = (row.actor || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
                                   return (
-                                    <div key={`${row.type}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                      <div className="min-w-0 shrink-0 pt-0.5">
-                                        <p className="text-xs font-black text-gray-500 whitespace-nowrap">{displayTime || "--"}</p>
+                                    <div key={`${row.type}-${idx}`} className="flex items-start gap-3 rounded-xl bg-gray-50/70 border border-gray-100/80 px-3.5 py-2.5 transition-all hover:bg-gray-50 hover:border-gray-200">
+                                      <div className="w-7 h-7 rounded-full bg-[#1e3a8a]/5 border border-[#1e3a8a]/10 flex items-center justify-center text-[9px] font-black text-[#1e3a8a]/60 shrink-0 pt-px">
+                                        {initials}
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-sm font-black text-gray-900 truncate">{row.actor}</span>
-                                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${colorClass}`}>{row.type}</span>
+                                          <span className="text-[11px] font-bold text-gray-900 truncate">{row.actor}</span>
+                                          <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${colorClass}`}>{row.type}</span>
+                                          <span className="ml-auto text-[10px] font-semibold text-gray-300 shrink-0 whitespace-nowrap">{displayTime || ""}</span>
                                         </div>
-                                        <p className="mt-1 text-xs font-semibold text-gray-600">{row.summary}</p>
-                                        {row.meta && <p className="mt-0.5 text-[10px] font-bold text-gray-400">{row.meta}</p>}
+                                        <p className="mt-0.5 text-[11px] font-semibold text-gray-500 leading-snug">{row.summary}</p>
+                                        {row.meta && <p className="mt-0.5 text-[9px] font-bold text-gray-300">{row.meta}</p>}
                                       </div>
                                     </div>
                                   );
