@@ -2388,7 +2388,16 @@ export default function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                              {(adminActivityLog?.liveUsers?.length || 0) + (adminActivityLog?.activeUsers?.length || 0)} online
+                              {(() => {
+                                const live = adminActivityLog?.liveUsers || [];
+                                const sessions = adminActivityLog?.activeUsers || [];
+                                const uMap = new Map();
+                                for (const u of [...live, ...sessions]) {
+                                  const key = (u.username || '').toLowerCase();
+                                  if (key && !uMap.has(key)) uMap.set(key, u);
+                                }
+                                return uMap.size;
+                              })()} online
                             </span>
                             <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#1e3a8a]">
                               {adminActivityLog?.actions?.length || 0} actions
@@ -2416,10 +2425,12 @@ export default function DashboardPage() {
                               {(() => {
                                 const live = adminActivityLog?.liveUsers || [];
                                 const sessions = adminActivityLog?.activeUsers || [];
-                                const allUsers = [...live];
-                                for (const s of sessions) {
-                                  if (!allUsers.find(u => u.username === s.username)) allUsers.push(s);
+                                const userMap = new Map();
+                                for (const u of [...live, ...sessions]) {
+                                  const key = (u.username || '').toLowerCase();
+                                  if (key && !userMap.has(key)) userMap.set(key, u);
                                 }
+                                const allUsers = Array.from(userMap.values());
                                 if (allUsers.length === 0) {
                                   return (
                                     <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 py-8 text-center">
@@ -2428,7 +2439,7 @@ export default function DashboardPage() {
                                   );
                                 }
                                 return allUsers.map((person, i) => {
-                                  const isLive = live.some(u => u.username === person.username);
+                                  const isLive = live.some(u => (u.username || '').toLowerCase() === (person.username || '').toLowerCase());
                                   const lastSeen = person.lastSeen || person.lastLogin || "";
                                   const timePart = lastSeen.includes(" ") ? lastSeen.split(" ")[1] : lastSeen;
                                   let displayTime = timePart || "";
