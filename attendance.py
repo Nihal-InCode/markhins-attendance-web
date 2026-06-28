@@ -371,6 +371,12 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # Targeted broadcasts migration
+        try:
+            c.execute("ALTER TABLE announcement_broadcasts ADD COLUMN target_teacher_ids TEXT")
+        except sqlite3.OperationalError:
+            pass
+
         # === SESSION SYSTEM MIGRATION ===
         try:
             c.execute("ALTER TABLE teachers ADD COLUMN active_session_token TEXT")
@@ -4864,7 +4870,7 @@ if __name__ == "__main__":
                         result = {"success": False, "message": "Teacher is required."}
                     else:
                         c.execute("""
-                            SELECT id, announcement_key, heading, content, footer, active, created_at, updated_at
+                            SELECT id, announcement_key, heading, content, footer, active, created_at, updated_at, target_teacher_ids
                             FROM announcement_broadcasts ab
                             WHERE active=1
                               AND NOT EXISTS (
@@ -4872,9 +4878,10 @@ if __name__ == "__main__":
                                   FROM teacher_announcements ta
                                   WHERE ta.teacher_id=? AND ta.announcement_key=ab.announcement_key
                               )
+                              AND (target_teacher_ids IS NULL OR target_teacher_ids = '' OR target_teacher_ids = '[]' OR target_teacher_ids LIKE '%' || ? || '%')
                             ORDER BY COALESCE(updated_at, created_at, '') DESC, id DESC
                             LIMIT 1
-                        """, (teacher_id,))
+                        """, (teacher_id, teacher_id))
                         row = c.fetchone()
                         result = {
                             "success": True,
@@ -5887,7 +5894,8 @@ if __name__ == "__main__":
                             ab.active,
                             ab.created_at,
                             ab.updated_at,
-                            COUNT(ta.teacher_id) AS dismissed_count
+                            COUNT(ta.teacher_id) AS dismissed_count,
+                            ab.target_teacher_ids
                         FROM announcement_broadcasts ab
                         LEFT JOIN teacher_announcements ta
                             ON ta.announcement_key=ab.announcement_key
@@ -5906,6 +5914,7 @@ if __name__ == "__main__":
                             "createdAt": r[6],
                             "updatedAt": r[7],
                             "dismissedCount": r[8],
+                            "targetTeacherIds": json.loads(r[9]) if r[9] else [],
                         }
                         for r in rows
                     ]}
@@ -5938,6 +5947,8 @@ if __name__ == "__main__":
                     content = str(data.get("content") or "").strip()
                     footer = str(data.get("footer") or "").strip()
                     active = 1 if data.get("active", True) else 0
+                    target_ids = data.get("target_teacher_ids") or []
+                    target_json = json.dumps(target_ids) if target_ids else None
 
                     if not heading or not content:
                         result = {"success": False, "message": "Heading and content are required."}
@@ -5948,9 +5959,9 @@ if __name__ == "__main__":
                         announcement_key = f"broadcast-{int(now.timestamp())}-{secrets.token_hex(4)}"
                         c.execute("""
                             INSERT INTO announcement_broadcasts
-                                (announcement_key, heading, content, footer, active, created_at, updated_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (announcement_key, heading, content, footer, active, now_str, now_str))
+                                (announcement_key, heading, content, footer, active, target_teacher_ids, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (announcement_key, heading, content, footer, active, target_json, now_str, now_str))
                         conn.commit()
                         result = {"success": True, "message": "Broadcast created.", "data": {"id": c.lastrowid, "announcementKey": announcement_key}}
 
@@ -5960,6 +5971,8 @@ if __name__ == "__main__":
                     content = str(data.get("content") or "").strip()
                     footer = str(data.get("footer") or "").strip()
                     active = 1 if data.get("active", True) else 0
+                    target_ids = data.get("target_teacher_ids") or []
+                    target_json = json.dumps(target_ids) if target_ids else None
 
                     if not announcement_id or not heading or not content:
                         result = {"success": False, "message": "Announcement, heading and content are required."}
@@ -5967,9 +5980,9 @@ if __name__ == "__main__":
                         now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         c.execute("""
                             UPDATE announcement_broadcasts
-                            SET heading=?, content=?, footer=?, active=?, updated_at=?
+                            SET heading=?, content=?, footer=?, active=?, target_teacher_ids=?, updated_at=?
                             WHERE id=?
-                        """, (heading, content, footer, active, now_str, announcement_id))
+                        """, (heading, content, footer, active, target_json, now_str, announcement_id))
                         conn.commit()
                         result = {"success": c.rowcount > 0, "message": "Broadcast updated." if c.rowcount > 0 else "Broadcast not found."}
 

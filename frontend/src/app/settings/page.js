@@ -88,6 +88,7 @@ export default function SettingsPage() {
         content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.",
         footer: "If anything goes wrong or does not work correctly, please inform the developer.",
         active: true,
+        targetTeacherIds: [],
     });
     const [viewersModal, setViewersModal] = useState({ open: false, key: null, heading: "", list: [], loading: false });
     const { showLoader, hideLoader } = useLoading();
@@ -293,7 +294,7 @@ export default function SettingsPage() {
     }
 
     function resetAnnouncementForm() {
-        setAnnouncementForm({ id: null, heading: "A fresh semester begins", content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.", footer: "If anything goes wrong or does not work correctly, please inform the developer.", active: true });
+        setAnnouncementForm({ id: null, heading: "A fresh semester begins", content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.", footer: "If anything goes wrong or does not work correctly, please inform the developer.", active: true, targetTeacherIds: [] });
     }
 
     async function handleSaveAnnouncement(e) {
@@ -310,7 +311,7 @@ export default function SettingsPage() {
     }
 
     function handleEditAnnouncement(ann) {
-        setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true });
+        setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true, targetTeacherIds: ann.targetTeacherIds || [] });
     }
 
     async function handleDeleteAnnouncement(ann) {
@@ -652,6 +653,39 @@ export default function SettingsPage() {
                                         <input type="text" value={announcementForm.footer} onChange={(e) => setAnnouncementForm(p => ({ ...p, footer: e.target.value }))}
                                             className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
                                     </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Send To</label>
+                                        <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 max-h-40 overflow-y-auto space-y-1.5">
+                                            <label className="flex items-center gap-2.5 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-white transition-all">
+                                                <input type="checkbox" checked={announcementForm.targetTeacherIds.length === 0}
+                                                    onChange={() => setAnnouncementForm(p => ({ ...p, targetTeacherIds: [] }))}
+                                                    className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
+                                                <span className="text-sm font-bold text-gray-700">All Teachers</span>
+                                            </label>
+                                            <div className="border-t border-gray-100 my-1" />
+                                            {teachers.map(t => (
+                                                <label key={t.id} className="flex items-center gap-2.5 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-white transition-all">
+                                                    <input type="checkbox"
+                                                        checked={announcementForm.targetTeacherIds.includes(String(t.id))}
+                                                        onChange={(e) => {
+                                                            const id = String(t.id);
+                                                            setAnnouncementForm(p => ({
+                                                                ...p,
+                                                                targetTeacherIds: e.target.checked
+                                                                    ? [...p.targetTeacherIds, id]
+                                                                    : p.targetTeacherIds.filter(x => x !== id)
+                                                            }));
+                                                        }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
+                                                    <span className="text-sm font-medium text-gray-700">{t.name}</span>
+                                                    <span className="text-[10px] text-gray-400">@{t.username}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {announcementForm.targetTeacherIds.length > 0 && (
+                                            <p className="mt-1 text-[9px] font-bold text-[#0d9488] uppercase">{announcementForm.targetTeacherIds.length} teacher(s) selected</p>
+                                        )}
+                                    </div>
                                     <label className="flex items-center gap-3 cursor-pointer">
                                         <input type="checkbox" checked={announcementForm.active} onChange={(e) => setAnnouncementForm(p => ({ ...p, active: e.target.checked }))}
                                             className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
@@ -675,15 +709,22 @@ export default function SettingsPage() {
                                     {announcements.map(ann => (
                                         <div key={ann.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-md transition-all">
                                             <div className="flex items-start justify-between gap-4">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${ann.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                            {ann.active ? "Active" : "Off"}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${ann.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {ann.active ? "Active" : "Off"}
+                                                    </span>
+                                                    {ann.targetTeacherIds && ann.targetTeacherIds.length > 0 ? (
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-50 text-blue-700">
+                                                            {ann.targetTeacherIds.length} teacher(s)
                                                         </span>
-                                                        <button onClick={() => handleOpenViewers(ann)} className="text-[9px] font-bold text-[#0d9488] hover:underline">
-                                                            {ann.dismissedCount || 0} dismissed
-                                                        </button>
-                                                    </div>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-gray-50 text-gray-500">All</span>
+                                                    )}
+                                                    <button onClick={() => handleOpenViewers(ann)} className="text-[9px] font-bold text-[#0d9488] hover:underline">
+                                                        {ann.dismissedCount || 0} dismissed
+                                                    </button>
+                                                </div>
                                                     <h4 className="mt-2 font-bold text-gray-900">{ann.heading}</h4>
                                                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">{ann.content}</p>
                                                     <p className="mt-2 text-[9px] text-gray-300 uppercase">{ann.createdAt}</p>

@@ -1343,8 +1343,8 @@ app.get('/admin/announcements', authenticateToken, async (req, res) => {
 app.post('/admin/announcements', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
-        const { heading, content, footer, active } = req.body;
-        const result = await callPython({ action: "create_admin_announcement", heading, content, footer, active });
+        const { heading, content, footer, active, targetTeacherIds } = req.body;
+        const result = await callPython({ action: "create_admin_announcement", heading, content, footer, active, target_teacher_ids: targetTeacherIds || [] });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1354,14 +1354,15 @@ app.post('/admin/announcements', authenticateToken, async (req, res) => {
 app.put('/admin/announcements/:announcementId', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
-        const { heading, content, footer, active } = req.body;
+        const { heading, content, footer, active, targetTeacherIds } = req.body;
         const result = await callPython({
             action: "update_admin_announcement",
             announcement_id: req.params.announcementId,
             heading,
             content,
             footer,
-            active
+            active,
+            target_teacher_ids: targetTeacherIds || []
         });
         res.json(result);
     } catch (error) {
