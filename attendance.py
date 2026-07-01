@@ -4398,6 +4398,7 @@ if __name__ == "__main__":
                             "user": {
                                 "id": tid,
                                 "name": tname,
+                                "username": username,
                                 "role": role,
                                 "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal", "Urdu Principal") else None,
                                 "subject": tsubj,
