@@ -173,6 +173,17 @@ async function verifyAuth(chatId, username) {
 const recentSubmissions = new Map(); // chatId -> lastSubmission data
 
 function trackSubmission(chatId, s, currentCommand) {
+  // If there was a previous submission, remove its Edit button first
+  const prevSub = recentSubmissions.get(chatId);
+  if (prevSub && prevSub.messageId) {
+    bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+      chat_id: chatId,
+      message_id: prevSub.messageId
+    }).catch(err => {
+      // ignore message deleted/already updated errors
+    });
+  }
+
   const submission = {
     timestamp: Date.now(),
     mode: s.mode,
@@ -182,7 +193,8 @@ function trackSubmission(chatId, s, currentCommand) {
     selected: [...s.selected],
     status: s.status,
     healthStartPeriod: s.healthStartPeriod,
-    command: currentCommand
+    command: currentCommand,
+    messageId: null
   };
   recentSubmissions.set(chatId, submission);
   return submission;
@@ -201,17 +213,10 @@ async function sendSuccessWithEdit(chatId, text, options = {}) {
   });
 
   if (msg) {
-    // Automatically remove the edit button after 30 minutes
-    setTimeout(async () => {
-      try {
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-          chat_id: chatId,
-          message_id: msg.message_id
-        });
-      } catch (err) {
-        // Message might have been deleted or already edited
-      }
-    }, 30 * 60 * 1000);
+    const lastSub = recentSubmissions.get(chatId);
+    if (lastSub) {
+      lastSub.messageId = msg.message_id;
+    }
   }
 }
 
@@ -2481,7 +2486,7 @@ bot.on("callback_query", async (callbackQuery) => {
 
   console.log(`Callback from ${username} (${user.id}): ${data}`);
 
-  // Edit Last Submission Handler (within 30m)
+  // Edit Last Submission Handler
   if (data === "action:edit_last") {
     const lastSub = recentSubmissions.get(chatId);
     if (!lastSub) {
@@ -2489,15 +2494,16 @@ bot.on("callback_query", async (callbackQuery) => {
       return;
     }
 
-    const elapsedMs = Date.now() - lastSub.timestamp;
-    if (elapsedMs > 30 * 60 * 1000) {
-      await bot.editMessageText(`🔒 <b>Edit Window Closed</b>\nAttendance records can only be edited\nwithin 30 minutes of submission.`, {
-        chat_id: chatId,
-        message_id: callbackQuery.message.message_id,
-        parse_mode: 'HTML'
-      });
-      recentSubmissions.delete(chatId);
-      return;
+    // Remove the Edit button from the confirmation message once they click it
+    if (lastSub.messageId) {
+      try {
+        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+          chat_id: chatId,
+          message_id: lastSub.messageId
+        });
+      } catch (err) {
+        // ignore
+      }
     }
 
     // Re-open marking screen
