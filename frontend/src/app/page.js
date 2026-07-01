@@ -548,7 +548,7 @@ export default function DashboardPage() {
     }
     if (urlTab === 'reports') {
       const type = searchParams.get('type');
-      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register'].includes(type)) {
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute'].includes(type)) {
         setReportType(type);
       } else {
         setReportType(null);
@@ -3905,7 +3905,7 @@ export default function DashboardPage() {
                           
                           <div>
                             <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Date</label>
-                            <input type="date" value={plannerDate} onChange={(e) => { setPlannerDate(e.target.value); if(selectedLeaveTeachers.length > 0) fetchPlannerData(e.target.value, selectedLeaveTeachers.map(t => t.id)); }}
+                            <input type="date" value={plannerDate} onChange={(e) => { setPlannerDate(e.target.value); }}
                               className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full sm:max-w-xs" />
                           </div>
 
@@ -3923,7 +3923,6 @@ export default function DashboardPage() {
                                     <button onClick={() => {
                                       const updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
                                       setSelectedLeaveTeachers(updated);
-                                      fetchPlannerData(plannerDate, updated.map(x => x.id));
                                     }} className="text-red-400 hover:text-red-700 font-bold ml-1">✕</button>
                                   </span>
                                 ))}
@@ -3931,7 +3930,7 @@ export default function DashboardPage() {
                             )}
 
                             {/* Searchable dropdown */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50 mb-4">
                               {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
                                 const isSelected = selectedLeaveTeachers.some(x => x.id === t.id);
                                 return (
@@ -3944,13 +3943,21 @@ export default function DashboardPage() {
                                         updated = [...selectedLeaveTeachers, t];
                                       }
                                       setSelectedLeaveTeachers(updated);
-                                      fetchPlannerData(plannerDate, updated.map(x => x.id));
                                     }}
                                     className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left truncate ${isSelected ? 'bg-red-50 border-red-200 text-red-700 font-extrabold' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
                                     {isSelected ? '🔴 ' : ''}{t.name}
                                   </button>
                                 );
                               })}
+                            </div>
+
+                            {/* Explicit CTA Confirm & Load Planner Button */}
+                            <div className="flex justify-end pt-2">
+                              <button onClick={() => fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id))}
+                                disabled={selectedLeaveTeachers.length === 0}
+                                className="w-full sm:w-auto rounded-xl bg-[#0d9488] hover:bg-[#0a7a70] text-white px-6 py-3 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-[#0d9488]/15">
+                                Confirm Leaves & Load Planner
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -4055,7 +4062,7 @@ export default function DashboardPage() {
                             <select value={subReportFilter.classId} onChange={(e) => setSubReportFilter(p => ({ ...p, classId: e.target.value }))}
                               className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs font-medium outline-none">
                               <option value="">All</option>
-                              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                           </div>
                           <div>
