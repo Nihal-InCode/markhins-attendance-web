@@ -5275,21 +5275,28 @@ if __name__ == "__main__":
                     weekday = data.get("weekday", 0)
                     date_str = data.get("date") or get_ist_now().strftime("%Y-%m-%d")
                     try:
-                        # Fetch manual substitutions for date_str
-                        c.execute("""
-                            SELECT period, class, original_teacher_id, substitute_teacher_id, original_teacher_name, substitute_teacher_name, subject
-                            FROM manual_substitute_assignments
-                            WHERE date = ?
-                        """, (date_str,))
+                        # Fetch manual substitutions only if the selected weekday matches the target date's weekday
                         sub_map = {}
-                        for p, cl, ot_id, st_id, ot_name, st_name, subj in c.fetchall():
-                            sub_map[(cl, p)] = {
-                                "substitute_teacher_id": st_id,
-                                "original_teacher_id": ot_id,
-                                "original_teacher_name": ot_name,
-                                "substitute_teacher_name": st_name,
-                                "subject": subj
-                            }
+                        try:
+                            target_dt = dt.strptime(date_str, "%Y-%m-%d")
+                            target_weekday = target_dt.weekday()
+                        except Exception:
+                            target_weekday = -1
+
+                        if target_weekday == weekday:
+                            c.execute("""
+                                SELECT period, class, original_teacher_id, substitute_teacher_id, original_teacher_name, substitute_teacher_name, subject
+                                FROM manual_substitute_assignments
+                                WHERE date = ?
+                            """, (date_str,))
+                            for p, cl, ot_id, st_id, ot_name, st_name, subj in c.fetchall():
+                                sub_map[(cl, p)] = {
+                                    "substitute_teacher_id": st_id,
+                                    "original_teacher_id": ot_id,
+                                    "original_teacher_name": ot_name,
+                                    "substitute_teacher_name": st_name,
+                                    "subject": subj
+                                }
 
                         c.execute("""
                             SELECT DISTINCT class FROM (
