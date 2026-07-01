@@ -1869,7 +1869,7 @@ export default function DashboardPage() {
                         key={p}
                         onClick={handleToggle}
                         disabled={isMarked}
-                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-hidden flex flex-col items-center justify-center gap-1 ${isSelected
+                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-visible flex flex-col items-center justify-center gap-1 ${isSelected
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : isMarked
                             ? 'bg-red-50 text-red-500 border border-red-100 cursor-not-allowed opacity-90'
@@ -1879,23 +1879,23 @@ export default function DashboardPage() {
                         <span className="relative z-10">{p.replace('P', '')}</span>
                         {isMarked && (
                           <>
-                            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-                              <div className="relative h-[58px] w-[58px] -rotate-6 rounded-full border-2 border-emerald-600/75 bg-emerald-50/90 text-emerald-700 shadow-sm">
+                            <div className="absolute -bottom-4 -right-4 z-20 pointer-events-none">
+                              <div className="relative h-[64px] w-[64px] -rotate-[11deg] rounded-full border-[2.5px] border-red-600/80 bg-red-50/90 text-red-700 shadow-[0_2px_5px_rgba(185,28,28,0.16)]">
                                 <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
                                   <defs>
                                     <path
                                       id={`seal-ring-${p}`}
-                                      d="M 50,50 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0"
+                                      d="M 50,50 m -39,0 a 39,39 0 1,1 78,0 a 39,39 0 1,1 -78,0"
                                     />
                                   </defs>
-                                  <text fill="currentColor" fontSize="10.5" fontWeight="900" letterSpacing="2.2">
+                                  <text fill="currentColor" fontSize="10" fontWeight="900" letterSpacing="1.8">
                                     <textPath href={`#seal-ring-${p}`} startOffset="1%">
                                       MARKHINS HUB • MARKHINS HUB •
                                     </textPath>
                                   </text>
                                 </svg>
-                                <div className="absolute inset-[9px] flex items-center justify-center rounded-full border border-emerald-600/50 px-1">
-                                  <span className="line-clamp-2 break-words text-center text-[7px] font-black uppercase leading-[1.05]">
+                                <div className="absolute inset-[8px] flex items-center justify-center rounded-full border border-red-600/55 bg-red-50/40 px-1">
+                                  <span className="line-clamp-3 w-full break-words text-center text-[8px] font-black leading-[1.05] tracking-[-0.02em]">
                                     {teacherName}
                                   </span>
                                 </div>
