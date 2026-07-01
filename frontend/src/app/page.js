@@ -963,7 +963,7 @@ export default function DashboardPage() {
       const isSuccess = res?.success || res?.message?.includes("successfully");
       if (isSuccess) {
         playSound('success');
-        setMsg("Assignments saved successfully.");
+        alert("Assignments saved successfully.");
         fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
         const widgetRes = await getSubstituteDashboardWidget();
         if (widgetRes) {
