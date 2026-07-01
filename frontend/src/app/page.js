@@ -2154,11 +2154,16 @@ export default function DashboardPage() {
                                 const item = row.periods[p];
                                 const isSub = item && (item.isSubstitute || item.is_substitute);
                                 const isOwnSub = isSub && (item.is_own_substitute || (item.originalTeacherId === item.substituteTeacherId));
+                                const activeTeacherId = item ? (item.substituteTeacherId || item.teacherId) : null;
+                                const isMyPeriod = activeTeacherId && user && String(activeTeacherId) === String(user.id);
+
                                 let cellBg = '';
                                 if (isSub) {
                                   cellBg = isOwnSub 
                                     ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
                                     : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
+                                } else if (isMyPeriod) {
+                                  cellBg = 'bg-emerald-50/80 border-emerald-250 text-emerald-950 shadow-sm font-extrabold ring-2 ring-emerald-500/20';
                                 }
                                 return (
                                   <td key={p} style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'}`}>
