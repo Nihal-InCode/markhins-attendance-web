@@ -1725,7 +1725,7 @@ export default function DashboardPage() {
             {/* ── Substitute Planner Dashboard Widget ── */}
             {(user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username)) && subWidget && (
               <div onClick={() => { setReportType('substitute'); setActiveTab('reports'); router.push('/?tab=reports&type=substitute', { scroll: false }); }}
-                className="bg-gradient-to-br from-indigo-950 via-[#0a3a40] to-indigo-900 border border-indigo-500/20 p-6 rounded-[2rem] shadow-xl text-white cursor-pointer hover:scale-[1.01] active:scale-95 transition-all">
+                className="hidden">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[9px] font-black uppercase tracking-widest text-[#5eead4] bg-[#5eead4]/10 px-2 py-0.5 rounded-full">Substitute Planner</span>
@@ -2099,6 +2099,41 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+
+        {activeTab === "attendance"
+          && (user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username))
+          && subWidget && (
+            <div
+              onClick={() => { setReportType('substitute'); setActiveTab('reports'); router.push('/?tab=reports&type=substitute', { scroll: false }); }}
+              className="mx-auto mt-6 max-w-md cursor-pointer rounded-[2rem] border border-indigo-500/20 bg-gradient-to-br from-indigo-950 via-[#0a3a40] to-indigo-900 p-6 text-white shadow-xl transition-all hover:scale-[1.01] active:scale-95"
+              style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.6s' }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="rounded-full bg-[#5eead4]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#5eead4]">Substitute Planner</span>
+                  <h3 className="mt-2 text-lg font-black">Tomorrow&apos;s Coverage</h3>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-white/50">{subWidget.date}</p>
+                </div>
+                <svg className="h-7 w-7 text-indigo-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14H3V6a2 2 0 012-2z" />
+                </svg>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
+                <div className="text-center">
+                  <p className="text-xl font-black text-amber-300">{subWidget.totalSubstitutes}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Affected Slots</p>
+                </div>
+                <div className="border-x border-white/10 text-center">
+                  <p className="text-xl font-black text-emerald-400">{subWidget.assigned}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Assigned</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-black text-rose-400">{subWidget.pending}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-white/60">Pending</p>
+                </div>
+              </div>
+            </div>
+          )}
 
 
 
