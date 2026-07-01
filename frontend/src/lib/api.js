@@ -100,7 +100,7 @@ export const getStudents = (classId, subjectId, date) =>
  */
 export const getTimetable = (classId) => apiRequest(`/timetable/${classId}`);
 
-export const getFullTimetable = (weekday) => apiRequest(`/full-timetable/${weekday}`);
+export const getFullTimetable = (weekday, date) => apiRequest(`/full-timetable/${weekday}?date=${date || ''}`);
 
 export const getStudentHistory = (rollNo) => apiRequest(`/student-history/${rollNo}`);
 
@@ -317,3 +317,27 @@ export function startActivityTracker() {
     });
     fire();
 }
+
+// ── Manual Substitute System API helpers ──
+export const getSubstituteCoordinators = () => apiRequest('/api/substitute/coordinators');
+export const saveSubstituteCoordinators = (coordinators) => apiRequest('/api/substitute/coordinators', {
+    method: 'POST',
+    body: JSON.stringify({ coordinators }),
+});
+export const getSubstitutePlannerData = (date, onLeaveTeacherIds) => {
+    const ids = Array.isArray(onLeaveTeacherIds) ? onLeaveTeacherIds.join(',') : onLeaveTeacherIds;
+    return apiRequest(`/api/substitute/planner-data?date=${date}&on_leave_teacher_ids=${ids || ''}`);
+};
+export const saveSubstituteAssignments = (date, assignments) => apiRequest('/api/substitute/assign', {
+    method: 'POST',
+    body: JSON.stringify({ date, assignments }),
+});
+export const getSubstituteReport = (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') search.set(k, v);
+    });
+    return apiRequest(`/api/substitute/report?${search.toString()}`);
+};
+export const getSubstituteDashboardWidget = () => apiRequest('/api/substitute/dashboard-widget');
+

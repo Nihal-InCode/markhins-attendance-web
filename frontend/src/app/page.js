@@ -30,7 +30,12 @@ import {
   getSyllabusConfigs,
   saveSyllabusConfig,
   updateSyllabusProgress,
-  deleteSyllabusConfig
+  deleteSyllabusConfig,
+  getSubstituteCoordinators,
+  getSubstitutePlannerData,
+  saveSubstituteAssignments,
+  getSubstituteReport,
+  getSubstituteDashboardWidget
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -379,6 +384,28 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("attendance");
 
+  // Substitute Planner System States
+  const [subCoordinators, setSubCoordinators] = useState([]);
+  const [subWidget, setSubWidget] = useState(null);
+  const [plannerDate, setPlannerDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [selectedLeaveTeachers, setSelectedLeaveTeachers] = useState([]);
+  const [plannerData, setPlannerData] = useState(null);
+  const [assigningPeriod, setAssigningPeriod] = useState(null);
+  const [temporaryAssignments, setTemporaryAssignments] = useState({});
+  const [subReportFilter, setSubReportFilter] = useState({
+    fromDate: new Date().toISOString().split('T')[0],
+    toDate: new Date().toISOString().split('T')[0],
+    classId: '',
+    teacherId: ''
+  });
+  const [subReportData, setSubReportData] = useState([]);
+  const [subTab, setSubTab] = useState("planner");
+  const [leaveSearch, setLeaveSearch] = useState("");
+
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1); // 0=Mon...
@@ -661,6 +688,9 @@ export default function DashboardPage() {
     if (activeTab === 'attendance') {
       fetchLastAttendance();
     }
+    if (activeTab === 'attendance' || activeTab === 'reports') {
+      fetchSubstituteData();
+    }
   }, [activeTab]);
 
   // ── APP RESUME AND DATE AUTO-SYNC Lifecycle ──
@@ -864,12 +894,104 @@ export default function DashboardPage() {
     }
   }, [activeTab, user]);
 
+  const fetchSubstituteData = async () => {
+    try {
+      const coordRes = await getSubstituteCoordinators();
+      setSubCoordinators(coordRes?.coordinators?.map(String) || []);
+    } catch (err) {
+      console.error("Failed to load substitute coordinators:", err);
+    }
+    try {
+      const widgetRes = await getSubstituteDashboardWidget();
+      if (widgetRes?.success) {
+        setSubWidget(widgetRes.data || null);
+      }
+    } catch (err) {
+      console.error("Failed to load substitute widget:", err);
+    }
+  };
+
+  const fetchPlannerData = async (date, leaveTeacherIds) => {
+    setLoadingFeature(true);
+    showLoader("Loading planner data...");
+    try {
+      const res = await getSubstitutePlannerData(date, leaveTeacherIds);
+      if (res?.success) {
+        setPlannerData(res.data);
+        const temp = {};
+        res.data.affected_periods.forEach(p => {
+          if (p.assigned_substitute_id) {
+            temp[`${p.class}-${p.period}-${p.original_teacher_id}`] = {
+              substitute_teacher_id: p.assigned_substitute_id,
+              subject: p.assigned_subject
+            };
+          }
+        });
+        setTemporaryAssignments(temp);
+      } else {
+        setError(res?.message || "Failed to load planner data.");
+      }
+    } catch (err) {
+      setError("Failed to load planner data: " + err.message);
+    } finally {
+      setLoadingFeature(false);
+      hideLoader();
+    }
+  };
+
+  const saveAssignments = async () => {
+    showLoader("Saving assignments...");
+    try {
+      const list = Object.entries(temporaryAssignments).map(([key, val]) => {
+        const [cls, prd, otId] = key.split('-');
+        return {
+          class: cls,
+          period: prd,
+          original_teacher_id: otId,
+          substitute_teacher_id: val.substitute_teacher_id,
+          subject: val.subject
+        };
+      });
+
+      const res = await saveSubstituteAssignments(plannerDate, list);
+      if (res?.success) {
+        playSound('success');
+        setMsg("Assignments saved successfully.");
+        fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
+        const widgetRes = await getSubstituteDashboardWidget();
+        if (widgetRes?.success) setSubWidget(widgetRes.data);
+      } else {
+        setError(res?.message || "Failed to save assignments.");
+      }
+    } catch (err) {
+      setError("Failed to save assignments: " + err.message);
+    } finally {
+      hideLoader();
+    }
+  };
+
+  const fetchSubstituteReportData = async () => {
+    setLoadingFeature(true);
+    showLoader("Loading substitute report...");
+    try {
+      const res = await getSubstituteReport(subReportFilter);
+      if (res?.success) {
+        setSubReportData(res.data || []);
+      }
+    } catch (err) {
+      setError("Failed to load substitute report: " + err.message);
+    } finally {
+      setLoadingFeature(false);
+      hideLoader();
+    }
+  };
+
   const fetchFullTimetable = async (day) => {
     setLoadingFeature(true);
     showLoader("Loading timetable...");
     setTimetableError("");
     try {
-      const data = await getFullTimetable(day);
+      const data = await getFullTimetable(day, getIstDateString());
       setFullTimetable(Array.isArray(data) ? data : []);
     } catch (err) {
       setTimetableError("Failed to load timetable. Is the backend running?");
@@ -1586,6 +1708,35 @@ export default function DashboardPage() {
         {activeTab === "attendance" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
+            {/* ── Substitute Planner Dashboard Widget ── */}
+            {(user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username)) && subWidget && (
+              <div onClick={() => { setReportType('substitute'); setActiveTab('reports'); router.push('/?tab=reports&type=substitute', { scroll: false }); }}
+                className="bg-gradient-to-br from-indigo-950 via-[#0a3a40] to-indigo-900 border border-indigo-500/20 p-6 rounded-[2rem] shadow-xl text-white cursor-pointer hover:scale-[1.01] active:scale-95 transition-all">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-[#5eead4] bg-[#5eead4]/10 px-2 py-0.5 rounded-full">Substitute Planner</span>
+                    <h3 className="text-lg font-black mt-2">Tomorrow&apos;s Coverage</h3>
+                    <p className="text-[10px] text-white/50 mt-0.5 font-bold uppercase tracking-wider">{subWidget.date}</p>
+                  </div>
+                  <span className="text-2xl">📅</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-4 border-t border-white/10 pt-4">
+                  <div className="text-center">
+                    <p className="text-xl font-black text-amber-300">{subWidget.totalSubstitutes}</p>
+                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Affected Slots</p>
+                  </div>
+                  <div className="text-center border-x border-white/10">
+                    <p className="text-xl font-black text-emerald-400">{subWidget.assigned}</p>
+                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Assigned</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xl font-black text-rose-400">{subWidget.pending}</p>
+                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Pending</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── MODE SELECTOR ── */}
             <div className="grid grid-cols-2 gap-4 anim-fade-up" style={{ animationDelay: '0.05s' }}>
               {/* Regular Attendance — click scrolls to form */}
@@ -1942,11 +2093,22 @@ export default function DashboardPage() {
                           </td>
                           {periods.map(p => {
                             const item = row.periods[p];
+                            let cellBg = '';
+                            if (item && item.is_substitute) {
+                              cellBg = item.is_own_substitute 
+                                ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
+                                : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
+                            }
                             return (
-                              <td key={p} className="px-5 py-5 text-center transition-all">
+                              <td key={p} className={`px-5 py-5 text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'}`}>
                                 {item ? (
                                   <div className="space-y-1">
-                                    <p className="font-bold text-gray-800 text-[13px] leading-tight break-words">{item.subject}</p>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <p className="font-bold text-gray-800 text-[13px] leading-tight break-words">{item.subject}</p>
+                                      {item.is_substitute && (
+                                        <span className={`px-1 rounded text-[7px] font-black border uppercase ${item.is_own_substitute ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
+                                      )}
+                                    </div>
                                     <p className="text-[10px] text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
                                   </div>
                                 ) : (
@@ -1978,6 +2140,7 @@ export default function DashboardPage() {
         {activeTab === "reports" && (
           <>
             {(() => {
+              const isCoordinator = user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username);
               const reportTabs = [
                 { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
                 { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
@@ -1987,6 +2150,9 @@ export default function DashboardPage() {
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
                 { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
               ];
+              if (isCoordinator) {
+                reportTabs.push({ id: 'substitute', label: 'Substitute Planner', emoji: '📅', desc: 'Manage teacher leaves and coverage.' });
+              }
 
               if (!reportType) {
                 return (
@@ -2005,6 +2171,7 @@ export default function DashboardPage() {
                         { id: 'events', label: 'Events', emoji: '🏆', color: 'bg-rose-50 border-rose-100 text-rose-700' },
                         { id: 'extra', label: 'Extra Class', emoji: '⚡', color: 'bg-orange-50 border-orange-100 text-orange-700' },
                         { id: 'register', label: 'Register', emoji: '📒', color: 'bg-slate-50 border-slate-200 text-slate-700' },
+                        ...(isCoordinator ? [{ id: 'substitute', label: 'Substitute', emoji: '📅', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' }] : [])
                       ].map((card) => (
                         <button
                           key={card.id}
@@ -3712,6 +3879,297 @@ export default function DashboardPage() {
                           <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Select range to view historical register</p>
                         </div>
                       )
+                    )}
+                  </div>
+                )}
+
+                {reportType === "substitute" && (
+                  <div className="space-y-6 animate-in fade-in">
+                    {/* Sub-navigation */}
+                    <div className="flex gap-2 border-b border-gray-100 pb-2">
+                      <button onClick={() => setSubTab("planner")}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${subTab === "planner" ? "bg-[#0d9488] text-white shadow-md shadow-[#0d9488]/15" : "bg-white text-gray-500 border border-gray-100 hover:bg-gray-50"}`}>
+                        Planner
+                      </button>
+                      <button onClick={() => { setSubTab("history"); fetchSubstituteReportData(); }}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${subTab === "history" ? "bg-[#0d9488] text-white shadow-md shadow-[#0d9488]/15" : "bg-white text-gray-500 border border-gray-100 hover:bg-gray-50"}`}>
+                        History Report
+                      </button>
+                    </div>
+
+                    {subTab === "planner" && (
+                      <div className="space-y-6">
+                        {/* Step 1: Date & Leaves Selection */}
+                        <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+                          <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Step 1: Set Date & Leaves</h3>
+                          
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Date</label>
+                            <input type="date" value={plannerDate} onChange={(e) => { setPlannerDate(e.target.value); if(selectedLeaveTeachers.length > 0) fetchPlannerData(e.target.value, selectedLeaveTeachers.map(t => t.id)); }}
+                              className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full sm:max-w-xs" />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Teachers on Leave</label>
+                            <input type="text" placeholder="Search teacher to mark leave..." value={leaveSearch} onChange={(e) => setLeaveSearch(e.target.value)}
+                              className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3" />
+                            
+                            {/* Selected Leaves Badges */}
+                            {selectedLeaveTeachers.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {selectedLeaveTeachers.map(t => (
+                                  <span key={t.id} className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-3 py-1 rounded-xl text-xs font-bold border border-red-100">
+                                    {t.name}
+                                    <button onClick={() => {
+                                      const updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
+                                      setSelectedLeaveTeachers(updated);
+                                      fetchPlannerData(plannerDate, updated.map(x => x.id));
+                                    }} className="text-red-400 hover:text-red-700 font-bold ml-1">✕</button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Searchable dropdown */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
+                              {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
+                                const isSelected = selectedLeaveTeachers.some(x => x.id === t.id);
+                                return (
+                                  <button key={t.id}
+                                    onClick={() => {
+                                      let updated;
+                                      if (isSelected) {
+                                        updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
+                                      } else {
+                                        updated = [...selectedLeaveTeachers, t];
+                                      }
+                                      setSelectedLeaveTeachers(updated);
+                                      fetchPlannerData(plannerDate, updated.map(x => x.id));
+                                    }}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left truncate ${isSelected ? 'bg-red-50 border-red-200 text-red-700 font-extrabold' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                    {isSelected ? '🔴 ' : ''}{t.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step 2: Coverage Grid */}
+                        {plannerData && selectedLeaveTeachers.length > 0 && (
+                          <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                              <div>
+                                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Step 2: Assign Coverage</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Click any red period to assign a substitute</p>
+                              </div>
+                              <span className="text-xs font-bold text-gray-400 uppercase">{plannerData.affected_periods.length} affected slots</span>
+                            </div>
+
+                            {plannerData.affected_periods.length === 0 ? (
+                              <p className="py-12 text-center text-xs font-bold text-gray-400 uppercase">No scheduled periods found for on-leave teachers on this day.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                {plannerData.affected_periods.map((p, idx) => {
+                                  const key = `${p.class}-${p.period}-${p.original_teacher_id}`;
+                                  const temp = temporaryAssignments[key];
+                                  const isAssigned = !!temp;
+                                  
+                                  let subName = p.assigned_substitute_name;
+                                  let subSubject = p.assigned_subject;
+                                  if (temp) {
+                                    const teacherObj = teachers.find(t => t.id === temp.substitute_teacher_id);
+                                    subName = teacherObj ? teacherObj.name : `Teacher #${temp.substitute_teacher_id}`;
+                                    subSubject = temp.subject;
+                                  }
+
+                                  return (
+                                    <div key={idx} onClick={() => setAssigningPeriod({ ...p, key })}
+                                      className={`rounded-2xl border p-4 transition-all cursor-pointer relative overflow-hidden group hover:scale-[1.01] active:scale-[0.99] ${isAssigned ? 'bg-emerald-50/60 border-emerald-250 text-emerald-950' : 'bg-red-50/60 border-red-200 text-red-950'}`}>
+                                      <div className="flex justify-between items-start">
+                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                          {p.class} • {p.period}
+                                        </span>
+                                        <span className="text-xs font-black">{p.subject}</span>
+                                      </div>
+                                      
+                                      <div className="mt-3">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Scheduled Teacher</p>
+                                        <p className="text-xs font-bold text-gray-800">{p.original_teacher_name}</p>
+                                      </div>
+
+                                      <div className="mt-3 pt-3 border-t border-gray-155">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Substitute Assigned</p>
+                                        {isAssigned ? (
+                                          <div>
+                                            <p className="text-xs font-black text-emerald-700">{subName}</p>
+                                            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">{subSubject}</p>
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs font-bold text-red-500 uppercase tracking-wider italic">Tap to Assign ➕</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {plannerData.affected_periods.length > 0 && (
+                              <div className="pt-6 border-t border-gray-155 flex justify-end gap-3">
+                                <button onClick={() => setTemporaryAssignments({})}
+                                  className="rounded-2xl border border-gray-200 bg-white px-5 py-3 text-xs font-black uppercase tracking-wider text-gray-500 hover:bg-gray-50 transition-all">
+                                  Reset Draft
+                                </button>
+                                <button onClick={saveAssignments}
+                                  className="rounded-2xl bg-[#0d9488] text-white px-6 py-3 text-xs font-black uppercase tracking-wider hover:bg-[#0a7a70] transition-all shadow-md shadow-[#0d9488]/15">
+                                  Save & Deploy Assignments
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {subTab === "history" && (
+                      <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                          <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Substitute History</h3>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">From Date</label>
+                            <input type="date" value={subReportFilter.fromDate} onChange={(e) => setSubReportFilter(p => ({ ...p, fromDate: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-medium outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">To Date</label>
+                            <input type="date" value={subReportFilter.toDate} onChange={(e) => setSubReportFilter(p => ({ ...p, toDate: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-medium outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Class</label>
+                            <select value={subReportFilter.classId} onChange={(e) => setSubReportFilter(p => ({ ...p, classId: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs font-medium outline-none">
+                              <option value="">All</option>
+                              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Teacher</label>
+                            <select value={subReportFilter.teacherId} onChange={(e) => setSubReportFilter(p => ({ ...p, teacherId: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs font-medium outline-none">
+                              <option value="">All</option>
+                              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button onClick={fetchSubstituteReportData}
+                            className="rounded-xl bg-gray-900 hover:bg-black text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all">
+                            Filter Report
+                          </button>
+                        </div>
+
+                        {/* List */}
+                        <div className="overflow-x-auto border border-gray-50 rounded-2xl">
+                          <table className="w-full text-left border-collapse min-w-[700px]">
+                            <thead className="bg-gray-50/50 border-b border-gray-100">
+                              <tr>
+                                {["Date", "Class", "Period", "Original Teacher", "Substitute Teacher", "Subject", "Assigned By", "Timestamp"].map(h => (
+                                  <th key={h} className="px-5 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 text-xs">
+                              {subReportData.map((row, rIdx) => (
+                                <tr key={row.id || rIdx} className="hover:bg-gray-50/50 transition-colors">
+                                  <td className="px-5 py-3 font-bold text-gray-700">{row.date}</td>
+                                  <td className="px-5 py-3 font-mono font-bold text-[#0d9488]">{row.class}</td>
+                                  <td className="px-5 py-3">{row.period}</td>
+                                  <td className="px-5 py-3 text-gray-600">{row.original_teacher}</td>
+                                  <td className="px-5 py-3 font-bold text-emerald-700">{row.substitute_teacher}</td>
+                                  <td className="px-5 py-3 font-semibold">{row.subject}</td>
+                                  <td className="px-5 py-3 text-gray-400">{row.assigned_by}</td>
+                                  <td className="px-5 py-3 text-gray-300 font-mono text-[10px]">{row.created_at}</td>
+                                </tr>
+                              ))}
+                              {subReportData.length === 0 && (
+                                <tr>
+                                  <td colSpan={8} className="py-12 text-center text-xs font-bold text-gray-400 uppercase">No substitute logs found.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Popover Assigning Modal */}
+                    {assigningPeriod && (
+                      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+                        onClick={(e) => { if (e.target === e.currentTarget) setAssigningPeriod(null); }}>
+                        <div className="w-full max-w-md rounded-[2rem] border border-gray-100 bg-white p-6 shadow-2xl space-y-4">
+                          <div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-[#0d9488] bg-[#0d9488]/10 px-3 py-1 rounded-xl">Assign Substitute</span>
+                              <button onClick={() => setAssigningPeriod(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                            </div>
+                            <h3 className="text-lg font-black text-gray-900 mt-3">{assigningPeriod.class} • {assigningPeriod.period}</h3>
+                            <p className="text-xs text-gray-500 mt-1">Scheduled for <strong>{assigningPeriod.original_teacher_name}</strong> ({assigningPeriod.subject})</p>
+                          </div>
+
+                          <div className="border-t border-gray-100 pt-3">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Available Conflict-Free Teachers</p>
+                            
+                            {assigningPeriod.available_teachers.length === 0 ? (
+                              <p className="py-6 text-center text-xs font-bold text-red-400 uppercase">No teachers available without conflicts for this slot.</p>
+                            ) : (
+                              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                {assigningPeriod.available_teachers.map(teacher => (
+                                  <button key={teacher.id}
+                                    onClick={() => {
+                                      setTemporaryAssignments(prev => ({
+                                        ...prev,
+                                        [assigningPeriod.key]: {
+                                          substitute_teacher_id: teacher.id,
+                                          subject: teacher.matched_subject
+                                        }
+                                      }));
+                                      setAssigningPeriod(null);
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase text-[#0d9488] bg-[#0d9488]/5 px-2 py-1 rounded-lg group-hover:bg-[#0d9488]/10">
+                                      {teacher.matched_subject}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {temporaryAssignments[assigningPeriod.key] && (
+                            <button onClick={() => {
+                              setTemporaryAssignments(prev => {
+                                const copy = { ...prev };
+                                delete copy[assigningPeriod.key];
+                                return copy;
+                              });
+                              setAssigningPeriod(null);
+                            }}
+                              className="w-full rounded-xl border border-red-200 hover:bg-red-50 text-red-500 py-3 text-xs font-black uppercase tracking-wider transition-all">
+                              Clear Assignment
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

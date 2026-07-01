@@ -787,7 +787,8 @@ app.get('/resolve-period', authenticateToken, async (req, res) => {
 
 app.get('/full-timetable/:weekday', authenticateToken, async (req, res) => {
     try {
-        const result = await callPython({ action: "get_full_timetable", weekday: parseInt(req.params.weekday) });
+        const { date } = req.query;
+        const result = await callPython({ action: "get_full_timetable", weekday: parseInt(req.params.weekday), date });
         res.json(result);
     } catch (error) {
         console.error(`[Route Error] /full-timetable:`, error.message);
@@ -1700,6 +1701,127 @@ app.post('/admin/update-password', authenticateToken, async (req, res) => {
 
         const result = await callPython({ action: "update_admin_password", password });
         res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// ── Manual Substitute System Endpoints ──
+
+// Get all substitute coordinators (Admin only)
+app.get('/api/substitute/coordinators', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
+        const result = await callPython({ action: "get_substitute_coordinators" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update substitute coordinators (Admin only)
+app.post('/api/substitute/coordinators', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
+        const { coordinators } = req.body;
+        const result = await callPython({ action: "save_substitute_coordinators", coordinators });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get planner data (Admin or authorized coordinator)
+app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
+    try {
+        const { date, on_leave_teacher_ids } = req.query;
+        
+        // Authorization check: Admin or coordinator in system settings
+        const coordRes = await callPython({ action: "get_substitute_coordinators" });
+        const coordinators = coordRes.coordinators || [];
+        const isAuthorized = req.user.role === 'admin' || coordinators.includes(String(req.user.id)) || coordinators.includes(String(req.user.username));
+        if (!isAuthorized) return res.status(403).json({ success: false, message: 'Access denied. You are not an authorized coordinator.' });
+
+        const idsArray = on_leave_teacher_ids ? on_leave_teacher_ids.split(',').map(x => parseInt(x)).filter(x => !isNaN(x)) : [];
+        const result = await callPython({ action: "get_substitute_planner_data", date, on_leave_teacher_ids: idsArray });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Assign substitutes (Admin or authorized coordinator)
+app.post('/api/substitute/assign', authenticateToken, async (req, res) => {
+    try {
+        const { date, assignments } = req.body;
+        
+        // Authorization check
+        const coordRes = await callPython({ action: "get_substitute_coordinators" });
+        const coordinators = coordRes.coordinators || [];
+        const isAuthorized = req.user.role === 'admin' || coordinators.includes(String(req.user.id)) || coordinators.includes(String(req.user.username));
+        if (!isAuthorized) return res.status(403).json({ success: false, message: 'Access denied.' });
+
+        const result = await callPython({ 
+            action: "save_substitute_assignments", 
+            date, 
+            assignments, 
+            coordinator: req.user.name || req.user.username || 'Coordinator' 
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get substitute report
+app.get('/api/substitute/report', authenticateToken, async (req, res) => {
+    try {
+        const { fromDate, toDate, classId, teacherId } = req.query;
+        const result = await callPython({ 
+            action: "get_substitute_assignments_report", 
+            fromDate, 
+            toDate, 
+            classId, 
+            teacherId: teacherId ? parseInt(teacherId) : null 
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get dashboard widget details
+app.get('/api/substitute/dashboard-widget', authenticateToken, async (req, res) => {
+    try {
+        // Find tomorrow's date
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        // Fetch all assignments for tomorrow
+        const result = await callPython({ 
+            action: "get_substitute_assignments_report", 
+            fromDate: tomorrowStr, 
+            toDate: tomorrowStr 
+        });
+        
+        if (result.success) {
+            const list = result.data || [];
+            const assignedCount = list.filter(a => a.substitute_teacher).length;
+            res.json({
+                success: true,
+                data: {
+                    date: tomorrowStr,
+                    totalSubstitutes: list.length,
+                    assigned: assignedCount,
+                    pending: list.length - assignedCount,
+                    list: list
+                }
+            });
+        } else {
+            res.json(result);
+        }
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

@@ -4755,18 +4755,28 @@ if __name__ == "__main__":
                     else:
                         weekday = get_ist_now().weekday()
                     
+                    # Check manual substitutions first
                     c.execute("""
-                        SELECT tt.subject, t.name 
-                        FROM timetable tt 
-                        LEFT JOIN teachers t ON tt.teacher_id = t.id 
-                        WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
-                    """, (cls, weekday, p_label))
-                    row = c.fetchone()
-                    
-                    if row:
-                        result = {"success": True, "data": {"subject": row[0], "teacher": row[1]}}
+                        SELECT subject, substitute_teacher_name, substitute_teacher_id
+                        FROM manual_substitute_assignments
+                        WHERE date=? AND class=? AND period=?
+                        LIMIT 1
+                    """, (date_str or get_ist_now().strftime("%Y-%m-%d"), cls, p_label))
+                    sub_row = c.fetchone()
+                    if sub_row:
+                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True}}
                     else:
-                        result = {"success": False, "message": f"No subject scheduled for {cls} in Period {p_label} today."}
+                        c.execute("""
+                            SELECT tt.subject, t.name, t.id
+                            FROM timetable tt 
+                            LEFT JOIN teachers t ON tt.teacher_id = t.id 
+                            WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
+                        """, (cls, weekday, p_label))
+                        row = c.fetchone()
+                        if row:
+                            result = {"success": True, "data": {"subject": row[0], "teacher": row[1], "teacherId": row[2]}}
+                        else:
+                            result = {"success": False, "message": f"No subject scheduled for {cls} in Period {p_label} today."}
 
                 elif action == "get_teacher_subjects":
                     teacher_id = data.get("teacherId")
@@ -5237,7 +5247,24 @@ if __name__ == "__main__":
 
                 elif action == "get_full_timetable":
                     weekday = data.get("weekday", 0)
+                    date_str = data.get("date") or get_ist_now().strftime("%Y-%m-%d")
                     try:
+                        # Fetch manual substitutions for date_str
+                        c.execute("""
+                            SELECT period, class, original_teacher_id, substitute_teacher_id, original_teacher_name, substitute_teacher_name, subject
+                            FROM manual_substitute_assignments
+                            WHERE date = ?
+                        """, (date_str,))
+                        sub_map = {}
+                        for p, cl, ot_id, st_id, ot_name, st_name, subj in c.fetchall():
+                            sub_map[(cl, p)] = {
+                                "substitute_teacher_id": st_id,
+                                "original_teacher_id": ot_id,
+                                "original_teacher_name": ot_name,
+                                "substitute_teacher_name": st_name,
+                                "subject": subj
+                            }
+
                         c.execute("""
                             SELECT DISTINCT class FROM (
                                 SELECT class FROM students WHERE class IS NOT NULL AND class != ''
@@ -5250,14 +5277,25 @@ if __name__ == "__main__":
                         for cls in classes:
                             periods_dict = {}
                             for p in ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]:
-                                c.execute("""
-                                    SELECT tt.subject, t.name 
-                                    FROM timetable tt 
-                                    LEFT JOIN teachers t ON tt.teacher_id = t.id 
-                                    WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
-                                """, (cls, weekday, p))
-                                row = c.fetchone()
-                                periods_dict[p] = {"subject": row[0], "teacher": row[1]} if row else None
+                                sub = sub_map.get((cls, p))
+                                if sub:
+                                    periods_dict[p] = {
+                                        "subject": sub["subject"],
+                                        "teacher": sub["substitute_teacher_name"],
+                                        "isSubstitute": True,
+                                        "originalTeacher": sub["original_teacher_name"],
+                                        "originalTeacherId": sub["original_teacher_id"],
+                                        "substituteTeacherId": sub["substitute_teacher_id"]
+                                    }
+                                else:
+                                    c.execute("""
+                                        SELECT tt.subject, t.name, tt.teacher_id
+                                        FROM timetable tt 
+                                        LEFT JOIN teachers t ON tt.teacher_id = t.id 
+                                        WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
+                                    """, (cls, weekday, p))
+                                    row = c.fetchone()
+                                    periods_dict[p] = {"subject": row[0], "teacher": row[1], "teacherId": row[2]} if row else None
                             full_tt.append({"class": cls, "periods": periods_dict})
                         
                         result = {"success": True, "data": full_tt}
@@ -6555,6 +6593,199 @@ if __name__ == "__main__":
                             "teacher_name_used": t_search_name
                         }
                     }
+                elif action == "get_substitute_coordinators":
+                    c.execute("SELECT value FROM system_settings WHERE key='authorized_substitute_coordinators'")
+                    val_row = c.fetchone()
+                    coordinators_str = val_row[0] if val_row else ""
+                    coordinators_list = [x.strip() for x in coordinators_str.split(",") if x.strip()]
+                    
+                    c.execute("SELECT id, name, username FROM teachers ORDER BY name")
+                    teachers = [{"id": r[0], "name": r[1], "username": r[2], "isCoordinator": str(r[0]) in coordinators_list or r[2] in coordinators_list} for r in c.fetchall()]
+                    result = {"success": True, "coordinators": coordinators_list, "teachers": teachers}
+
+                elif action == "save_substitute_coordinators":
+                    coordinators = data.get("coordinators", [])
+                    coordinators_str = ",".join(str(x) for x in coordinators)
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('authorized_substitute_coordinators', ?)", (coordinators_str,))
+                    conn.commit()
+                    result = {"success": True, "message": "Substitute coordinators updated successfully."}
+
+                elif action == "get_substitute_planner_data":
+                    planner_date = data.get("date")
+                    on_leave_ids = data.get("on_leave_teacher_ids", [])
+                    on_leave_ids = [int(x) for x in on_leave_ids if str(x).isdigit()]
+                    
+                    try:
+                        target_dt = dt.strptime(planner_date, "%Y-%m-%d")
+                        weekday = target_dt.weekday()
+                    except Exception as e:
+                        result = {"success": False, "message": f"Invalid date format: {str(e)}"}
+                    else:
+                        # 1. Fetch all teachers for selection list
+                        c.execute("SELECT id, name, username, subject FROM teachers ORDER BY name")
+                        all_teachers = [{"id": r[0], "name": r[1], "username": r[2], "subject": r[3]} for r in c.fetchall()]
+                        
+                        affected_periods = []
+                        if on_leave_ids:
+                            # 2. Get affected periods for leave teachers
+                            c.execute("""
+                                SELECT tt.class, tt.period_label, tt.subject, tt.teacher_id, t.name
+                                FROM timetable tt
+                                JOIN teachers t ON tt.teacher_id = t.id
+                                WHERE tt.weekday = ? AND tt.teacher_id IN ({})
+                                ORDER BY tt.class, tt.period_label
+                            """.format(",".join("?" * len(on_leave_ids))), (weekday, *on_leave_ids))
+                            affected_rows = c.fetchall()
+                            
+                            # 3. Get existing manual substitutions for this date
+                            c.execute("""
+                                SELECT period, class, original_teacher_id, substitute_teacher_id, substitute_teacher_name, subject
+                                FROM manual_substitute_assignments
+                                WHERE date = ?
+                            """, (planner_date,))
+                            existing_map = {}
+                            for ep, ec, eot, est_id, est_name, esub in c.fetchall():
+                                existing_map[(ep, ec, eot)] = {
+                                    "substitute_id": est_id,
+                                    "substitute_name": est_name,
+                                    "subject": esub
+                                }
+                                
+                            for r_class, r_period, r_subject, r_ot_id, r_ot_name in affected_rows:
+                                # Find available teachers
+                                leave_placeholders = ",".join("?" * len(on_leave_ids))
+                                c.execute("""
+                                    SELECT id, name, subject FROM teachers
+                                    WHERE id NOT IN ({})
+                                      AND id NOT IN (
+                                          SELECT teacher_id FROM timetable
+                                          WHERE weekday = ? AND period_label = ? AND teacher_id IS NOT NULL
+                                      )
+                                      AND id NOT IN (
+                                          SELECT substitute_teacher_id FROM manual_substitute_assignments
+                                          WHERE date = ? AND period = ?
+                                      )
+                                    ORDER BY name
+                                """.format(leave_placeholders), (*on_leave_ids, weekday, r_period, planner_date, r_period))
+                                avail_rows = c.fetchall()
+                                
+                                avail_teachers = []
+                                for av_id, av_name, av_subj in avail_rows:
+                                    # Find matched subject for this class
+                                    c.execute("""
+                                        SELECT DISTINCT subject FROM teacher_subjects WHERE teacher_id = ? AND UPPER(class) = UPPER(?)
+                                        UNION
+                                        SELECT DISTINCT subject FROM timetable WHERE teacher_id = ? AND UPPER(class) = UPPER(?)
+                                    """, (av_id, r_class, av_id, r_class))
+                                    subj_rows = c.fetchall()
+                                    matched_subj = subj_rows[0][0] if subj_rows else (av_subj or "General")
+                                    
+                                    avail_teachers.append({
+                                        "id": av_id,
+                                        "name": av_name,
+                                        "matched_subject": matched_subj
+                                    })
+                                    
+                                existing = existing_map.get((r_period, r_class, r_ot_id))
+                                affected_periods.append({
+                                    "class": r_class,
+                                    "period": r_period,
+                                    "original_teacher_id": r_ot_id,
+                                    "original_teacher_name": r_ot_name,
+                                    "subject": r_subject,
+                                    "assigned_substitute_id": existing["substitute_id"] if existing else None,
+                                    "assigned_substitute_name": existing["substitute_name"] if existing else None,
+                                    "assigned_subject": existing["subject"] if existing else None,
+                                    "available_teachers": avail_teachers
+                                })
+                                
+                        result = {
+                            "success": True,
+                            "data": {
+                                "affected_periods": affected_periods,
+                                "all_teachers": all_teachers
+                            }
+                        }
+
+                elif action == "save_substitute_assignments":
+                    planner_date = data.get("date")
+                    coordinator = data.get("coordinator", "Admin")
+                    assignments = data.get("assignments", [])
+                    
+                    try:
+                        target_dt = dt.strptime(planner_date, "%Y-%m-%d")
+                        weekday = target_dt.weekday()
+                        
+                        c.execute("DELETE FROM manual_substitute_assignments WHERE date = ?", (planner_date,))
+                        c.execute("DELETE FROM substitute_log_simple WHERE date = ? AND notes LIKE 'Manually assigned%'", (planner_date,))
+                        
+                        c.execute("SELECT id, name FROM teachers")
+                        teacher_names = {r[0]: r[1] for r in c.fetchall()}
+                        
+                        for ass in assignments:
+                            ot_id = int(ass["original_teacher_id"])
+                            st_id = int(ass["substitute_teacher_id"])
+                            period = ass["period"]
+                            class_id = ass["class"]
+                            subject = ass["subject"]
+                            
+                            ot_name = teacher_names.get(ot_id, f"Teacher #{ot_id}")
+                            st_name = teacher_names.get(st_id, f"Teacher #{st_id}")
+                            
+                            c.execute("""
+                                INSERT INTO manual_substitute_assignments 
+                                (date, period, class, original_teacher_id, original_teacher_name, substitute_teacher_id, substitute_teacher_name, subject, assigned_by)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (planner_date, period, class_id, ot_id, ot_name, st_id, st_name, subject, coordinator))
+                            
+                            c.execute("""
+                                INSERT INTO substitute_log_simple
+                                (date, weekday, class, period, scheduled_teacher_id, substitute_teacher_id, scheduled_teacher_name, substitute_teacher_name, detected_at, authorized, notes)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), 1, ?)
+                            """, (planner_date, weekday, class_id, period, ot_id, st_id, ot_name, st_name, f"Manually assigned by {coordinator}"))
+                            
+                        conn.commit()
+                        result = {"success": True, "message": "Substitute assignments saved successfully."}
+                    except Exception as e:
+                        result = {"success": False, "message": f"Failed to save assignments: {str(e)}"}
+
+                elif action == "get_substitute_assignments_report":
+                    from_date = data.get("fromDate", get_ist_now().strftime("%Y-%m-%d"))
+                    to_date = data.get("toDate", from_date)
+                    class_id = data.get("classId")
+                    teacher_id = data.get("teacherId")
+                    
+                    query = """
+                        SELECT id, date, period, class, original_teacher_name, substitute_teacher_name, subject, assigned_by, created_at
+                        FROM manual_substitute_assignments
+                        WHERE date BETWEEN ? AND ?
+                    """
+                    params = [from_date, to_date]
+                    
+                    if class_id:
+                        query += " AND UPPER(class) = UPPER(?)"
+                        params.append(class_id)
+                    if teacher_id:
+                        query += " AND (original_teacher_id = ? OR substitute_teacher_id = ?)"
+                        params.extend([teacher_id, teacher_id])
+                        
+                    query += " ORDER BY date DESC, period ASC, class ASC"
+                    c.execute(query, tuple(params))
+                    rows = c.fetchall()
+                    
+                    report_data = [{
+                        "id": r[0],
+                        "date": r[1],
+                        "period": r[2],
+                        "class": r[3],
+                        "original_teacher": r[4],
+                        "substitute_teacher": r[5],
+                        "subject": r[6],
+                        "assigned_by": r[7],
+                        "created_at": r[8]
+                    } for r in rows]
+                    
+                    result = {"success": True, "data": report_data}
 
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}

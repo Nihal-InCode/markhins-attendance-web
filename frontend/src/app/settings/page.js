@@ -20,6 +20,8 @@ import {
     updateAdminAnnouncement,
     updateAdminTeacher,
     updateTimetablePeriod,
+    getSubstituteCoordinators,
+    saveSubstituteCoordinators,
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
@@ -82,6 +84,7 @@ export default function SettingsPage() {
     const [manualSubjectEntry, setManualSubjectEntry] = useState(false);
     const [announcements, setAnnouncements] = useState([]);
     const [announcementBusy, setAnnouncementBusy] = useState(false);
+    const [subCoordinators, setSubCoordinators] = useState([]);
     const [announcementForm, setAnnouncementForm] = useState({
         id: null,
         heading: "A fresh semester begins",
@@ -106,13 +109,14 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
                 getAdminTimetable(selectedWeekday),
                 getAdminAnnouncements(),
                 getNamazApiMonitor(),
+                getSubstituteCoordinators(),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -120,6 +124,7 @@ export default function SettingsPage() {
             setTimetableRows(Array.isArray(timetableRes) ? timetableRes : []);
             setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
             setNamazApiMonitor(namazMonitorRes || null);
+            setSubCoordinators(coordRes?.coordinators?.map(String) || []);
         } catch (err) {
             setError("Failed to load: " + err.message);
         } finally {
@@ -381,6 +386,25 @@ export default function SettingsPage() {
             await refreshTimetable();
         } catch (err) { playSound('error'); setError(err.message); }
         finally { setTimetableBusy(false); }
+    }
+    async function handleToggleCoordinator(teacherId) {
+        const tIdStr = String(teacherId);
+        const updated = subCoordinators.includes(tIdStr)
+            ? subCoordinators.filter(x => x !== tIdStr)
+            : [...subCoordinators, tIdStr];
+            
+        showLoader("Updating coordinators...");
+        try {
+            await saveSubstituteCoordinators(updated);
+            setSubCoordinators(updated);
+            setMsg("Substitute coordinators updated.");
+            playSound('success');
+        } catch (err) {
+            setError(err.message);
+            playSound('error');
+        } finally {
+            hideLoader();
+        }
     }
 
     const filteredTeachers = useMemo(() => {
@@ -835,6 +859,25 @@ export default function SettingsPage() {
                                     className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold uppercase text-white hover:bg-red-700 disabled:opacity-50 transition-all">
                                     {resettingData ? "..." : "Reset"}
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Substitute Coordinators */}
+                        <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                            <h2 className="text-lg font-black text-gray-900 mb-2">Substitute Coordinators</h2>
+                            <p className="text-xs text-gray-400 mb-4 uppercase font-bold">Select teachers who are authorized to assign substitute periods</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1 border border-gray-100 rounded-2xl bg-gray-50/30">
+                                {teachers.map(t => (
+                                    <label key={t.id} className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-all">
+                                        <input type="checkbox" checked={subCoordinators.includes(String(t.id)) || subCoordinators.includes(t.username)}
+                                            onChange={() => handleToggleCoordinator(t.id)}
+                                            className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{t.name}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">@{t.username}</p>
+                                        </div>
+                                    </label>
+                                ))}
                             </div>
                         </div>
 
