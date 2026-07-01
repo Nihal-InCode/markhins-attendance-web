@@ -1876,11 +1876,13 @@ export default function DashboardPage() {
                             : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
                           }`}
                       >
-                        <span className="relative z-10">{p.replace('P', '')}</span>
+                        <span className={`relative z-10 ${isMarked ? 'text-red-400/45' : ''}`}>
+                          {p.replace('P', '')}
+                        </span>
                         {isMarked && (
                           <>
-                            <div className="absolute -bottom-4 -right-4 z-20 pointer-events-none">
-                              <div className="relative h-[64px] w-[64px] -rotate-[11deg] rounded-full border-[2.5px] border-red-600/80 bg-red-50/90 text-red-700 shadow-[0_2px_5px_rgba(185,28,28,0.16)]">
+                            <div className="absolute -bottom-2 right-0 z-20 pointer-events-none">
+                              <div className="relative h-[52px] w-[52px] -rotate-[11deg] rounded-full border-2 border-red-600/80 bg-red-50/75 text-red-700 shadow-[0_2px_5px_rgba(185,28,28,0.14)]">
                                 <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
                                   <defs>
                                     <path
@@ -1888,14 +1890,14 @@ export default function DashboardPage() {
                                       d="M 50,50 m -39,0 a 39,39 0 1,1 78,0 a 39,39 0 1,1 -78,0"
                                     />
                                   </defs>
-                                  <text fill="currentColor" fontSize="10" fontWeight="900" letterSpacing="1.8">
+                                  <text fill="currentColor" fontSize="10" fontWeight="900" letterSpacing="1.5">
                                     <textPath href={`#seal-ring-${p}`} startOffset="1%">
                                       MARKHINS HUB • MARKHINS HUB •
                                     </textPath>
                                   </text>
                                 </svg>
-                                <div className="absolute inset-[8px] flex items-center justify-center rounded-full border border-red-600/55 bg-red-50/40 px-1">
-                                  <span className="line-clamp-3 w-full break-words text-center text-[8px] font-black leading-[1.05] tracking-[-0.02em]">
+                                <div className="absolute inset-[7px] flex items-center justify-center rounded-full border border-red-600/55 bg-red-50/25 px-0.5">
+                                  <span className="line-clamp-3 w-full break-words text-center text-[6.5px] font-black leading-[1.05] tracking-[-0.025em]">
                                     {teacherName}
                                   </span>
                                 </div>
