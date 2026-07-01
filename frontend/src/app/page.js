@@ -1876,13 +1876,16 @@ export default function DashboardPage() {
                             : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
                           }`}
                       >
-                        <span className={`relative z-10 ${isMarked ? 'text-red-400/45' : ''}`}>
+                        <span className={isMarked
+                          ? 'absolute left-3 top-2 z-30 text-sm font-black text-red-500'
+                          : 'relative z-10'
+                        }>
                           {p.replace('P', '')}
                         </span>
                         {isMarked && (
                           <>
                             <div className="absolute -bottom-2 right-0 z-20 pointer-events-none">
-                              <div className="relative h-[52px] w-[52px] -rotate-[11deg] rounded-full border-2 border-red-600/80 bg-red-50/75 text-red-700 shadow-[0_2px_5px_rgba(185,28,28,0.14)]">
+                              <div className="relative h-[52px] w-[52px] -rotate-[11deg] rounded-full border-2 border-red-600 bg-transparent text-red-700 opacity-60 mix-blend-multiply">
                                 <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
                                   <defs>
                                     <path
@@ -1896,7 +1899,7 @@ export default function DashboardPage() {
                                     </textPath>
                                   </text>
                                 </svg>
-                                <div className="absolute inset-[7px] flex items-center justify-center rounded-full border border-red-600/55 bg-red-50/25 px-0.5">
+                                <div className="absolute inset-[7px] flex items-center justify-center rounded-full border border-red-600/70 px-0.5">
                                   <span className="line-clamp-3 w-full break-words text-center text-[6.5px] font-black leading-[1.05] tracking-[-0.025em]">
                                     {teacherName}
                                   </span>
