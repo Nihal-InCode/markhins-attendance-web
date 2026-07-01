@@ -3330,7 +3330,8 @@ export default function DashboardPage() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-1.5">
                                       <p className="font-bold text-gray-800 text-sm">{item.class}</p>
-                                      <p className="font-black text-sm text-gray-800">
+                                      <p className="font-black text-sm text-gray-800 flex items-center gap-1">
+                                        {item.attendancePercentage !== null && item.attendancePercentage < 60 && <span className="text-xs" title="Warning: Low Attendance">⚠️</span>}
                                         {item.attendancePercentage !== null ? `${item.attendancePercentage}%` : '—'}
                                       </p>
                                     </div>
@@ -3338,9 +3339,10 @@ export default function DashboardPage() {
                                       <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                                         <div
                                           className={`h-full rounded-full transition-all duration-500 ${
-                                            item.attendancePercentage >= 90 ? 'bg-emerald-500' :
+                                            item.attendancePercentage >= 80 ? 'bg-emerald-500' :
                                             item.attendancePercentage >= 75 ? 'bg-[#1e3a8a]' :
-                                            item.attendancePercentage >= 60 ? 'bg-amber-500' : 'bg-red-400'
+                                            item.attendancePercentage >= 70 ? 'bg-amber-500' :
+                                            item.attendancePercentage >= 60 ? 'bg-red-500' : 'bg-red-800'
                                           }`}
                                           style={{ width: `${Math.min(item.attendancePercentage, 100)}%` }}
                                         />
@@ -3380,12 +3382,15 @@ export default function DashboardPage() {
                         <div className="space-y-2">
                           {batchReport.map((student, idx) => (
                             <div key={idx} className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                                student.percent > 75 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                student.percent > 50 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                'bg-red-50 text-red-500 border border-red-100'
+                              <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-xs shrink-0 ${
+                                student.percent >= 80 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                student.percent >= 75 ? 'bg-blue-50 text-[#1e3a8a] border border-blue-100' :
+                                student.percent >= 70 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                student.percent >= 60 ? 'bg-red-50 text-red-500 border border-red-100' :
+                                'bg-red-100 text-red-900 border border-red-300'
                               }`}>
-                                {Math.round(student.percent)}%
+                                {student.percent < 60 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
+                                <span>{Math.round(student.percent)}%</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-gray-800 text-sm truncate">{student.name}</p>
