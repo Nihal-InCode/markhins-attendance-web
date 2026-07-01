@@ -1709,12 +1709,20 @@ app.post('/admin/update-password', authenticateToken, async (req, res) => {
 
 // ── Manual Substitute System Endpoints ──
 
-// Get all substitute coordinators (Admin only)
+// Get substitute coordinator status.
+// All authenticated users need the coordinator IDs so the dashboard can decide
+// whether to show the planner. Only admins receive the full teacher list used
+// by the coordinator-management UI.
 app.get('/api/substitute/coordinators', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
         const result = await callPython({ action: "get_substitute_coordinators" });
-        res.json(result);
+        if (req.user.role === 'admin') {
+            return res.json(result);
+        }
+        res.json({
+            success: result.success,
+            coordinators: result.coordinators || []
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

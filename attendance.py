@@ -6216,15 +6216,13 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacherId")
 
                     c.execute("""
-                        SELECT DISTINCT subject FROM (
-                            SELECT subject FROM teacher_subjects WHERE teacher_id=? AND subject IS NOT NULL AND TRIM(subject) != ''
-                            UNION
-                            SELECT subject FROM timetable WHERE teacher_id=? AND subject IS NOT NULL AND TRIM(subject) != ''
-                            UNION
-                            SELECT subject FROM teachers WHERE id=? AND subject IS NOT NULL AND TRIM(subject) != '' AND subject != 'General'
-                        )
+                        SELECT DISTINCT subject
+                        FROM timetable
+                        WHERE teacher_id=?
+                          AND subject IS NOT NULL
+                          AND TRIM(subject) != ''
                         ORDER BY subject COLLATE NOCASE
-                    """, (teacher_id, teacher_id, teacher_id))
+                    """, (teacher_id,))
                     subjects = [r[0] for r in c.fetchall()]
                     result = {"success": True, "data": subjects}
 
@@ -6691,7 +6689,7 @@ if __name__ == "__main__":
                                 # Find available teachers
                                 leave_placeholders = ",".join("?" * len(on_leave_ids))
                                 c.execute("""
-                                    SELECT id, name, subject FROM teachers
+                                    SELECT id, name FROM teachers
                                     WHERE id NOT IN ({})
                                       AND id NOT IN (
                                           SELECT teacher_id FROM timetable
@@ -6706,16 +6704,21 @@ if __name__ == "__main__":
                                 avail_rows = c.fetchall()
                                 
                                 avail_teachers = []
-                                for av_id, av_name, av_subj in avail_rows:
-                                    # Find matched subject for this class, prioritizing timetable schedule first
+                                for av_id, av_name in avail_rows:
+                                    # A teacher's matched subject must come only from
+                                    # that teacher's timetable for this class.
                                     c.execute("""
-                                        SELECT subject, 1 as priority FROM timetable WHERE teacher_id = ? AND UPPER(class) = UPPER(?) AND subject IS NOT NULL AND subject != ''
-                                        UNION ALL
-                                        SELECT subject, 2 as priority FROM teacher_subjects WHERE teacher_id = ? AND UPPER(class) = UPPER(?) AND subject IS NOT NULL AND subject != ''
-                                        ORDER BY priority ASC
-                                    """, (av_id, r_class, av_id, r_class))
-                                    subj_rows = c.fetchall()
-                                    matched_subj = subj_rows[0][0] if subj_rows else (av_subj or "General")
+                                        SELECT subject
+                                        FROM timetable
+                                        WHERE teacher_id = ?
+                                          AND UPPER(class) = UPPER(?)
+                                          AND subject IS NOT NULL
+                                          AND TRIM(subject) != ''
+                                        ORDER BY subject COLLATE NOCASE
+                                        LIMIT 1
+                                    """, (av_id, r_class))
+                                    subj_row = c.fetchone()
+                                    matched_subj = subj_row[0] if subj_row else ""
                                     
                                     avail_teachers.append({
                                         "id": av_id,
