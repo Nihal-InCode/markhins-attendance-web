@@ -1879,16 +1879,28 @@ export default function DashboardPage() {
                         <span className="relative z-10">{p.replace('P', '')}</span>
                         {isMarked && (
                           <>
-                            <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-end pb-1.5 pointer-events-none">
-                              <div className="bg-emerald-500/10 border border-emerald-200/50 backdrop-blur-[2px] px-1.5 py-0.5 rounded-md transform rotate-[-4deg] shadow-sm">
-                                <span className="text-[5px] font-black text-emerald-600 uppercase tracking-widest whitespace-nowrap block max-w-[50px] overflow-hidden text-ellipsis">
-                                  {teacherName}
-                                </span>
+                            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                              <div className="relative h-[58px] w-[58px] -rotate-6 rounded-full border-2 border-emerald-600/75 bg-emerald-50/90 text-emerald-700 shadow-sm">
+                                <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+                                  <defs>
+                                    <path
+                                      id={`seal-ring-${p}`}
+                                      d="M 50,50 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0"
+                                    />
+                                  </defs>
+                                  <text fill="currentColor" fontSize="10.5" fontWeight="900" letterSpacing="2.2">
+                                    <textPath href={`#seal-ring-${p}`} startOffset="1%">
+                                      MARKHINS HUB • MARKHINS HUB •
+                                    </textPath>
+                                  </text>
+                                </svg>
+                                <div className="absolute inset-[9px] flex items-center justify-center rounded-full border border-emerald-600/50 px-1">
+                                  <span className="line-clamp-2 break-words text-center text-[7px] font-black uppercase leading-[1.05]">
+                                    {teacherName}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            <span className="text-[6px] font-black uppercase tracking-tighter opacity-40 relative z-10">
-                              Marked
-                            </span>
                           </>
                         )}
                       </button>
