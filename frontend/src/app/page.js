@@ -3988,49 +3988,72 @@ export default function DashboardPage() {
                             {plannerData.affected_periods.length === 0 ? (
                               <p className="py-12 text-center text-xs font-bold text-gray-400 uppercase">No scheduled periods found for on-leave teachers on this day.</p>
                             ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                {plannerData.affected_periods.map((p, idx) => {
-                                  const key = `${p.class}-${p.period}-${p.original_teacher_id}`;
-                                  const temp = temporaryAssignments[key];
-                                  const isAssigned = !!temp;
-                                  
-                                  let subName = p.assigned_substitute_name;
-                                  let subSubject = p.assigned_subject;
-                                  if (temp) {
-                                    const teacherObj = teachers.find(t => t.id === temp.substitute_teacher_id);
-                                    subName = teacherObj ? teacherObj.name : `Teacher #${temp.substitute_teacher_id}`;
-                                    subSubject = temp.subject;
-                                  }
+                              <div className="space-y-6">
+                                {(() => {
+                                  const groupedPeriods = {};
+                                  plannerData.affected_periods.forEach(p => {
+                                    if (!groupedPeriods[p.class]) {
+                                      groupedPeriods[p.class] = [];
+                                    }
+                                    groupedPeriods[p.class].push(p);
+                                  });
 
-                                  return (
-                                    <div key={idx} onClick={() => setAssigningPeriod({ ...p, key })}
-                                      className={`rounded-2xl border p-4 transition-all cursor-pointer relative overflow-hidden group hover:scale-[1.01] active:scale-[0.99] ${isAssigned ? 'bg-emerald-50/60 border-emerald-250 text-emerald-950' : 'bg-red-50/60 border-red-200 text-red-950'}`}>
-                                      <div className="flex justify-between items-start">
-                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                          {p.class} • {p.period}
+                                  return Object.entries(groupedPeriods).map(([className, classPeriods]) => (
+                                    <div key={className} className="rounded-2xl border border-gray-100 bg-gray-50/20 p-4 space-y-3">
+                                      <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0d9488]/10 text-xs font-black text-[#0d9488]">
+                                          {className}
                                         </span>
-                                        <span className="text-xs font-black">{p.subject}</span>
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{classPeriods.length} Covered / Pending Slots</span>
                                       </div>
                                       
-                                      <div className="mt-3">
-                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Scheduled Teacher</p>
-                                        <p className="text-xs font-bold text-gray-800">{p.original_teacher_name}</p>
-                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {classPeriods.map((p, idx) => {
+                                          const key = `${p.class}-${p.period}-${p.original_teacher_id}`;
+                                          const temp = temporaryAssignments[key];
+                                          const isAssigned = !!temp;
+                                          
+                                          let subName = p.assigned_substitute_name;
+                                          let subSubject = p.assigned_subject;
+                                          if (temp) {
+                                            const teacherObj = teachers.find(t => t.id === temp.substitute_teacher_id);
+                                            subName = teacherObj ? teacherObj.name : `Teacher #${temp.substitute_teacher_id}`;
+                                            subSubject = temp.subject;
+                                          }
 
-                                      <div className="mt-3 pt-3 border-t border-gray-155">
-                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Substitute Assigned</p>
-                                        {isAssigned ? (
-                                          <div>
-                                            <p className="text-xs font-black text-emerald-700">{subName}</p>
-                                            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">{subSubject}</p>
-                                          </div>
-                                        ) : (
-                                          <p className="text-xs font-bold text-red-500 uppercase tracking-wider italic">Tap to Assign ➕</p>
-                                        )}
+                                          return (
+                                            <div key={idx} onClick={() => setAssigningPeriod({ ...p, key })}
+                                              className={`rounded-xl border p-4 transition-all cursor-pointer relative overflow-hidden group hover:scale-[1.01] active:scale-[0.99] ${isAssigned ? 'bg-emerald-50/60 border-emerald-250 text-emerald-950' : 'bg-red-50/60 border-red-200 text-red-950'}`}>
+                                              <div className="flex justify-between items-start">
+                                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isAssigned ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                  Period {p.period}
+                                                </span>
+                                                <span className="text-xs font-black">{p.subject}</span>
+                                              </div>
+                                              
+                                              <div className="mt-2.5">
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Scheduled Teacher</p>
+                                                <p className="text-xs font-bold text-gray-800 truncate">{p.original_teacher_name}</p>
+                                              </div>
+
+                                              <div className="mt-2.5 pt-2.5 border-t border-gray-155">
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Substitute Assigned</p>
+                                                {isAssigned ? (
+                                                  <div>
+                                                    <p className="text-xs font-black text-emerald-700 truncate">{subName}</p>
+                                                    <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">{subSubject}</p>
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-xs font-bold text-red-500 uppercase tracking-wider italic">Tap to Assign ➕</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
-                                  );
-                                })}
+                                  ));
+                                })()}
                               </div>
                             )}
 
