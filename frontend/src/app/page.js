@@ -897,14 +897,18 @@ export default function DashboardPage() {
   const fetchSubstituteData = async () => {
     try {
       const coordRes = await getSubstituteCoordinators();
-      setSubCoordinators(coordRes?.coordinators?.map(String) || []);
+      const coordinators = coordRes?.coordinators || (Array.isArray(coordRes) ? coordRes : []);
+      setSubCoordinators(coordinators.map(String));
     } catch (err) {
       console.error("Failed to load substitute coordinators:", err);
     }
     try {
       const widgetRes = await getSubstituteDashboardWidget();
-      if (widgetRes?.success) {
-        setSubWidget(widgetRes.data || null);
+      if (widgetRes) {
+        const wData = widgetRes.success ? widgetRes.data : widgetRes;
+        if (wData && wData.date) {
+          setSubWidget(wData);
+        }
       }
     } catch (err) {
       console.error("Failed to load substitute widget:", err);
@@ -916,10 +920,11 @@ export default function DashboardPage() {
     showLoader("Loading planner data...");
     try {
       const res = await getSubstitutePlannerData(date, leaveTeacherIds);
-      if (res?.success) {
-        setPlannerData(res.data);
+      const pData = res?.success ? res.data : res;
+      if (pData && pData.affected_periods) {
+        setPlannerData(pData);
         const temp = {};
-        res.data.affected_periods.forEach(p => {
+        pData.affected_periods.forEach(p => {
           if (p.assigned_substitute_id) {
             temp[`${p.class}-${p.period}-${p.original_teacher_id}`] = {
               substitute_teacher_id: p.assigned_substitute_id,
@@ -929,7 +934,7 @@ export default function DashboardPage() {
         });
         setTemporaryAssignments(temp);
       } else {
-        setError(res?.message || "Failed to load planner data.");
+        setError(res?.message || "Failed to load planner data: Invalid response structure.");
       }
     } catch (err) {
       setError("Failed to load planner data: " + err.message);
@@ -954,12 +959,16 @@ export default function DashboardPage() {
       });
 
       const res = await saveSubstituteAssignments(plannerDate, list);
-      if (res?.success) {
+      const isSuccess = res?.success || res?.message?.includes("successfully");
+      if (isSuccess) {
         playSound('success');
         setMsg("Assignments saved successfully.");
         fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
         const widgetRes = await getSubstituteDashboardWidget();
-        if (widgetRes?.success) setSubWidget(widgetRes.data);
+        if (widgetRes) {
+          const wData = widgetRes.success ? widgetRes.data : widgetRes;
+          if (wData && wData.date) setSubWidget(wData);
+        }
       } else {
         setError(res?.message || "Failed to save assignments.");
       }
@@ -975,8 +984,11 @@ export default function DashboardPage() {
     showLoader("Loading substitute report...");
     try {
       const res = await getSubstituteReport(subReportFilter);
-      if (res?.success) {
-        setSubReportData(res.data || []);
+      const list = res?.success ? res.data : res;
+      if (Array.isArray(list)) {
+        setSubReportData(list);
+      } else {
+        setSubReportData([]);
       }
     } catch (err) {
       setError("Failed to load substitute report: " + err.message);
