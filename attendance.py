@@ -239,6 +239,32 @@ def run_migrations():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS manual_substitute_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                period TEXT NOT NULL,
+                class TEXT NOT NULL,
+                original_teacher_id INTEGER NOT NULL,
+                original_teacher_name TEXT NOT NULL,
+                substitute_teacher_id INTEGER NOT NULL,
+                substitute_teacher_name TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                assigned_by TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='authorized_substitute_coordinators'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('authorized_substitute_coordinators', '')")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS admins (
