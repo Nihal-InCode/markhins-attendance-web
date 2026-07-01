@@ -6697,11 +6697,12 @@ if __name__ == "__main__":
                                 
                                 avail_teachers = []
                                 for av_id, av_name, av_subj in avail_rows:
-                                    # Find matched subject for this class
+                                    # Find matched subject for this class, prioritizing timetable schedule first
                                     c.execute("""
-                                        SELECT DISTINCT subject FROM teacher_subjects WHERE teacher_id = ? AND UPPER(class) = UPPER(?)
-                                        UNION
-                                        SELECT DISTINCT subject FROM timetable WHERE teacher_id = ? AND UPPER(class) = UPPER(?)
+                                        SELECT subject, 1 as priority FROM timetable WHERE teacher_id = ? AND UPPER(class) = UPPER(?) AND subject IS NOT NULL AND subject != ''
+                                        UNION ALL
+                                        SELECT subject, 2 as priority FROM teacher_subjects WHERE teacher_id = ? AND UPPER(class) = UPPER(?) AND subject IS NOT NULL AND subject != ''
+                                        ORDER BY priority ASC
                                     """, (av_id, r_class, av_id, r_class))
                                     subj_rows = c.fetchall()
                                     matched_subj = subj_rows[0][0] if subj_rows else (av_subj or "General")

@@ -40,6 +40,7 @@ import {
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
+import { playSound } from "@/lib/sound";
 
 const formatTime = (createdAtStr) => {
   if (!createdAtStr) return "";
