@@ -410,6 +410,7 @@ export default function DashboardPage() {
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1); // 0=Mon...
+  const [timetableZoom, setTimetableZoom] = useState(100);
   const getIstDateString = () => {
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -2099,6 +2100,23 @@ export default function DashboardPage() {
               ))}
             </div>
 
+            {/* Timetable Zoom Controller */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 p-4 max-w-md mx-auto shadow-sm">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">🔍 Zoom Grid: {timetableZoom}%</span>
+              <div className="flex items-center gap-2.5">
+                <button onClick={() => setTimetableZoom(z => Math.max(60, z - 10))} 
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-50 border border-gray-100 text-xs font-black text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
+                  −
+                </button>
+                <input type="range" min="60" max="150" value={timetableZoom} onChange={(e) => setTimetableZoom(parseInt(e.target.value))} 
+                  className="w-28 accent-[#0d9488] cursor-pointer" />
+                <button onClick={() => setTimetableZoom(z => Math.min(150, z + 10))} 
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-50 border border-gray-100 text-xs font-black text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
+                  +
+                </button>
+              </div>
+            </div>
+
             {loadingFeature ? (
               <div className="flex justify-center p-20">
                 <div className="text-blue-600 font-bold uppercase tracking-widest text-xs animate-pulse">Loading Content...</div>
@@ -2106,53 +2124,66 @@ export default function DashboardPage() {
             ) : Array.isArray(fullTimetable) && fullTimetable.length > 0 ? (
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-2xl overflow-hidden">
                 <div className="overflow-x-auto no-scrollbar">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-blue-50/30 border-b border-gray-100">
-                        <th className="px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[100px]">Class</th>
-                        {periods.map(p => (
-                          <th key={p} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center min-w-[180px]">Period {p}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {fullTimetable.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
-                          <td className="px-6 py-6 font-black text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-100 text-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
-                            {row.class}
-                          </td>
-                          {periods.map(p => {
-                            const item = row.periods[p];
-                            const isSub = item && (item.isSubstitute || item.is_substitute);
-                            const isOwnSub = isSub && (item.is_own_substitute || (item.originalTeacherId === item.substituteTeacherId));
-                            let cellBg = '';
-                            if (isSub) {
-                              cellBg = isOwnSub 
-                                ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
-                                : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
-                            }
-                            return (
-                              <td key={p} className={`px-5 py-5 text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'}`}>
-                                {item ? (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <p className="font-bold text-gray-800 text-[13px] leading-tight break-words">{item.subject}</p>
-                                      {isSub && (
-                                        <span className={`px-1 rounded text-[7px] font-black border uppercase ${isOwnSub ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
-                                      )}
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-200 text-lg font-black">—</span>
-                                )}
+                  {(() => {
+                    const zoomScale = timetableZoom / 100;
+                    const thPadding = `${1.25 * zoomScale}rem ${1.5 * zoomScale}rem`;
+                    const tdPadding = `${1.25 * zoomScale}rem ${1.25 * zoomScale}rem`;
+                    const minWidthClass = `${100 * zoomScale}px`;
+                    const minWidthPeriod = `${180 * zoomScale}px`;
+                    const fontSizeSubject = `${13 * zoomScale}px`;
+                    const fontSizeTeacher = `${10 * zoomScale}px`;
+                    const fontSizeClassLabel = `${14 * zoomScale}px`;
+
+                    return (
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-blue-50/30 border-b border-gray-100">
+                            <th style={{ padding: thPadding, minWidth: minWidthClass }} className="text-[10px] font-black text-[#0d9488] uppercase tracking-[0.2em] sticky left-0 bg-white z-10 border-r border-gray-100">Class</th>
+                            {periods.map(p => (
+                              <th key={p} style={{ padding: thPadding, minWidth: minWidthPeriod }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Period {p}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {fullTimetable.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
+                              <td style={{ padding: tdPadding, minWidth: minWidthClass, fontSize: fontSizeClassLabel }} className="font-black text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-100 text-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                                {row.class}
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              {periods.map(p => {
+                                const item = row.periods[p];
+                                const isSub = item && (item.isSubstitute || item.is_substitute);
+                                const isOwnSub = isSub && (item.is_own_substitute || (item.originalTeacherId === item.substituteTeacherId));
+                                let cellBg = '';
+                                if (isSub) {
+                                  cellBg = isOwnSub 
+                                    ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
+                                    : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
+                                }
+                                return (
+                                  <td key={p} style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'}`}>
+                                    {item ? (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-center gap-1">
+                                          <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
+                                          {isSub && (
+                                            <span className={`px-1 rounded text-[7px] font-black border uppercase ${isOwnSub ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
+                                          )}
+                                        </div>
+                                        <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: fontSizeSubject }} className="text-gray-200 font-black">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
                 </div>
               </div>
             ) : timetableError ? (
