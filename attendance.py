@@ -5309,6 +5309,8 @@ if __name__ == "__main__":
                                         "subject": sub["subject"],
                                         "teacher": sub["substitute_teacher_name"],
                                         "isSubstitute": True,
+                                        "is_substitute": True,
+                                        "is_own_substitute": sub["original_teacher_id"] == sub["substitute_teacher_id"],
                                         "originalTeacher": sub["original_teacher_name"],
                                         "originalTeacherId": sub["original_teacher_id"],
                                         "substituteTeacherId": sub["substitute_teacher_id"]

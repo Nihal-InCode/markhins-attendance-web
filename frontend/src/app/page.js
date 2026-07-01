@@ -1908,35 +1908,52 @@ export default function DashboardPage() {
               {!multiMode && (
                 <section className="pt-4 border-t border-gray-50">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Detected Subject</label>
-                  <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${resolvedSubject?.error ? 'bg-red-50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
-                    {resolving ? (
-                      <div className="flex items-center space-x-3 text-blue-400">
-                        <div className="animate-pulse rounded-full h-4 w-4 bg-blue-400"></div>
-                        <span className="text-sm font-bold uppercase tracking-widest">Resolving Timetable...</span>
+                  {(() => {
+                    let cardStyle = 'bg-blue-50/50 border-blue-100 text-blue-900';
+                    if (resolvedSubject?.error) {
+                      cardStyle = 'bg-red-50 border-red-100 text-red-900';
+                    } else if (resolvedSubject?.is_substitute) {
+                      cardStyle = resolvedSubject.is_own_substitute
+                        ? 'bg-blue-50 border-blue-300 text-blue-950 shadow-sm relative overflow-hidden ring-2 ring-blue-500/20'
+                        : 'bg-amber-50 border-amber-300 text-amber-950 shadow-sm relative overflow-hidden ring-2 ring-amber-500/20';
+                    }
+                    return (
+                      <div className={`w-full px-6 py-6 rounded-3xl border animate-in fade-in duration-500 ${cardStyle}`}>
+                        {resolving ? (
+                          <div className="flex items-center space-x-3 text-blue-400">
+                            <div className="animate-pulse rounded-full h-4 w-4 bg-blue-400"></div>
+                            <span className="text-sm font-bold uppercase tracking-widest">Resolving Timetable...</span>
+                          </div>
+                        ) : resolvedSubject ? (
+                          resolvedSubject.error ? (
+                            <div className="text-red-600">
+                              <p className="text-lg font-bold">Class Not Scheduled</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-70">{resolvedSubject.error}</p>
+                              <button
+                                onClick={() => router.push("/extra")}
+                                className="mt-3 flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-200 transition-all"
+                              >
+                                <span>⚡</span> Use Extra Class instead
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              {resolvedSubject.is_substitute && (
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-2 ${resolvedSubject.is_own_substitute ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {resolvedSubject.is_own_substitute ? 'Own Substitute' : 'General Substitute'}
+                                </span>
+                              )}
+                              <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
+                              <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
+                              <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
+                            </div>
+                          )
+                        ) : (
+                          <p className="text-gray-300 text-sm font-bold uppercase tracking-widest italic">Wait for selection...</p>
+                        )}
                       </div>
-                    ) : resolvedSubject ? (
-                      resolvedSubject.error ? (
-                        <div className="text-red-600">
-                          <p className="text-lg font-bold">Class Not Scheduled</p>
-                          <p className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-70">{resolvedSubject.error}</p>
-                          <button
-                            onClick={() => router.push("/extra")}
-                            className="mt-3 flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-200 transition-all"
-                          >
-                            <span>⚡</span> Use Extra Class instead
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-blue-900">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
-                          <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
-                          <p className="text-xs font-bold mt-1 text-blue-600 uppercase tracking-widest">Teacher: {resolvedSubject.teacher}</p>
-                        </div>
-                      )
-                    ) : (
-                      <p className="text-gray-300 text-sm font-bold uppercase tracking-widest italic">Wait for selection...</p>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </section>
               )}
             </div>
@@ -2106,9 +2123,11 @@ export default function DashboardPage() {
                           </td>
                           {periods.map(p => {
                             const item = row.periods[p];
+                            const isSub = item && (item.isSubstitute || item.is_substitute);
+                            const isOwnSub = isSub && (item.is_own_substitute || (item.originalTeacherId === item.substituteTeacherId));
                             let cellBg = '';
-                            if (item && item.is_substitute) {
-                              cellBg = item.is_own_substitute 
+                            if (isSub) {
+                              cellBg = isOwnSub 
                                 ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
                                 : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
                             }
@@ -2118,8 +2137,8 @@ export default function DashboardPage() {
                                   <div className="space-y-1">
                                     <div className="flex items-center justify-center gap-1">
                                       <p className="font-bold text-gray-800 text-[13px] leading-tight break-words">{item.subject}</p>
-                                      {item.is_substitute && (
-                                        <span className={`px-1 rounded text-[7px] font-black border uppercase ${item.is_own_substitute ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
+                                      {isSub && (
+                                        <span className={`px-1 rounded text-[7px] font-black border uppercase ${isOwnSub ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
                                       )}
                                     </div>
                                     <p className="text-[10px] text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
