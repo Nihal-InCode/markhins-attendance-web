@@ -2156,12 +2156,15 @@ export default function DashboardPage() {
                                 const isOwnSub = isSub && (item.is_own_substitute || (item.originalTeacherId === item.substituteTeacherId));
                                 const activeTeacherId = item ? (item.substituteTeacherId || item.teacherId) : null;
                                 const isMyPeriod = activeTeacherId && user && String(activeTeacherId) === String(user.id);
+                                const isMyReplacedPeriod = isSub && user && String(item.originalTeacherId) === String(user.id);
 
                                 let cellBg = '';
                                 if (isSub) {
-                                  cellBg = isOwnSub 
-                                    ? 'bg-blue-50/80 border-blue-200 text-blue-900 shadow-sm' 
-                                    : 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
+                                  if (isMyReplacedPeriod) {
+                                    cellBg = 'bg-red-50/80 border-red-250 text-red-950 shadow-sm font-semibold ring-2 ring-red-500/20';
+                                  } else {
+                                    cellBg = 'bg-amber-50/80 border-amber-250 text-amber-900 shadow-sm';
+                                  }
                                 } else if (isMyPeriod) {
                                   cellBg = 'bg-emerald-50/80 border-emerald-250 text-emerald-950 shadow-sm font-extrabold ring-2 ring-emerald-500/20';
                                 }
@@ -2172,7 +2175,7 @@ export default function DashboardPage() {
                                         <div className="flex items-center justify-center gap-1">
                                           <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
                                           {isSub && (
-                                            <span className={`px-1 rounded text-[7px] font-black border uppercase ${isOwnSub ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
+                                            <span className={`px-1 rounded text-[7px] font-black border uppercase ${isMyReplacedPeriod ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
                                           )}
                                         </div>
                                         <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
