@@ -1869,7 +1869,7 @@ export default function DashboardPage() {
                         key={p}
                         onClick={handleToggle}
                         disabled={isMarked}
-                        className={`py-4 rounded-2xl text-lg font-black transition-all relative overflow-visible flex flex-col items-center justify-center gap-1 ${isSelected
+                        className={`min-h-16 py-4 rounded-2xl text-lg font-black transition-all relative overflow-visible flex flex-col items-center justify-center gap-1 ${isSelected
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : isMarked
                             ? 'bg-red-50 text-red-500 border border-red-100 cursor-not-allowed opacity-90'
