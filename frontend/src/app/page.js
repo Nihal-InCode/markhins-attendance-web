@@ -1885,15 +1885,36 @@ export default function DashboardPage() {
                         {isMarked && (
                           <>
                             <div className="absolute -bottom-2 right-0 z-20 pointer-events-none">
-                              <div className="relative h-[52px] w-[52px] -rotate-[11deg] rounded-full border-2 border-red-600 bg-transparent text-red-700 opacity-60 mix-blend-multiply">
+                              <div className="relative h-[52px] w-[52px] -rotate-[11deg] rounded-full bg-transparent text-red-700 opacity-60 mix-blend-multiply">
                                 <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
                                   <defs>
                                     <path
                                       id={`seal-ring-${p}`}
                                       d="M 50,50 m -39,0 a 39,39 0 1,1 78,0 a 39,39 0 1,1 -78,0"
                                     />
+                                    <mask id={`seal-wear-${p}`}>
+                                      <rect width="100" height="100" fill="white" />
+                                      <g fill="black">
+                                        <rect x="8" y="29" width="13" height="2.8" rx="1.4" transform="rotate(-18 8 29)" />
+                                        <rect x="18" y="12" width="8" height="2.2" rx="1.1" transform="rotate(24 18 12)" />
+                                        <rect x="39" y="7" width="15" height="2.5" rx="1.2" transform="rotate(-4 39 7)" />
+                                        <rect x="68" y="12" width="10" height="2.4" rx="1.2" transform="rotate(18 68 12)" />
+                                        <rect x="83" y="29" width="9" height="3" rx="1.5" transform="rotate(55 83 29)" />
+                                        <rect x="84" y="63" width="11" height="2.5" rx="1.2" transform="rotate(-58 84 63)" />
+                                        <rect x="65" y="84" width="14" height="2.8" rx="1.4" transform="rotate(-20 65 84)" />
+                                        <rect x="31" y="89" width="11" height="2.5" rx="1.2" transform="rotate(8 31 89)" />
+                                        <rect x="9" y="68" width="12" height="3" rx="1.5" transform="rotate(48 9 68)" />
+                                        <circle cx="26" cy="20" r="1.8" />
+                                        <circle cx="58" cy="9" r="1.5" />
+                                        <circle cx="89" cy="48" r="1.8" />
+                                        <circle cx="50" cy="90" r="1.7" />
+                                        <circle cx="12" cy="51" r="1.5" />
+                                      </g>
+                                    </mask>
                                   </defs>
-                                  <text fill="currentColor" fontSize="10" fontWeight="900" letterSpacing="1.5">
+                                  <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="4" mask={`url(#seal-wear-${p})`} />
+                                  <circle cx="50" cy="50" r="42.5" fill="none" stroke="currentColor" strokeWidth="1.5" mask={`url(#seal-wear-${p})`} />
+                                  <text fill="currentColor" fontSize="10" fontWeight="900" letterSpacing="1.5" mask={`url(#seal-wear-${p})`}>
                                     <textPath href={`#seal-ring-${p}`} startOffset="1%">
                                       MARKHINS HUB • MARKHINS HUB •
                                     </textPath>
