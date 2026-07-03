@@ -2407,7 +2407,7 @@ export default function DashboardPage() {
               }
 
               return (
-                <div className="flex items-center gap-3 mb-4 animate-fade-in">
+                <div className={`relative flex items-center gap-3 mb-4 animate-fade-in ${reportDropdownOpen ? 'z-[70]' : 'z-20'}`}>
                   <button
                     onClick={() => { setReportType(null); router.push('/?tab=reports', { scroll: false }); }}
                     className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all"
@@ -2418,15 +2418,15 @@ export default function DashboardPage() {
                     <span>{reportTabs.find(t => t.id === reportType)?.emoji}</span>
                     <span className="text-sm font-bold text-gray-800">{reportTabs.find(t => t.id === reportType)?.label}</span>
                   </div>
-                  <div className="relative">
+                  <div className="relative z-20">
                     <button onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
                       className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
                       Switch
                     </button>
                     {reportDropdownOpen && (
                       <>
-                        <div className="fixed inset-0 z-30" onClick={() => setReportDropdownOpen(false)} />
-                        <div className="absolute right-0 mt-2 z-40 w-48 rounded-2xl bg-white border border-gray-100 shadow-xl p-2 space-y-1 animate-fade-in">
+                        <div className="fixed inset-0 z-[60]" onClick={() => setReportDropdownOpen(false)} />
+                        <div className="absolute right-0 mt-2 z-[80] w-48 rounded-2xl bg-white border border-gray-100 shadow-xl p-2 space-y-1 animate-fade-in">
                           {reportTabs.map((tab) => (
                             <button key={tab.id}
                               onClick={() => { setReportType(tab.id); setReportDropdownOpen(false); router.push(`/?tab=reports&type=${tab.id}`, { scroll: false }); }}
