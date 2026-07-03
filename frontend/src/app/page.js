@@ -2224,19 +2224,31 @@ export default function DashboardPage() {
                   +
                 </button>
               </div>
-              <button
-                onClick={openTimetablePdf}
-                disabled={!Array.isArray(fullTimetable) || fullTimetable.length === 0}
-                className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-red-50 px-3 text-[9px] font-black uppercase tracking-wider text-red-600 transition-all hover:bg-red-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                title="Open timetable PDF view"
-              >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6M8 15h8M8 18h6" />
-                </svg>
-                PDF View
-              </button>
             </div>
+
+            <button
+              onClick={openTimetablePdf}
+              disabled={!Array.isArray(fullTimetable) || fullTimetable.length === 0}
+              className="group relative mx-auto flex w-full max-w-md items-center justify-between overflow-hidden rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 px-5 py-4 text-left text-white shadow-[0_7px_0_#065f46,0_13px_24px_rgba(5,150,105,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_9px_0_#065f46,0_17px_30px_rgba(5,150,105,0.34)] active:translate-y-[5px] active:shadow-[0_2px_0_#065f46,0_7px_14px_rgba(5,150,105,0.24)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              title="Open full-screen timetable view"
+            >
+              <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10 blur-xl transition-transform duration-700 group-hover:scale-125" />
+              <div className="relative flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-white/15 shadow-inner transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6M8 15h8M8 18h6" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-black tracking-tight">PDF View</p>
+                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-100">Full-screen timetable</p>
+                </div>
+              </div>
+              <svg className="relative h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
             {loadingFeature ? (
               <div className="flex justify-center p-20">
