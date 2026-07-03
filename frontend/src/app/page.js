@@ -566,6 +566,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const onPopState = () => {
       setPeriodModal(null);
+      setTimetablePdfOpen(false);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -1527,6 +1528,19 @@ export default function DashboardPage() {
     if (history.state?.modal === 'period') history.back();
   };
 
+  const openTimetablePdf = () => {
+    history.pushState({ ...history.state, timetablePdf: true }, "");
+    setTimetablePdfOpen(true);
+  };
+
+  const closeTimetablePdf = () => {
+    if (history.state?.timetablePdf) {
+      history.back();
+    } else {
+      setTimetablePdfOpen(false);
+    }
+  };
+
   const dismissSemesterPopup = async () => {
     if (!activeAnnouncement?.announcementKey) return;
     setSemesterPopupSaving(true);
@@ -2211,7 +2225,7 @@ export default function DashboardPage() {
                 </button>
               </div>
               <button
-                onClick={() => setTimetablePdfOpen(true)}
+                onClick={openTimetablePdf}
                 disabled={!Array.isArray(fullTimetable) || fullTimetable.length === 0}
                 className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-red-50 px-3 text-[9px] font-black uppercase tracking-wider text-red-600 transition-all hover:bg-red-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 title="Open timetable PDF view"
@@ -5183,41 +5197,43 @@ export default function DashboardPage() {
           PERIOD DETAIL MODAL
       ══════════════════════════════════════════════ */}
       {timetablePdfOpen && Array.isArray(fullTimetable) && (
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/75 p-3 backdrop-blur-sm sm:p-6"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setTimetablePdfOpen(false);
-          }}
-        >
-          <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-gray-100 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-teal-600">Timetable PDF View</p>
-                <h2 className="mt-0.5 text-lg font-black text-slate-900">{days[selectedDay]}</h2>
-              </div>
-              <button
-                onClick={() => setTimetablePdfOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-lg font-black text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500"
-                aria-label="Close timetable PDF view"
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 z-[100] flex h-dvh w-screen flex-col overflow-hidden bg-slate-100">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#073b4c] px-3 py-2 text-white sm:px-5">
+            <button
+              onClick={closeTimetablePdf}
+              className="flex h-9 items-center gap-2 rounded-xl bg-white/10 px-3 text-xs font-black transition-colors hover:bg-white/20"
+              aria-label="Back to timetable"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+              </svg>
+              Back
+            </button>
+            <div className="text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-teal-200">Timetable PDF View</p>
+              <h2 className="text-sm font-black">{days[selectedDay]}</h2>
             </div>
-            <div className="overflow-auto p-3 sm:p-6">
-              <div className="mx-auto min-w-[920px] rounded-sm bg-white p-8 shadow-xl">
-                <div className="mb-6 flex items-end justify-between">
+            <p className="hidden text-[8px] font-bold uppercase tracking-wider text-white/60 sm:block">Rotate phone for best view</p>
+            <div className="w-[68px] sm:hidden" aria-hidden="true" />
+          </div>
+          <div
+            className="flex-1 overflow-auto p-2 sm:p-3"
+            style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+          >
+              <div className="mx-auto min-w-[720px] bg-white p-3 shadow-sm sm:p-4">
+                <div className="mb-3 flex items-end justify-between">
                   <div>
-                    <h1 className="text-2xl font-black text-[#073b4c]">Class Timetable</h1>
-                    <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-teal-600">{days[selectedDay]}</p>
+                    <h1 className="text-base font-black text-[#073b4c]">Class Timetable</h1>
+                    <p className="text-[8px] font-black uppercase tracking-[0.18em] text-teal-600">{days[selectedDay]}</p>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">MARKHINS HUB</p>
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400">MARKHINS HUB</p>
                 </div>
                 <table className="w-full table-fixed border-collapse">
                   <thead>
                     <tr>
-                      <th className="w-[9%] border border-slate-300 bg-[#073b4c] px-2 py-3 text-[9px] font-black tracking-wider text-white">CLASS</th>
+                      <th className="w-[8%] border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">CLASS</th>
                       {periods.map((period) => (
-                        <th key={period} className="border border-slate-300 bg-[#073b4c] px-2 py-3 text-[9px] font-black tracking-wider text-white">
+                        <th key={period} className="border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">
                           PERIOD {period.replace("P", "")}
                         </th>
                       ))}
@@ -5226,17 +5242,24 @@ export default function DashboardPage() {
                   <tbody>
                     {fullTimetable.map((row) => (
                       <tr key={row.class}>
-                        <th className="border border-slate-300 bg-cyan-50 px-2 py-3 text-xs font-black text-slate-900">{row.class}</th>
+                        <th className="border border-slate-300 bg-cyan-50 px-1 py-2 text-[8px] font-black text-slate-900">{row.class}</th>
                         {periods.map((period) => {
                           const item = row.periods?.[period];
                           const isSubstitute = item && (item.isSubstitute || item.is_substitute);
+                          const isOwnSubstitute = isSubstitute && (item.is_own_substitute || item.originalTeacherId === item.substituteTeacherId);
+                          const activeTeacherId = item ? (item.substituteTeacherId || item.teacherId) : null;
+                          const isMyPeriod = activeTeacherId && user && String(activeTeacherId) === String(user.id);
+                          const isMySubstitution = isSubstitute && user && String(item.substituteTeacherId) === String(user.id);
+                          const cellColor = isSubstitute
+                            ? (isMySubstitution || isOwnSubstitute ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50")
+                            : (isMyPeriod ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-white");
                           return (
-                            <td key={period} className={`border border-slate-300 px-2 py-3 text-center ${isSubstitute ? "bg-orange-50" : ""}`}>
+                            <td key={period} className={`border px-1 py-2 text-center ${cellColor}`}>
                               {item ? (
                                 <>
-                                  <p className="text-[10px] font-black leading-tight text-slate-800">{item.subject}</p>
-                                  <p className="mt-1 text-[7px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
-                                  {isSubstitute && <p className="mt-1 text-[6px] font-black uppercase text-orange-700">Substitute</p>}
+                                  <p className="text-[8px] font-black leading-tight text-slate-800">{item.subject}</p>
+                                  <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
+                                  {isSubstitute && <p className={`mt-0.5 text-[5px] font-black uppercase ${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>Substitute</p>}
                                 </>
                               ) : (
                                 <span className="text-slate-200">—</span>
@@ -5249,7 +5272,6 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
           </div>
         </div>
       )}
