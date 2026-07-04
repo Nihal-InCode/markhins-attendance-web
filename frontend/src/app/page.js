@@ -409,7 +409,7 @@ export default function DashboardPage() {
 
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1); // 0=Mon...
+  const [selectedDay, setSelectedDay] = useState((new Date().getDay() + 6) % 7); // 0=Mon, 6=Sun
   const [timetableZoom, setTimetableZoom] = useState(100);
   const [timetablePdfOpen, setTimetablePdfOpen] = useState(false);
   const getIstDateString = () => {
@@ -424,6 +424,14 @@ export default function DashboardPage() {
     const month = parts.find((part) => part.type === 'month')?.value;
     const day = parts.find((part) => part.type === 'day')?.value;
     return `${year}-${month}-${day}`;
+  };
+  const getUpcomingDateForWeekday = (weekdayIndex) => {
+    const [year, month, day] = getIstDateString().split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const todayIndex = (date.getUTCDay() + 6) % 7;
+    const daysAhead = (Number(weekdayIndex) - todayIndex + 7) % 7;
+    date.setUTCDate(date.getUTCDate() + daysAhead);
+    return date.toISOString().slice(0, 10);
   };
   const [selectedDate, setSelectedDate] = useState(getIstDateString());
   const [absenteeReport, setAbsenteeReport] = useState(null);
@@ -731,7 +739,7 @@ export default function DashboardPage() {
       setAttendanceDate((prev) => (prev !== todayIst ? todayIst : prev));
       setSelectedDate((prev) => (prev !== todayIst ? todayIst : prev));
 
-      const currentDayIndex = new Date().getDay() === 0 ? 0 : new Date().getDay() - 1;
+      const currentDayIndex = (new Date().getDay() + 6) % 7;
       setSelectedDay((prev) => (prev !== currentDayIndex ? currentDayIndex : prev));
 
       // 2. Fetch/Refresh general app data
@@ -1028,7 +1036,7 @@ export default function DashboardPage() {
     showLoader("Loading timetable...");
     setTimetableError("");
     try {
-      const data = await getFullTimetable(day, getIstDateString());
+      const data = await getFullTimetable(day, getUpcomingDateForWeekday(day));
       setFullTimetable(Array.isArray(data) ? data : []);
     } catch (err) {
       setTimetableError("Failed to load timetable. Is the backend running?");
