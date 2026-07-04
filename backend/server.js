@@ -342,7 +342,12 @@ function buildAdminActivitySnapshot(reportDate, baseData = {}) {
         .filter(isNonAdmin);
     const dbActions = Array.isArray(baseData.actions) ? baseData.actions : [];
     const dayWebActions = webActivityLog
-        .filter((event) => event.date === reportDate && isNonAdmin(event) && event.summary !== 'Active in app')
+        .filter((event) => (
+            event.date === reportDate
+            && isNonAdmin(event)
+            && event.summary !== 'Active in app'
+            && !/^Viewed\b/i.test(String(event.summary || ''))
+        ))
         .map((event) => ({
             timestamp: event.timestamp,
             time: event.timestamp.split(' ')[1] || event.timestamp,
