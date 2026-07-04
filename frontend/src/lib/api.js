@@ -286,7 +286,8 @@ export const updateTimetablePeriod = (data) => apiRequest('/admin/timetable/peri
 export const getAdminActivityLog = (date) => apiRequest(`/admin/activity-log?date=${date}`);
 
 let _lastHeartbeat = 0;
-const HEARTBEAT_INTERVAL = 2 * 60 * 1000;
+let _activityTrackerStarted = false;
+const HEARTBEAT_INTERVAL = 5 * 1000;
 
 function sendPing(action, meta) {
     try {
@@ -305,8 +306,10 @@ export function trackEvent(action, meta = '') {
 }
 
 export function startActivityTracker() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || _activityTrackerStarted) return;
+    _activityTrackerStarted = true;
     const fire = () => {
+        if (document.visibilityState !== 'visible') return;
         const now = Date.now();
         if (now - _lastHeartbeat < HEARTBEAT_INTERVAL) return;
         _lastHeartbeat = now;
@@ -316,6 +319,7 @@ export function startActivityTracker() {
         window.addEventListener(evt, fire, { passive: true });
     });
     fire();
+    window.setInterval(fire, HEARTBEAT_INTERVAL);
 }
 
 // ── Manual Substitute System API helpers ──
@@ -340,4 +344,3 @@ export const getSubstituteReport = (params = {}) => {
     return apiRequest(`/api/substitute/report?${search.toString()}`);
 };
 export const getSubstituteDashboardWidget = () => apiRequest('/api/substitute/dashboard-widget');
-

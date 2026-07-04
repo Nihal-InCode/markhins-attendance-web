@@ -6107,6 +6107,7 @@ if __name__ == "__main__":
                             "username": username,
                             "imageUrl": get_teacher_image_url(tid),
                             "hasPassword": bool(str(phone or "").strip()),
+                            "password": str(phone or "").strip() or "staffcouncil",
                             "passwordStatus": "Has password" if str(phone or "").strip() else "Using default",
                             "classTeacherOf": class_teacher_of,
                             "subject": subject,

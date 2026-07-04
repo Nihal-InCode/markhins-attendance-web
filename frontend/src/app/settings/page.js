@@ -410,7 +410,7 @@ export default function SettingsPage() {
     const filteredTeachers = useMemo(() => {
         const q = teacherSearch.trim().toLowerCase();
         if (!q) return teachers;
-        return teachers.filter(t => [t.name, t.username, t.passwordStatus, t.classTeacherOf].filter(Boolean).some(v => String(v).toLowerCase().includes(q)));
+        return teachers.filter(t => [t.name, t.username, t.password, t.classTeacherOf].filter(Boolean).some(v => String(v).toLowerCase().includes(q)));
     }, [teacherSearch, teachers]);
 
     if (loading) return <PencilLoader />;
@@ -524,7 +524,7 @@ export default function SettingsPage() {
                                 <table className="w-full min-w-[800px] text-left">
                                     <thead className="bg-gray-50/80">
                                         <tr>
-                                            {["Photo", "Name", "Username", "Status", "Class", "Actions"].map(h => (
+                                            {["Photo", "Name", "Username", "Password", "Class", "Actions"].map(h => (
                                                 <th key={h} className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                             ))}
                                         </tr>
@@ -558,8 +558,8 @@ export default function SettingsPage() {
                                                 </td>
                                                 <td className="px-6 py-4 font-mono text-xs font-bold text-[#0d9488]">{teacher.username}</td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${teacher.hasPassword ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                                                        {teacher.passwordStatus}
+                                                    <span className={`rounded-lg px-2.5 py-1 font-mono text-xs font-bold ${teacher.hasPassword ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                                                        {teacher.password}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">{teacher.classTeacherOf || "—"}</td>

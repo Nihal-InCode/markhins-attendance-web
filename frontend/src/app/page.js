@@ -886,6 +886,17 @@ export default function DashboardPage() {
     }
   }, [activeTab, selectedDate, dailyRefreshTs, user?.role, selectedTeacherForExtra, selectedClassForExtra]);
 
+  useEffect(() => {
+    if (activeTab !== "reports" || reportType !== "overview" || user?.role !== "admin") return;
+
+    fetchAdminLog(selectedDate, true);
+    const monitorInterval = window.setInterval(() => {
+      fetchAdminLog(selectedDate, true);
+    }, 5000);
+
+    return () => window.clearInterval(monitorInterval);
+  }, [activeTab, reportType, selectedDate, user?.role]);
+
   // Auto-refresh daily report every 30 seconds when on reports tab
   useEffect(() => {
     if (activeTab !== "reports") return;
@@ -1474,13 +1485,13 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchAdminLog(date) {
+  async function fetchAdminLog(date, silent = false) {
     if (user?.role !== "admin") return;
     try {
       const data = await getAdminActivityLog(date);
       setAdminActivityLog(data && typeof data === "object" ? data : { activeUsers: [], actions: [] });
     } catch (err) {
-      setReportError("Failed to load admin activity log.");
+      if (!silent) setReportError("Failed to load admin activity log.");
     }
   }
 
@@ -2776,14 +2787,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2">
                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
                               {(() => {
-                                const live = adminActivityLog?.liveUsers || [];
-                                const sessions = adminActivityLog?.activeUsers || [];
-                                const uMap = new Map();
-                                for (const u of [...live, ...sessions]) {
-                                  const key = (u.username || '').toLowerCase();
-                                  if (key && !uMap.has(key)) uMap.set(key, u);
-                                }
-                                return uMap.size;
+                                return (adminActivityLog?.liveUsers || []).length;
                               })()} online
                             </span>
                             <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#1e3a8a]">
@@ -2811,13 +2815,7 @@ export default function DashboardPage() {
                             <div className="space-y-2">
                               {(() => {
                                 const live = adminActivityLog?.liveUsers || [];
-                                const sessions = adminActivityLog?.activeUsers || [];
-                                const userMap = new Map();
-                                for (const u of [...live, ...sessions]) {
-                                  const key = (u.username || '').toLowerCase();
-                                  if (key && !userMap.has(key)) userMap.set(key, u);
-                                }
-                                const allUsers = Array.from(userMap.values());
+                                const allUsers = live;
                                 if (allUsers.length === 0) {
                                   return (
                                     <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 py-8 text-center">
