@@ -396,6 +396,7 @@ export default function DashboardPage() {
   const [selectedLeaveTeachers, setSelectedLeaveTeachers] = useState([]);
   const [plannerData, setPlannerData] = useState(null);
   const [assigningPeriod, setAssigningPeriod] = useState(null);
+  const [assigningTeacher, setAssigningTeacher] = useState(null);
   const [temporaryAssignments, setTemporaryAssignments] = useState({});
   const [subReportFilter, setSubReportFilter] = useState({
     fromDate: new Date().toISOString().split('T')[0],
@@ -2777,54 +2778,96 @@ export default function DashboardPage() {
                     </div>
 
                     {user?.role === "admin" && (
-                      <div className="space-y-5">
-                        {/* Header */}
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
-                          <div>
-                            <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Teacher Activity Monitor</h3>
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Live teacher sessions &amp; actions for {selectedDate}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                              {(() => {
-                                return (adminActivityLog?.liveUsers || []).length;
-                              })()} online
-                            </span>
-                            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#1e3a8a]">
-                              {adminActivityLog?.actions?.length || 0} actions
-                            </span>
+                      <div className="space-y-4">
+                        {/* Header Card */}
+                        <div className="bg-white rounded-[2rem] border border-gray-100 p-5 shadow-sm">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#1e3a8a] to-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <h3 className="font-black text-gray-900 tracking-tight text-lg">Teacher Activity Monitor</h3>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">Live sessions &amp; actions for {selectedDate}</p>
+                              </div>
+                            </div>
                             <button
                               onClick={() => fetchAdminLog(selectedDate)}
-                              className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-50 hover:border-gray-300"
+                              className="self-start rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-gray-500 transition-all hover:bg-gray-50 hover:border-gray-300 active:scale-95 flex items-center gap-2"
                             >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
                               Refresh
                             </button>
                           </div>
+
+                          {/* KPI Row */}
+                          <div className="grid grid-cols-3 gap-3 mt-4">
+                            <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-3.5 text-center">
+                              <div className="text-2xl font-black text-emerald-600 leading-none">{(adminActivityLog?.liveUsers || []).length}</div>
+                              <div className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mt-1.5">Online Now</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-2xl p-3.5 text-center">
+                              <div className="text-2xl font-black text-blue-600 leading-none">{(() => {
+                                const acts = (adminActivityLog?.actions || []).filter(a => {
+                                  const r = String(a.role || '').toLowerCase();
+                                  const n = String(a.actor || '').trim().toLowerCase();
+                                  return r !== 'admin' && n !== 'system administrator';
+                                });
+                                return acts.length;
+                              })()}</div>
+                              <div className="text-[9px] font-black uppercase tracking-widest text-blue-500 mt-1.5">Total Actions</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-violet-50 to-white border border-violet-100 rounded-2xl p-3.5 text-center">
+                              <div className="text-2xl font-black text-violet-600 leading-none">{(() => {
+                                const acts = (adminActivityLog?.actions || []).filter(a => {
+                                  const r = String(a.role || '').toLowerCase();
+                                  const n = String(a.actor || '').trim().toLowerCase();
+                                  return r !== 'admin' && n !== 'system administrator';
+                                });
+                                const unique = new Set(acts.map(a => (a.actor || '').toLowerCase().trim()));
+                                return unique.size;
+                              })()}</div>
+                              <div className="text-[9px] font-black uppercase tracking-widest text-violet-500 mt-1.5">Active Teachers</div>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        {/* Two-Column Layout */}
+                        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+
                           {/* Teachers Online Panel */}
-                          <div className="rounded-[2rem] border border-blue-100 bg-gradient-to-b from-blue-50/60 to-white p-5 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-sm font-black text-[#1e3a8a] tracking-tight">Teachers Online</h4>
-                              <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                              </span>
+                          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gray-50">
+                              <div className="flex items-center gap-2.5">
+                                <span className="relative flex h-2.5 w-2.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                </span>
+                                <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400">Online Teachers</h4>
+                              </div>
+                              <span className="text-[10px] font-black text-emerald-600">{(adminActivityLog?.liveUsers || []).length}</span>
                             </div>
-                            <div className="space-y-2">
+                            <div className="p-3 max-h-[32rem] overflow-auto">
                               {(() => {
                                 const live = adminActivityLog?.liveUsers || [];
-                                const allUsers = live;
-                                if (allUsers.length === 0) {
+                                if (live.length === 0) {
                                   return (
-                                    <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 py-8 text-center">
-                                      <p className="text-xs font-bold text-blue-300">No teachers online</p>
+                                    <div className="py-12 text-center">
+                                      <div className="w-12 h-12 rounded-full bg-gray-50 mx-auto mb-3 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                      </div>
+                                      <p className="text-xs font-bold text-gray-300">No teachers online</p>
+                                      <p className="text-[10px] font-semibold text-gray-200 mt-0.5">Check back later</p>
                                     </div>
                                   );
                                 }
-                                return allUsers.map((person, i) => {
-                                  const isLive = live.some(u => (u.username || '').toLowerCase() === (person.username || '').toLowerCase());
+                                return live.map((person, i) => {
                                   const lastSeen = person.lastSeen || person.lastLogin || "";
                                   const timePart = lastSeen.includes(" ") ? lastSeen.split(" ")[1] : lastSeen;
                                   let displayTime = timePart || "";
@@ -2837,20 +2880,22 @@ export default function DashboardPage() {
                                     }
                                   }
                                   const initials = (person.name || person.username || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                                  const roleColor = person.role === 'Principal' ? 'bg-red-100 text-red-600' : person.role === 'Class Teacher' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500';
                                   return (
-                                    <div key={person.username || i} className="flex items-center gap-3 rounded-xl bg-white border border-blue-100/60 px-3.5 py-2.5 shadow-sm transition-all hover:shadow-md hover:border-blue-200">
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${isLive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
-                                        {initials}
+                                    <div key={person.username || i} className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-all group">
+                                      <div className="relative">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1e3a8a] to-blue-500 flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-sm">
+                                          {initials}
+                                        </div>
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></div>
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-bold text-gray-900">{person.name || person.username}</p>
-                                        <p className="truncate text-[10px] font-semibold text-gray-400">
-                                          {person.role || "Teacher"}{displayTime ? ` · ${displayTime}` : ""}
-                                        </p>
+                                        <p className="text-sm font-bold text-gray-900 truncate leading-tight">{person.name || person.username}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${roleColor}`}>{person.role || "Teacher"}</span>
+                                          {displayTime && <span className="text-[10px] font-semibold text-gray-300">{displayTime}</span>}
+                                        </div>
                                       </div>
-                                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${isLive ? "text-emerald-600" : "text-gray-300"}`}>
-                                        {isLive ? "LIVE" : "IDLE"}
-                                      </span>
                                     </div>
                                   );
                                 });
@@ -2858,11 +2903,11 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Teacher Action Feed */}
-                          <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-sm font-black text-[#1e3a8a] tracking-tight">Activity Feed</h4>
-                              <span className="text-[10px] font-bold text-gray-400">{(() => {
+                          {/* Activity Feed */}
+                          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gray-50">
+                              <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400">Activity Feed</h4>
+                              <span className="text-[10px] font-bold text-gray-300">{(() => {
                                 const acts = (adminActivityLog?.actions || []).filter(a => {
                                   const r = String(a.role || '').toLowerCase();
                                   const n = String(a.actor || '').trim().toLowerCase();
@@ -2871,7 +2916,7 @@ export default function DashboardPage() {
                                 return acts.length;
                               })()} entries</span>
                             </div>
-                            <div className="space-y-1.5 max-h-[28rem] overflow-auto pr-1">
+                            <div className="p-3 max-h-[32rem] overflow-auto">
                               {(() => {
                                 const actions = (adminActivityLog?.actions || []).filter(a => {
                                   const r = String(a.role || '').toLowerCase();
@@ -2880,57 +2925,113 @@ export default function DashboardPage() {
                                 });
                                 if (actions.length === 0) {
                                   return (
-                                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-300">No teacher activity for this date</p>
+                                    <div className="py-12 text-center">
+                                      <div className="w-12 h-12 rounded-full bg-gray-50 mx-auto mb-3 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </div>
+                                      <p className="text-xs font-bold text-gray-300">No activity yet</p>
+                                      <p className="text-[10px] font-semibold text-gray-200 mt-0.5">Actions will appear here</p>
                                     </div>
                                   );
                                 }
                                 const TYPE_COLORS = {
-                                  Attendance: "bg-blue-50 text-blue-700 border-blue-100",
-                                  "Extra Class": "bg-purple-50 text-purple-700 border-purple-100",
-                                  Health: "bg-rose-50 text-rose-700 border-rose-100",
-                                  Reports: "bg-amber-50 text-amber-700 border-amber-100",
-                                  Timetable: "bg-teal-50 text-teal-700 border-teal-100",
-                                  Profile: "bg-indigo-50 text-indigo-700 border-indigo-100",
-                                  Syllabus: "bg-cyan-50 text-cyan-700 border-cyan-100",
-                                  Login: "bg-emerald-50 text-emerald-700 border-emerald-100",
-                                  AttendanceEdit: "bg-orange-50 text-orange-700 border-orange-100",
-                                  Substitute: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
-                                  UI: "bg-sky-50 text-sky-700 border-sky-100",
+                                  Attendance: { bg: "bg-blue-500", dot: "bg-blue-100" },
+                                  "Extra Class": { bg: "bg-purple-500", dot: "bg-purple-100" },
+                                  Health: { bg: "bg-rose-500", dot: "bg-rose-100" },
+                                  Reports: { bg: "bg-amber-500", dot: "bg-amber-100" },
+                                  Timetable: { bg: "bg-teal-500", dot: "bg-teal-100" },
+                                  Profile: { bg: "bg-indigo-500", dot: "bg-indigo-100" },
+                                  Syllabus: { bg: "bg-cyan-500", dot: "bg-cyan-100" },
+                                  Login: { bg: "bg-emerald-500", dot: "bg-emerald-100" },
+                                  AttendanceEdit: { bg: "bg-orange-500", dot: "bg-orange-100" },
+                                  Substitute: { bg: "bg-fuchsia-500", dot: "bg-fuchsia-100" },
+                                  UI: { bg: "bg-sky-500", dot: "bg-sky-100" },
                                 };
-                                let lastDate = "";
-                                return actions.map((row, idx) => {
-                                  let displayTime = row.time || "";
-                                  if (displayTime) {
-                                    const [h, m] = displayTime.split(":").map(Number);
-                                    if (!isNaN(h)) {
-                                      const ampm = h >= 12 ? "PM" : "AM";
-                                      const h12 = h % 12 || 12;
-                                      displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-                                    }
-                                  }
-                                  const colorClass = TYPE_COLORS[row.type] || "bg-gray-50 text-gray-500 border-gray-100";
-                                  const initials = (row.actor || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                                  return (
-                                    <div key={`${row.type}-${idx}`} className="flex items-start gap-3 rounded-xl bg-gray-50/70 border border-gray-100/80 px-3.5 py-2.5 transition-all hover:bg-gray-50 hover:border-gray-200">
-                                      <div className="w-7 h-7 rounded-full bg-[#1e3a8a]/5 border border-[#1e3a8a]/10 flex items-center justify-center text-[9px] font-black text-[#1e3a8a]/60 shrink-0 pt-px">
-                                        {initials}
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-[11px] font-bold text-gray-900 truncate">{row.actor}</span>
-                                          <span className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${colorClass}`}>{row.type}</span>
-                                          <span className="ml-auto text-[10px] font-semibold text-gray-300 shrink-0 whitespace-nowrap">{displayTime || ""}</span>
-                                        </div>
-                                        <p className="mt-0.5 text-[11px] font-semibold text-gray-500 leading-snug">{row.summary}</p>
-                                        {row.meta && <p className="mt-0.5 text-[9px] font-bold text-gray-300">{row.meta}</p>}
-                                      </div>
-                                    </div>
-                                  );
+                                const TYPE_LABELS = {
+                                  Attendance: "Attendance",
+                                  "Extra Class": "Extra Class",
+                                  Health: "Health",
+                                  Reports: "Reports",
+                                  Timetable: "Timetable",
+                                  Profile: "Profile",
+                                  Syllabus: "Syllabus",
+                                  Login: "Login",
+                                  AttendanceEdit: "Edit",
+                                  Substitute: "Substitute",
+                                  UI: "UI",
+                                };
+
+                                // Group actions by type
+                                const grouped = {};
+                                actions.forEach((row, idx) => {
+                                  const key = row.type || "Other";
+                                  if (!grouped[key]) grouped[key] = [];
+                                  grouped[key].push({ ...row, _idx: idx });
                                 });
+
+                                const typeOrder = ["Attendance", "AttendanceEdit", "Substitute", "Login", "Timetable", "Syllabus", "Health", "Extra Class", "Reports", "Profile", "UI"];
+                                const sortedTypes = Object.keys(grouped).sort((a, b) => {
+                                  const ai = typeOrder.indexOf(a);
+                                  const bi = typeOrder.indexOf(b);
+                                  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                                });
+
+                                return (
+                                  <div className="space-y-4">
+                                    {sortedTypes.map(type => {
+                                      const items = grouped[type];
+                                      const colors = TYPE_COLORS[type] || { bg: "bg-gray-400", dot: "bg-gray-100" };
+                                      const label = TYPE_LABELS[type] || type;
+                                      return (
+                                        <div key={type}>
+                                          {/* Group Header */}
+                                          <div className="flex items-center gap-2 mb-2 px-1">
+                                            <div className={`w-2 h-2 rounded-full ${colors.bg}`}></div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</span>
+                                            <span className="text-[9px] font-bold text-gray-300">({items.length})</span>
+                                            <div className="flex-1 h-px bg-gray-100 ml-1"></div>
+                                          </div>
+                                          {/* Group Items */}
+                                          <div className="space-y-1.5 ml-1 pl-3 border-l-2 border-gray-100">
+                                            {items.map((row) => {
+                                              let displayTime = row.time || "";
+                                              if (displayTime) {
+                                                const [h, m] = displayTime.split(":").map(Number);
+                                                if (!isNaN(h)) {
+                                                  const ampm = h >= 12 ? "PM" : "AM";
+                                                  const h12 = h % 12 || 12;
+                                                  displayTime = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+                                                }
+                                              }
+                                              const initials = (row.actor || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                                              return (
+                                                <div key={`${row.type}-${row._idx}`} className="flex items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-all group">
+                                                  <div className={`w-8 h-8 rounded-full ${colors.dot} flex items-center justify-center text-[9px] font-black ${colors.bg.replace('bg-', 'text-').replace('-500', '-700')} shrink-0 mt-0.5`}>
+                                                    {initials}
+                                                  </div>
+                                                  <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="text-[11px] font-bold text-gray-900 truncate">{row.actor}</span>
+                                                      <span className="ml-auto text-[10px] font-semibold text-gray-300 shrink-0 whitespace-nowrap">{displayTime || ""}</span>
+                                                    </div>
+                                                    <p className="text-[11px] font-semibold text-gray-500 leading-snug mt-0.5">{row.summary}</p>
+                                                    {row.meta && <p className="text-[9px] font-bold text-gray-300 mt-0.5">{row.meta}</p>}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
                               })()}
                             </div>
                           </div>
+
                         </div>
                       </div>
                     )}
@@ -4352,48 +4453,108 @@ export default function DashboardPage() {
                     {/* Popover Assigning Modal */}
                     {assigningPeriod && (
                       <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-                        onClick={(e) => { if (e.target === e.currentTarget) setAssigningPeriod(null); }}>
+                        onClick={(e) => { if (e.target === e.currentTarget) { setAssigningPeriod(null); setAssigningTeacher(null); } }}>
                         <div className="w-full max-w-md rounded-[2rem] border border-gray-100 bg-white p-6 shadow-2xl space-y-4">
                           <div>
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-[#0d9488] bg-[#0d9488]/10 px-3 py-1 rounded-xl">Assign Substitute</span>
-                              <button onClick={() => setAssigningPeriod(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-[#0d9488] bg-[#0d9488]/10 px-3 py-1 rounded-xl">
+                                {assigningTeacher ? "Select Subject" : "Assign Substitute"}
+                              </span>
+                              <button onClick={() => { setAssigningPeriod(null); setAssigningTeacher(null); }} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
                             </div>
                             <h3 className="text-lg font-black text-gray-900 mt-3">{assigningPeriod.class} • {assigningPeriod.period}</h3>
                             <p className="text-xs text-gray-500 mt-1">Scheduled for <strong>{assigningPeriod.original_teacher_name}</strong> ({assigningPeriod.subject})</p>
                           </div>
 
-                          <div className="border-t border-gray-100 pt-3">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Available Conflict-Free Teachers</p>
-                            
-                            {assigningPeriod.available_teachers.length === 0 ? (
-                              <p className="py-6 text-center text-xs font-bold text-red-400 uppercase">No teachers available without conflicts for this slot.</p>
-                            ) : (
-                              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                                {assigningPeriod.available_teachers.map(teacher => (
-                                  <button key={teacher.id}
+                          {/* Step indicator */}
+                          <div className="flex items-center gap-2">
+                            <div className={`flex-1 h-1.5 rounded-full transition-colors ${!assigningTeacher ? 'bg-[#0d9488]' : 'bg-[#0d9488]/20'}`}></div>
+                            <div className={`flex-1 h-1.5 rounded-full transition-colors ${assigningTeacher ? 'bg-[#0d9488]' : 'bg-gray-100'}`}></div>
+                          </div>
+
+                          {/* Step 1: Teacher Selection */}
+                          {!assigningTeacher && (
+                            <div className="border-t border-gray-100 pt-3">
+                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Step 1 — Select Teacher</p>
+                              {assigningPeriod.available_teachers.length === 0 ? (
+                                <p className="py-6 text-center text-xs font-bold text-red-400 uppercase">No teachers available without conflicts.</p>
+                              ) : (
+                                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                  {assigningPeriod.available_teachers.map(teacher => (
+                                    <button key={teacher.id}
+                                      onClick={() => {
+                                        const subjects = teacher.matched_subjects || (teacher.matched_subject ? [teacher.matched_subject] : []);
+                                        if (subjects.length === 1) {
+                                          // Only one subject — assign directly
+                                          setTemporaryAssignments(prev => ({
+                                            ...prev,
+                                            [assigningPeriod.key]: {
+                                              substitute_teacher_id: teacher.id,
+                                              subject: subjects[0]
+                                            }
+                                          }));
+                                          setAssigningPeriod(null);
+                                          setAssigningTeacher(null);
+                                        } else {
+                                          // Multiple subjects — show subject picker
+                                          setAssigningTeacher({ ...teacher, subjects });
+                                        }
+                                      }}
+                                      className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
+                                        <p className="text-[9px] font-semibold text-gray-300 mt-0.5">{(teacher.matched_subjects || []).length} subject{(teacher.matched_subjects || []).length !== 1 ? 's' : ''} available</p>
+                                      </div>
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Step 2: Subject Selection */}
+                          {assigningTeacher && (
+                            <div className="border-t border-gray-100 pt-3">
+                              <button onClick={() => setAssigningTeacher(null)} className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 hover:text-gray-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Back to Teachers
+                              </button>
+                              <div className="flex items-center gap-3 mb-3 p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                                <div className="w-8 h-8 rounded-full bg-[#1e3a8a] to-blue-500 flex items-center justify-center text-[10px] font-black text-white shrink-0">
+                                  {(assigningTeacher.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                                </div>
+                                <p className="text-sm font-bold text-emerald-800">{assigningTeacher.name}</p>
+                              </div>
+                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Step 2 — Select Subject</p>
+                              <div className="space-y-1.5">
+                                {assigningTeacher.subjects.map((subj, idx) => (
+                                  <button key={idx}
                                     onClick={() => {
                                       setTemporaryAssignments(prev => ({
                                         ...prev,
                                         [assigningPeriod.key]: {
-                                          substitute_teacher_id: teacher.id,
-                                          subject: teacher.matched_subject
+                                          substitute_teacher_id: assigningTeacher.id,
+                                          subject: subj
                                         }
                                       }));
                                       setAssigningPeriod(null);
+                                      setAssigningTeacher(null);
                                     }}
-                                    className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
-                                    </div>
-                                    <span className="text-[10px] font-black uppercase text-[#0d9488] bg-[#0d9488]/5 px-2 py-1 rounded-lg group-hover:bg-[#0d9488]/10">
-                                      {teacher.matched_subject}
-                                    </span>
+                                    className="w-full p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group flex items-center justify-between">
+                                    <span className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{subj}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                    </svg>
                                   </button>
                                 ))}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
 
                           {temporaryAssignments[assigningPeriod.key] && (
                             <button onClick={() => {
@@ -4403,6 +4564,7 @@ export default function DashboardPage() {
                                 return copy;
                               });
                               setAssigningPeriod(null);
+                              setAssigningTeacher(null);
                             }}
                               className="w-full rounded-xl border border-red-200 hover:bg-red-50 text-red-500 py-3 text-xs font-black uppercase tracking-wider transition-all">
                               Clear Assignment

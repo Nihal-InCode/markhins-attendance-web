@@ -1237,7 +1237,7 @@ def get_period_status_summary(c, class_, period, date, teacher_name):
 # 📌 Handle Teacher Messages
 # ================================
 
-def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
+def handle_message(telegram_username, chat_id, text, send_whatsapp_message, trusted_teacher_id=None):
     sender = str(chat_id)
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
@@ -1246,7 +1246,18 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message):
 
     # Special exception for .get_all_students command (system startup)
     parts = text.strip().split()
-    if parts and parts[0] == ".get_all_students" and (telegram_username == "system" or chat_id == 0):
+    if trusted_teacher_id:
+        c.execute("""
+            SELECT id, name, class_teacher_of, subject
+            FROM teachers
+            WHERE id = ?
+        """, (trusted_teacher_id,))
+        teacher = c.fetchone()
+        if not teacher:
+            conn.close()
+            return "❌ Access Denied\n\nTeacher account was not found."
+        teacher_id, teacher_name, class_teacher_of, subject_from_db = teacher
+    elif parts and parts[0] == ".get_all_students" and (telegram_username == "system" or chat_id == 0):
         # Allow system calls for database loading
         pass
     else:
@@ -5787,14 +5798,15 @@ if __name__ == "__main__":
                             def capture_notif(cid, msg):
                                 notifications.append({"chat_id": str(cid), "message": msg})
                             
-                            # Re-use existing handle_message logic exactly as requested
-                            reply = handle_message(t_username, t_chat_id or 12345, bot_command, capture_notif)
+                            # Re-use existing handle_message logic, but trust the
+                            # already-authenticated web user's teacher id.
+                            reply = handle_message(t_username, t_chat_id or 12345, bot_command, capture_notif, trusted_teacher_id=teacher_id)
                             
                             # Determine success based on reply content
                             # Success patterns: "Marked Sick", "Recovered", "Returned", "Marked Leave"
                             # Failure patterns: "BLOCKED", "Unauthorized", "Not Found", etc.
                             success = True
-                            low_reply = reply.lower()
+                            low_reply = (reply or "").lower()
                             if reply.startswith("❌") or any(x in low_reply for x in ["access denied", "blocked", "not found", "invalid", "unauthorized"]):
                                 success = False
                             
@@ -6706,25 +6718,24 @@ if __name__ == "__main__":
                                 
                                 avail_teachers = []
                                 for av_id, av_name in avail_rows:
-                                    # A teacher's matched subject must come only from
-                                    # that teacher's timetable for this class.
+                                    # Return ALL subjects this teacher teaches in this class
                                     c.execute("""
-                                        SELECT subject
+                                        SELECT DISTINCT subject
                                         FROM timetable
                                         WHERE teacher_id = ?
                                           AND UPPER(class) = UPPER(?)
                                           AND subject IS NOT NULL
                                           AND TRIM(subject) != ''
                                         ORDER BY subject COLLATE NOCASE
-                                        LIMIT 1
                                     """, (av_id, r_class))
-                                    subj_row = c.fetchone()
-                                    matched_subj = subj_row[0] if subj_row else ""
-                                    
+                                    subj_rows = c.fetchall()
+                                    matched_subjects = [r[0] for r in subj_rows]
+
                                     avail_teachers.append({
                                         "id": av_id,
                                         "name": av_name,
-                                        "matched_subject": matched_subj
+                                        "matched_subject": matched_subjects[0] if matched_subjects else "",
+                                        "matched_subjects": matched_subjects
                                     })
                                     
                                 existing = existing_map.get((r_period, r_class, r_ot_id))
