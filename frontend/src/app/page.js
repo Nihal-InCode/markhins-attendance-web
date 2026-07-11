@@ -1677,22 +1677,32 @@ export default function DashboardPage() {
           </div>
 
           <div ref={headerMenuRef} className="relative shrink-0">
-            <button
+            <label
+              role="button"
+              tabIndex={0}
               onClick={() => setHeaderMenuOpen((prev) => !prev)}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setHeaderMenuOpen((prev) => !prev);
+                }
+              }}
+              className="hamburger flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
               title="Menu"
             >
-              {headerMenuOpen ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-              )}
-            </button>
+              <input type="checkbox" checked={headerMenuOpen} readOnly />
+              <svg viewBox="0 0 32 32">
+                <path className="line line-top-bottom" d="M27 10H13C10.8 10 9 8.2 9 6S10.8 2 13 2H20" />
+                <path className="line" d="M7 16H27" />
+                <path className="line line-top-bottom" d="M27 22H13C10.8 22 9 23.8 9 26S10.8 30 13 30H20" />
+              </svg>
+            </label>
 
-            {headerMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-[59]" onClick={() => setHeaderMenuOpen(false)} />
-                <div className="absolute right-0 top-12 z-[60] w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-200/40 animate-fade-in">
+            <div
+              className={`fixed inset-0 z-[59] transition-opacity duration-200 ${headerMenuOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+              onClick={() => setHeaderMenuOpen(false)}
+            />
+            <div className={`bubble-menu absolute right-0 top-12 z-[60] w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-200/40 ${headerMenuOpen ? 'bubble-menu-open' : 'bubble-menu-closed'}`}>
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => { router.push("/settings"); setHeaderMenuOpen(false); }}
@@ -1723,8 +1733,6 @@ export default function DashboardPage() {
                     Log out
                   </button>
                 </div>
-              </>
-            )}
           </div>
         </div>
       </header>

@@ -559,3 +559,92 @@ button {
   box-shadow: 0 0 30px rgba(99, 102, 241, 0.65), 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
+/* Header hamburger + bubble menu */
+.hamburger {
+  cursor: pointer;
+}
+
+.hamburger input {
+  display: none;
+}
+
+.hamburger svg {
+  height: 3em;
+  transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.line {
+  fill: none;
+  stroke: white;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  transition:
+    stroke-dasharray 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke-dashoffset 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.line-top-bottom {
+  stroke-dasharray: 12 63;
+}
+
+.hamburger input:checked + svg {
+  transform: rotate(-45deg);
+}
+
+.hamburger input:checked + svg .line-top-bottom {
+  stroke-dasharray: 20 300;
+  stroke-dashoffset: -32.42;
+}
+
+.bubble-menu {
+  transform-origin: top right;
+  will-change: opacity, transform, filter;
+}
+
+.bubble-menu-open {
+  pointer-events: auto;
+  animation: bubbleMenuIn 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.bubble-menu-closed {
+  pointer-events: none;
+  animation: bubbleMenuOut 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes bubbleMenuIn {
+  0% {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(-8px) scale(0.68);
+    border-radius: 999px;
+  }
+  70% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(2px) scale(1.04);
+    border-radius: 1.25rem;
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+    border-radius: 1rem;
+  }
+}
+
+@keyframes bubbleMenuOut {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+    border-radius: 1rem;
+  }
+  100% {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(-8px) scale(0.72);
+    border-radius: 999px;
+  }
+}
+
