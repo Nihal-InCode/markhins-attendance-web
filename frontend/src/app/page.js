@@ -35,7 +35,11 @@ import {
   getSubstitutePlannerData,
   saveSubstituteAssignments,
   getSubstituteReport,
-  getSubstituteDashboardWidget
+  getSubstituteDashboardWidget,
+  getTimetableEditors,
+  getAdminTimetable,
+  getTeacherSubjectOptions,
+  updateTimetablePeriod
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -413,6 +417,13 @@ export default function DashboardPage() {
   const [selectedDay, setSelectedDay] = useState((new Date().getDay() + 6) % 7); // 0=Mon, 6=Sun
   const [timetableZoom, setTimetableZoom] = useState(100);
   const [timetablePdfOpen, setTimetablePdfOpen] = useState(false);
+  const [timetableEditors, setTimetableEditors] = useState([]);
+  const [timetableEditMode, setTimetableEditMode] = useState(false);
+  const [timetableEditingCell, setTimetableEditingCell] = useState(null);
+  const [timetableEditorData, setTimetableEditorData] = useState({ teacherId: "", subject: "" });
+  const [timetableSubjectOptions, setTimetableSubjectOptions] = useState([]);
+  const [timetableManualSubject, setTimetableManualSubject] = useState(false);
+  const [timetableSaveBusy, setTimetableSaveBusy] = useState(false);
   const getIstDateString = () => {
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -639,6 +650,7 @@ export default function DashboardPage() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const periods = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
   const isReportsTab = activeTab === "reports";
+  const canEditTimetable = user?.role === 'admin' || timetableEditors.includes(String(user?.id)) || timetableEditors.includes(user?.username);
   const mainShellClass = activeTab === "timetable"
     ? "max-w-7xl px-4 sm:px-6 lg:px-8"
     : isReportsTab
@@ -702,6 +714,16 @@ export default function DashboardPage() {
       }
     }
     fetchData();
+
+    async function fetchTimetableEditors() {
+      try {
+        const res = await getTimetableEditors();
+        setTimetableEditors(res?.editors?.map(String) || []);
+      } catch (err) {
+        console.error("Failed to load timetable editors:", err);
+      }
+    }
+    fetchTimetableEditors();
 
     // Feature 3: Fetch last attendance from API (teacher-specific & strict ownership)
     async function fetchLastAttendance() {
@@ -872,6 +894,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activeTab === "timetable") {
       fetchFullTimetable(selectedDay);
+      if (teachers.length === 0) fetchTeachers();
     }
   }, [activeTab, selectedDay]);
 
@@ -1056,6 +1079,49 @@ export default function DashboardPage() {
       setLoadingFeature(false);
       hideLoader();
     }
+  };
+
+  const openTimetableEditCell = async (classId, period, cell) => {
+    if (timetableEditingCell?.classId === classId && timetableEditingCell?.period === period) {
+      setTimetableEditingCell(null);
+      setTimetableSubjectOptions([]);
+      setTimetableManualSubject(false);
+      setTimetableEditorData({ teacherId: "", subject: "" });
+      return;
+    }
+    setTimetableEditingCell({ classId, period });
+    setTimetableEditorData({ teacherId: cell?.teacherId ? String(cell.teacherId) : "", subject: cell?.subject || "" });
+    setTimetableManualSubject(false);
+    const teacherId = cell?.teacherId ? String(cell.teacherId) : "";
+    if (!teacherId) { setTimetableSubjectOptions([]); return; }
+    try {
+      const options = await getTeacherSubjectOptions(teacherId);
+      const normalized = Array.isArray(options) ? options : [];
+      setTimetableSubjectOptions(normalized);
+      if (cell?.subject && !normalized.includes(cell.subject)) setTimetableManualSubject(true);
+    } catch (err) { setTimetableSubjectOptions([]); }
+  };
+
+  const handleTimetableEditorTeacherChange = async (teacherId) => {
+    setTimetableEditorData((prev) => ({ ...prev, teacherId, subject: "" }));
+    setTimetableManualSubject(false);
+    if (!teacherId) { setTimetableSubjectOptions([]); return; }
+    try { const opts = await getTeacherSubjectOptions(teacherId); setTimetableSubjectOptions(Array.isArray(opts) ? opts : []); }
+    catch (err) { setTimetableSubjectOptions([]); }
+  };
+
+  const saveTimetableEditCell = async () => {
+    if (!timetableEditingCell) return;
+    setTimetableSaveBusy(true);
+    try {
+      await updateTimetablePeriod({ classId: timetableEditingCell.classId, weekday: selectedDay, period: timetableEditingCell.period, teacherId: timetableEditorData.teacherId || null, subject: timetableEditorData.subject });
+      setTimetableEditingCell(null);
+      setTimetableEditorData({ teacherId: "", subject: "" });
+      setTimetableSubjectOptions([]);
+      setTimetableManualSubject(false);
+      await fetchFullTimetable(selectedDay);
+    } catch (err) { /* silent */ }
+    finally { setTimetableSaveBusy(false); }
   };
 
   const fetchDailyReport = async (date) => {
@@ -2266,7 +2332,7 @@ export default function DashboardPage() {
               {days.map((day, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setSelectedDay(idx)}
+                  onClick={() => { setSelectedDay(idx); setTimetableEditingCell(null); }}
                   className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${selectedDay === idx ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100 hover:border-blue-200'}`}
                 >
                   {day}
@@ -2290,6 +2356,18 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+
+            {canEditTimetable && (
+              <button
+                onClick={() => { setTimetableEditMode(p => !p); setTimetableEditingCell(null); setTimetableSubjectOptions([]); setTimetableManualSubject(false); setTimetableEditorData({ teacherId: "", subject: "" }); }}
+                className={`mx-auto flex w-full max-w-md items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-xs font-bold uppercase tracking-widest transition-all ${timetableEditMode ? 'bg-[#0d9488] text-white shadow-lg shadow-[#0d9488]/20' : 'bg-white text-gray-500 border border-gray-100 hover:border-[#0d9488]/30 hover:text-[#0d9488]'}`}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                {timetableEditMode ? 'Exit Edit' : 'Edit Timetable'}
+              </button>
+            )}
 
             <button
               onClick={openTimetablePdf}
@@ -2367,7 +2445,8 @@ export default function DashboardPage() {
                                   cellBg = 'bg-emerald-50/80 border-emerald-250 text-emerald-950 shadow-sm font-extrabold ring-2 ring-emerald-500/20';
                                 }
                                 return (
-                                  <td key={p} style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'}`}>
+                                  <td key={p} style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'} ${timetableEditMode && canEditTimetable ? 'cursor-pointer hover:ring-2 hover:ring-[#0d9488]/30' : ''}`}
+                                    onClick={timetableEditMode && canEditTimetable ? () => openTimetableEditCell(row.class, p, item) : undefined}>
                                     {item ? (
                                       <div className="space-y-1">
                                         <div className="flex items-center justify-center gap-1">
@@ -2380,6 +2459,38 @@ export default function DashboardPage() {
                                       </div>
                                     ) : (
                                       <span style={{ fontSize: fontSizeSubject }} className="text-gray-200 font-black">—</span>
+                                    )}
+                                    {timetableEditingCell?.classId === row.class && timetableEditingCell?.period === p && (
+                                      <div className="mt-2 space-y-2 rounded-xl border border-[#0d9488]/20 bg-white p-3 shadow-lg" onClick={e => e.stopPropagation()}>
+                                        <select value={timetableEditorData.teacherId} onChange={(e) => handleTimetableEditorTeacherChange(e.target.value)}
+                                          className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
+                                          <option value="">Clear</option>
+                                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                        <div className="flex items-center justify-between">
+                                          <label className="text-[10px] font-bold text-gray-400 uppercase">Subject</label>
+                                          <button onClick={() => setTimetableManualSubject(m => !m)} disabled={!timetableEditorData.teacherId}
+                                            className="text-[10px] font-bold text-[#0d9488] disabled:text-gray-300">{timetableManualSubject ? "List" : "Type"}</button>
+                                        </div>
+                                        {timetableManualSubject ? (
+                                          <input value={timetableEditorData.subject} onChange={(e) => setTimetableEditorData(p => ({ ...p, subject: e.target.value }))} disabled={!timetableEditorData.teacherId}
+                                            className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0d9488]/20 disabled:bg-gray-100" />
+                                        ) : (
+                                          <select value={timetableEditorData.subject} onChange={(e) => setTimetableEditorData(p => ({ ...p, subject: e.target.value }))} disabled={!timetableEditorData.teacherId}
+                                            className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0d9488]/20 disabled:bg-gray-100">
+                                            <option value="">Select</option>
+                                            {timetableSubjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                          </select>
+                                        )}
+                                        <div className="flex gap-2">
+                                          <button onClick={() => { setTimetableEditingCell(null); setTimetableSubjectOptions([]); setTimetableManualSubject(false); setTimetableEditorData({ teacherId: "", subject: "" }); }}
+                                            className="flex-1 rounded-xl border border-gray-100 py-2 text-[10px] font-bold uppercase text-gray-500">Cancel</button>
+                                          <button onClick={saveTimetableEditCell} disabled={timetableSaveBusy}
+                                            className="flex-1 rounded-xl bg-[#0d9488] py-2 text-[10px] font-bold uppercase text-white hover:bg-[#0a7a70] disabled:opacity-50">
+                                            {timetableSaveBusy ? "Saving..." : "Save"}
+                                          </button>
+                                        </div>
+                                      </div>
                                     )}
                                   </td>
                                 );

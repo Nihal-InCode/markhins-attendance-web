@@ -163,6 +163,10 @@ function isUrduPrincipal(user = {}) {
         || user.role === 'Urdu Principal';
 }
 
+function isTimetableEditor(user, editors) {
+    return user.role === 'admin' || editors.includes(String(user.id)) || editors.includes(String(user.username));
+}
+
 function getRequestActivityDescriptor(req) {
     const method = String(req.method || '').toUpperCase();
     const routePath = String(req.route?.path || req.path || '');
@@ -1621,7 +1625,9 @@ app.delete('/admin/teachers/:teacherId', authenticateToken, async (req, res) => 
 
 app.get('/admin/timetable/:weekday', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const editorRes = await callPython({ action: "get_timetable_editors" });
+        const editors = editorRes.editors || [];
+        if (!isTimetableEditor(req.user, editors)) return res.status(403).send('Forbidden');
         const result = await callPython({ action: "get_admin_timetable", weekday: parseInt(req.params.weekday, 10) });
         res.json(result);
     } catch (error) {
@@ -1631,7 +1637,9 @@ app.get('/admin/timetable/:weekday', authenticateToken, async (req, res) => {
 
 app.get('/admin/teacher-subjects/:teacherId', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const editorRes = await callPython({ action: "get_timetable_editors" });
+        const editors = editorRes.editors || [];
+        if (!isTimetableEditor(req.user, editors)) return res.status(403).send('Forbidden');
         const result = await callPython({ action: "get_teacher_subject_options", teacherId: req.params.teacherId });
         res.json(result);
     } catch (error) {
@@ -1641,7 +1649,9 @@ app.get('/admin/teacher-subjects/:teacherId', authenticateToken, async (req, res
 
 app.put('/admin/timetable/period', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const editorRes = await callPython({ action: "get_timetable_editors" });
+        const editors = editorRes.editors || [];
+        if (!isTimetableEditor(req.user, editors)) return res.status(403).send('Forbidden');
         const { classId, weekday, period, teacherId, subject } = req.body;
         const result = await callPython({
             action: "update_timetable_period",
@@ -1739,6 +1749,36 @@ app.post('/api/substitute/coordinators', authenticateToken, async (req, res) => 
         if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
         const { coordinators } = req.body;
         const result = await callPython({ action: "save_substitute_coordinators", coordinators });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ── Timetable Editors ──
+
+// Get timetable editors (any authenticated user needs this to check permission)
+app.get('/api/timetable/editors', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({ action: "get_timetable_editors" });
+        if (req.user.role === 'admin') {
+            return res.json(result);
+        }
+        res.json({
+            success: result.success,
+            editors: result.editors || []
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update timetable editors (Admin only)
+app.post('/api/timetable/editors', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
+        const { editors } = req.body;
+        const result = await callPython({ action: "save_timetable_editors", editors });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

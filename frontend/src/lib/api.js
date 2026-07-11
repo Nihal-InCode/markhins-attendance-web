@@ -328,6 +328,14 @@ export const saveSubstituteCoordinators = (coordinators) => apiRequest('/api/sub
     method: 'POST',
     body: JSON.stringify({ coordinators }),
 });
+
+// ── Timetable Editors API helpers ──
+export const getTimetableEditors = () => apiRequest('/api/timetable/editors');
+export const saveTimetableEditors = (editors) => apiRequest('/api/timetable/editors', {
+    method: 'POST',
+    body: JSON.stringify({ editors }),
+});
+
 export const getSubstitutePlannerData = (date, onLeaveTeacherIds) => {
     const ids = Array.isArray(onLeaveTeacherIds) ? onLeaveTeacherIds.join(',') : onLeaveTeacherIds;
     return apiRequest(`/api/substitute/planner-data?date=${date}&on_leave_teacher_ids=${ids || ''}`);

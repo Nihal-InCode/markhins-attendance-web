@@ -266,6 +266,10 @@ def run_migrations():
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('authorized_substitute_coordinators', '')")
 
+        c.execute("SELECT 1 FROM system_settings WHERE key='timetable_editors'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('timetable_editors', '')")
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS admins (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6672,6 +6676,20 @@ if __name__ == "__main__":
                     c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('authorized_substitute_coordinators', ?)", (coordinators_str,))
                     conn.commit()
                     result = {"success": True, "message": "Substitute coordinators updated successfully."}
+
+                elif action == "get_timetable_editors":
+                    c.execute("SELECT value FROM system_settings WHERE key='timetable_editors'")
+                    val_row = c.fetchone()
+                    editors_str = val_row[0] if val_row else ""
+                    editors_list = [x.strip() for x in editors_str.split(",") if x.strip()]
+                    result = {"success": True, "editors": editors_list}
+
+                elif action == "save_timetable_editors":
+                    editors = data.get("editors", [])
+                    editors_str = ",".join(str(x) for x in editors)
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('timetable_editors', ?)", (editors_str,))
+                    conn.commit()
+                    result = {"success": True, "message": "Timetable editors updated successfully."}
 
                 elif action == "get_substitute_planner_data":
                     planner_date = data.get("date")

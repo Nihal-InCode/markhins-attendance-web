@@ -22,6 +22,8 @@ import {
     updateTimetablePeriod,
     getSubstituteCoordinators,
     saveSubstituteCoordinators,
+    getTimetableEditors,
+    saveTimetableEditors,
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
@@ -85,6 +87,7 @@ export default function SettingsPage() {
     const [announcements, setAnnouncements] = useState([]);
     const [announcementBusy, setAnnouncementBusy] = useState(false);
     const [subCoordinators, setSubCoordinators] = useState([]);
+    const [timetableEditors, setTimetableEditors] = useState([]);
     const [announcementForm, setAnnouncementForm] = useState({
         id: null,
         heading: "A fresh semester begins",
@@ -109,7 +112,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -117,6 +120,7 @@ export default function SettingsPage() {
                 getAdminAnnouncements(),
                 getNamazApiMonitor(),
                 getSubstituteCoordinators(),
+                getTimetableEditors(),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -125,6 +129,7 @@ export default function SettingsPage() {
             setAnnouncements(Array.isArray(announcementRes) ? announcementRes : []);
             setNamazApiMonitor(namazMonitorRes || null);
             setSubCoordinators(coordRes?.coordinators?.map(String) || []);
+            setTimetableEditors(editorRes?.editors?.map(String) || []);
         } catch (err) {
             setError("Failed to load: " + err.message);
         } finally {
@@ -398,6 +403,26 @@ export default function SettingsPage() {
             await saveSubstituteCoordinators(updated);
             setSubCoordinators(updated);
             setMsg("Substitute coordinators updated.");
+            playSound('success');
+        } catch (err) {
+            setError(err.message);
+            playSound('error');
+        } finally {
+            hideLoader();
+        }
+    }
+
+    async function handleToggleTimetableEditor(teacherId) {
+        const tIdStr = String(teacherId);
+        const updated = timetableEditors.includes(tIdStr)
+            ? timetableEditors.filter(x => x !== tIdStr)
+            : [...timetableEditors, tIdStr];
+
+        showLoader("Updating timetable editors...");
+        try {
+            await saveTimetableEditors(updated);
+            setTimetableEditors(updated);
+            setMsg("Timetable editors updated.");
             playSound('success');
         } catch (err) {
             setError(err.message);
@@ -871,6 +896,25 @@ export default function SettingsPage() {
                                     <label key={t.id} className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-all">
                                         <input type="checkbox" checked={subCoordinators.includes(String(t.id)) || subCoordinators.includes(t.username)}
                                             onChange={() => handleToggleCoordinator(t.id)}
+                                            className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{t.name}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">@{t.username}</p>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Timetable Editors */}
+                        <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                            <h2 className="text-lg font-black text-gray-900 mb-2">Timetable Editors</h2>
+                            <p className="text-xs text-gray-400 mb-4 uppercase font-bold">Select teachers who can edit the timetable from their dashboard</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1 border border-gray-100 rounded-2xl bg-gray-50/30">
+                                {teachers.map(t => (
+                                    <label key={t.id} className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-all">
+                                        <input type="checkbox" checked={timetableEditors.includes(String(t.id)) || timetableEditors.includes(t.username)}
+                                            onChange={() => handleToggleTimetableEditor(t.id)}
                                             className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]" />
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold text-gray-800 truncate">{t.name}</p>
