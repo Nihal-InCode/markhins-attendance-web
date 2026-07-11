@@ -1680,7 +1680,7 @@ export default function DashboardPage() {
             <label
               role="button"
               tabIndex={0}
-              onClick={() => setHeaderMenuOpen((prev) => !prev)}
+              onClick={(e) => { e.preventDefault(); setHeaderMenuOpen((prev) => !prev); }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
