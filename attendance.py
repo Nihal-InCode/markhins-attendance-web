@@ -1098,10 +1098,10 @@ def get_student_stats(c, student_id, student_name, student_class, roll_no):
     attended = 0
     log = []
 
-    # 2. Period Attendance (Student-level for 'P' count and logs)
+    # 2. Period Attendance (Student-level for attended count and logs)
     c.execute("SELECT date, period, status FROM period_attendance WHERE student_id=?", (student_id,))
     for d, p, s in c.fetchall():
-        if s == "P":
+        if s in ("P", "SL"):
             attended += 1
         log.append((d, p, s))
 
@@ -4570,7 +4570,7 @@ if __name__ == "__main__":
 
                     # ── Build student records with full status ──
                     records = []
-                    counts = {"present": 0, "absent": 0, "sick": 0, "leave": 0, "not_marked": 0}
+                    counts = {"present": 0, "absent": 0, "special_leave": 0, "sick": 0, "leave": 0, "not_marked": 0}
                     for sid, roll, name in students_rows:
                         # S/L from attendance table takes priority
                         if sid in sl_map:
@@ -4578,7 +4578,7 @@ if __name__ == "__main__":
                             status_label = "sick" if raw == "S" else "leave"
                         elif sid in pa_map:
                             code = pa_map[sid]
-                            status_label = {"P": "present", "A": "absent", "S": "sick", "L": "leave"}.get(code, "absent")
+                            status_label = {"P": "present", "A": "absent", "SL": "special_leave", "S": "sick", "L": "leave"}.get(code, "absent")
                         else:
                             status_label = "not_marked"
 
@@ -4680,7 +4680,7 @@ if __name__ == "__main__":
                     class_averages = []
                     for cls in all_classes:
                         c.execute("""
-                            SELECT COUNT(*), SUM(CASE WHEN status = 'P' THEN 1 ELSE 0 END)
+                            SELECT COUNT(*), SUM(CASE WHEN status IN ('P', 'SL') THEN 1 ELSE 0 END)
                             FROM period_attendance WHERE class = ?
                         """, (cls,))
                         row = c.fetchone()
@@ -5415,7 +5415,7 @@ if __name__ == "__main__":
 
                         for rec in records:
                             student_id = rec.get("studentId")
-                            status_map = {"present": "P", "absent": "A", "sick": "S", "leave": "L"}
+                            status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
                             requested_status = status_map.get(rec.get("status"), "A")
                             
                             health_status = get_student_current_status(c, student_id)
@@ -5568,7 +5568,7 @@ if __name__ == "__main__":
                             now_ts = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         for rec in records:
                             student_id = rec.get("studentId")
-                            status_map = {"present": "P", "absent": "A", "sick": "S", "leave": "L"}
+                            status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
                             requested_status = status_map.get(rec.get("status"), "A")
                             
                             # BACKEND ENFORCEMENT: Check auto-absent for Sick/Leave
@@ -5899,6 +5899,7 @@ if __name__ == "__main__":
                         SELECT pa.teacher_id, t.name, t.username, pa.class, pa.period,
                                COUNT(*),
                                SUM(CASE WHEN pa.status='A' THEN 1 ELSE 0 END),
+                               SUM(CASE WHEN pa.status='SL' THEN 1 ELSE 0 END),
                                SUM(CASE WHEN pa.status='S' THEN 1 ELSE 0 END),
                                SUM(CASE WHEN pa.status='L' THEN 1 ELSE 0 END)
                         FROM period_attendance pa
@@ -5907,10 +5908,12 @@ if __name__ == "__main__":
                         GROUP BY pa.teacher_id, pa.class, pa.period
                         ORDER BY pa.period DESC, pa.class ASC
                     """, (report_date,))
-                    for teacher_id, name, username, cls, period, total_marked, absent_count, sick_count, leave_count in c.fetchall():
+                    for teacher_id, name, username, cls, period, total_marked, absent_count, special_leave_count, sick_count, leave_count in c.fetchall():
                         meta_parts = [f"{total_marked} students"]
                         if absent_count:
                             meta_parts.append(f"{absent_count} absent")
+                        if special_leave_count:
+                            meta_parts.append(f"{special_leave_count} special leave")
                         if sick_count:
                             meta_parts.append(f"{sick_count} sick")
                         if leave_count:
@@ -6597,9 +6600,9 @@ if __name__ == "__main__":
                         for session in all_sessions:
                             status = student_history.get(sid, {}).get(session, "-")
                             
-                            if status == 'P':
+                            if status in ('P', 'SL'):
                                 present_count += 1
-                                line_parts.append(str(present_count))
+                                line_parts.append(str(present_count) if status == 'P' else "SL")
                             elif status == 'A':
                                 line_parts.append("A")
                             elif status in ('S', 'L'):

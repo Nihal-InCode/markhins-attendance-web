@@ -10,12 +10,13 @@ import PencilLoader from "@/components/PencilLoader";
 // ─────────────────────────────────────────────
 // STATUS CONFIG
 // ─────────────────────────────────────────────
-const STATUS_CYCLE = ["present", "absent"];
+const STATUS_CYCLE = ["present", "absent", "special_leave"];
 
 
 const statusConfig = {
     present: { label: "Present", color: "bg-green-500", text: "text-green-600", bg: "bg-green-50", border: "border-green-100", dot: "bg-green-500" },
     absent: { label: "Absent", color: "bg-red-500", text: "text-red-500", bg: "bg-red-50", border: "border-red-100", dot: "bg-red-500" },
+    special_leave: { label: "Special Leave", color: "bg-blue-500", text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", dot: "bg-blue-500" },
     sick: { label: "Sick", color: "bg-orange-500", text: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", dot: "bg-orange-500" },
     leave: { label: "On Leave", color: "bg-amber-500", text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", dot: "bg-amber-500" },
 };
@@ -25,7 +26,7 @@ const statusConfig = {
 // CONFIRMATION MODAL
 // ─────────────────────────────────────────────
 function ConfirmationModal({ params, students, attendance, onGoHome }) {
-    const groups = { present: [], absent: [], sick: [], leave: [] };
+    const groups = { present: [], absent: [], special_leave: [], sick: [], leave: [] };
 
     students.forEach((s) => {
         const health = s.healthStatus;
@@ -61,6 +62,7 @@ function ConfirmationModal({ params, students, attendance, onGoHome }) {
                         { key: "sick", ...statusConfig.sick },
                         { key: "leave", ...statusConfig.leave },
                         { key: "absent", ...statusConfig.absent },
+                        { key: "special_leave", ...statusConfig.special_leave },
                         { key: "present", ...statusConfig.present },
                     ].map(({ key, label, bg, text, border, dot }) =>
                         groups[key].length > 0 ? (
@@ -152,7 +154,7 @@ export default function AttendancePage() {
                                 if (student.healthStatus !== 'S' && student.healthStatus !== 'L') {
                                     // The API returns full labels like 'present', 'absent', 'sick', 'leave'
                                     // So we can use r.status directly if it's a valid DASHBOARD status.
-                                    if (r.status === 'present' || r.status === 'absent') {
+                                    if (r.status === 'present' || r.status === 'absent' || r.status === 'special_leave') {
                                         initial[student.id] = r.status;
                                     }
                                 }
@@ -242,7 +244,7 @@ export default function AttendancePage() {
 
 
     // Summary counts
-    const counts = { present: 0, absent: 0, sick: 0, leave: 0 };
+    const counts = { present: 0, absent: 0, special_leave: 0, sick: 0, leave: 0 };
     students.forEach((s) => {
         if (s.healthStatus === 'S') counts.sick++;
         else if (s.healthStatus === 'L') counts.leave++;
@@ -278,7 +280,7 @@ export default function AttendancePage() {
                 {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">{error}</div>}
 
                 {/* Counts bar */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                     <div className="bg-green-50 border border-green-100 rounded-3xl py-4 text-center">
                         <p className="text-2xl font-black text-green-600">{counts.present}</p>
                         <p className="text-[10px] font-black uppercase tracking-widest text-green-600 opacity-70">Present</p>
@@ -286,6 +288,10 @@ export default function AttendancePage() {
                     <div className="bg-red-50 border border-red-100 rounded-3xl py-4 text-center">
                         <p className="text-2xl font-black text-red-500">{counts.absent + counts.sick + counts.leave}</p>
                         <p className="text-[10px] font-black uppercase tracking-widest text-red-500 opacity-70">Total Absent</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-3xl py-4 text-center">
+                        <p className="text-2xl font-black text-blue-600">{counts.special_leave}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 opacity-70">Special Leave</p>
                     </div>
                 </div>
 
@@ -328,7 +334,7 @@ export default function AttendancePage() {
                                         onClick={() => toggleStatus(student.id)}
                                         className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${cfg.bg} ${cfg.text} ${cfg.border} border active:scale-95`}
                                     >
-                                        {st === 'present' ? 'Present' : 'Absent'}
+                                        {cfg.label}
                                     </button>
                                 )}
                             </div>

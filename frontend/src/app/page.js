@@ -4156,7 +4156,7 @@ export default function DashboardPage() {
                                           const s = status.trim();
                                           const isAbsent = s === 'A' || s === 'S' || s === 'L';
                                           return (
-                                            <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : 'bg-blue-50 text-blue-600'
+                                            <span key={sIdx} className={`flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md text-[9px] font-black ${isAbsent ? 'bg-red-50 text-red-500' : s === '-' ? 'text-gray-200' : s === 'SL' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
                                               }`}>
                                               {s}
                                             </span>
@@ -5544,10 +5544,11 @@ export default function DashboardPage() {
 
                   {/* Count Summary */}
                   {periodModal.data.counts && (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-2">
                       {[
                         { label: 'Present', count: periodModal.data.counts.present, bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
                         { label: 'Absent', count: periodModal.data.counts.absent, bg: 'bg-red-50', text: 'text-red-500', border: 'border-red-100' },
+                        { label: 'Special Leave', count: periodModal.data.counts.special_leave, bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
                         { label: 'Sick', count: periodModal.data.counts.sick, bg: 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-100' },
                         { label: 'Leave', count: periodModal.data.counts.leave, bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
                       ].map(({ label, count, bg, text, border }) => (
@@ -5568,6 +5569,7 @@ export default function DashboardPage() {
                           const statusMap = {
                             present: { label: 'Present', bg: 'bg-green-50', text: 'text-green-600', dot: 'bg-green-500' },
                             absent: { label: 'Absent', bg: 'bg-red-50', text: 'text-red-500', dot: 'bg-red-500' },
+                            special_leave: { label: 'Special Leave', bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-500' },
                             sick: { label: 'Sick 💊', bg: 'bg-orange-50', text: 'text-orange-500', dot: 'bg-orange-400' },
                             leave: { label: 'Leave 🏠', bg: 'bg-purple-50', text: 'text-purple-600', dot: 'bg-purple-400' },
                             not_marked: { label: 'N/A', bg: 'bg-gray-50', text: 'text-gray-400', dot: 'bg-gray-300' },
