@@ -1687,7 +1687,7 @@ export default function DashboardPage() {
                   setHeaderMenuOpen((prev) => !prev);
                 }
               }}
-              className="hamburger flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+              className="hamburger relative z-[60] flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/70 transition-all hover:bg-white/15 hover:text-white"
               title="Menu"
             >
               <input type="checkbox" checked={headerMenuOpen} readOnly />
