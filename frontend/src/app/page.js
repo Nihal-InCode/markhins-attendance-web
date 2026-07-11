@@ -1376,39 +1376,69 @@ export default function DashboardPage() {
       const monthLabel = sameMonth
         ? fromDateObj.toLocaleString('en-US', { month: 'long' })
         : `${fromDateObj.toLocaleString('en-US', { month: 'short' })}-${toDateObj.toLocaleString('en-US', { month: 'short' })}`;
+      const compactSessionLabels = (digitalRegisterSessionLabels.length > 0 ? digitalRegisterSessionLabels : []).map((label) => {
+        const [datePart, ...periodParts] = String(label || "").split(" ");
+        const periodPart = periodParts.join(" ");
+        const parsed = new Date(datePart);
+        const compactDate = Number.isNaN(parsed.getTime())
+          ? datePart
+          : `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+        return `${compactDate} ${periodPart}`.trim();
+      });
 
       // 1. Setup Columns
       const headers = [
-        "Roll No",
-        "Student Name",
-        ...(digitalRegisterSessionLabels.length > 0 ? digitalRegisterSessionLabels : []),
+        "Roll",
+        "Name",
+        ...compactSessionLabels,
         "Total",
-        "Percentage (%)"
+        "%"
       ];
 
       sheet.columns = headers.map((h, i) => ({
         header: h,
         key: `col_${i}`,
-        width: i === 1 ? 30 : (i > 1 && i < headers.length - 2 ? 16 : 12)
+        width: i === 1 ? 22 : (i > 1 && i < headers.length - 2 ? 8 : 7)
       }));
+      sheet.pageSetup = {
+        paperSize: 9,
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        horizontalCentered: true,
+        margins: { left: 0.25, right: 0.25, top: 0.35, bottom: 0.35, header: 0.15, footer: 0.15 }
+      };
+      sheet.pageSetup.printTitlesRow = '1:5';
+      sheet.properties.defaultRowHeight = 18;
 
       // 2. Add Title & Metadata Header
-      sheet.insertRow(1, ["DIGITAL REGISTER ATTENDANCE REPORT"]);
-      sheet.insertRow(2, ["Teacher Name", teacherName]);
-      sheet.insertRow(3, ["Class", className]);
-      sheet.insertRow(4, ["Reporting Period", `${registerFromDate} to ${registerToDate}`]);
-      sheet.insertRow(5, []); // Spacer
+      sheet.insertRow(1, ["ATTENDANCE REGISTER"]);
+      sheet.insertRow(2, ["Teacher", teacherName, "Class", className, "Period", `${registerFromDate} to ${registerToDate}`]);
+      sheet.insertRow(3, ["Classes Taken", digitalRegisterSummary.classesTaken || 0, "Assigned", digitalRegisterSummary.assignedPeriods || 0, "Teaching %", `${digitalRegisterSummary.teachingPercentage || 0}%`]);
+      sheet.insertRow(4, ["Legend", "Present = numbered count", "A = Absent", "SL = Special Leave", "S = Sick", "L = Leave"]);
+      sheet.insertRow(5, []);
 
       const titleCell = sheet.getCell('A1');
-      titleCell.font = { size: 16, bold: true, color: { argb: 'FF1D4ED8' } };
+      titleCell.font = { size: 14, bold: true, color: { argb: 'FF1D4ED8' } };
+      sheet.mergeCells(1, 1, 1, Math.max(headers.length, 6));
+      [2, 3, 4].forEach((rowNumber) => {
+        const row = sheet.getRow(rowNumber);
+        row.height = 18;
+        row.eachCell((cell) => {
+          cell.font = { size: 9, bold: true, color: { argb: 'FF334155' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        });
+      });
 
       // 3. Header Row Styling
       const headerRow = sheet.getRow(6);
       headerRow.values = headers;
+      headerRow.height = 28;
       headerRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.font = { size: 8, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border = {
           top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
         };
@@ -1424,9 +1454,11 @@ export default function DashboardPage() {
           `${row.percentage}%`
         ];
         const newRow = sheet.addRow(bodyRowValues);
+        newRow.height = 17;
 
         newRow.eachCell((cell, colNum) => {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', shrinkToFit: true };
+          cell.font = { size: 9 };
           cell.border = {
             top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
             left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -1444,8 +1476,11 @@ export default function DashboardPage() {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } }; // Light Orange
               cell.font = { color: { argb: 'FFD97706' }, bold: true };
             } else if (val === 'L') {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // Light Blue
-              cell.font = { color: { argb: 'FF2563EB' }, bold: true };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF5FF' } }; // Light Purple
+              cell.font = { color: { argb: 'FF9333EA' }, bold: true };
+            } else if (val === 'SL') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }; // Special Leave Blue
+              cell.font = { color: { argb: 'FF1D4ED8' }, bold: true };
             } else if (val !== "" && val !== "-") {
               // Numbers (Present)
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } }; // Light Green
@@ -1454,10 +1489,10 @@ export default function DashboardPage() {
           }
 
           if (colNum === 2) {
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            cell.font = { bold: true };
+            cell.alignment = { horizontal: 'left', vertical: 'middle', shrinkToFit: true };
+            cell.font = { size: 9, bold: true };
           }
-          if (colNum === 1) cell.font = { bold: true };
+          if (colNum === 1) cell.font = { size: 9, bold: true };
         });
       });
 
