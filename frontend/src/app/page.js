@@ -415,7 +415,7 @@ export default function DashboardPage() {
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
   const [selectedDay, setSelectedDay] = useState((new Date().getDay() + 6) % 7); // 0=Mon, 6=Sun
-  const [timetableZoom, setTimetableZoom] = useState(100);
+  const [timetableZoom, setTimetableZoom] = useState(60);
   const [timetablePdfOpen, setTimetablePdfOpen] = useState(false);
   const [timetableEditors, setTimetableEditors] = useState([]);
   const [timetableEditMode, setTimetableEditMode] = useState(false);
@@ -2338,23 +2338,6 @@ export default function DashboardPage() {
                   {day}
                 </button>
               ))}
-            </div>
-
-            {/* Timetable Zoom Controller */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 p-4 max-w-md mx-auto shadow-sm">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">🔍 Zoom Grid: {timetableZoom}%</span>
-              <div className="flex items-center gap-2.5">
-                <button onClick={() => setTimetableZoom(z => Math.max(60, z - 10))} 
-                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-50 border border-gray-100 text-xs font-black text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
-                  −
-                </button>
-                <input type="range" min="60" max="150" value={timetableZoom} onChange={(e) => setTimetableZoom(parseInt(e.target.value))} 
-                  className="w-28 accent-[#0d9488] cursor-pointer" />
-                <button onClick={() => setTimetableZoom(z => Math.min(150, z + 10))} 
-                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-50 border border-gray-100 text-xs font-black text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
-                  +
-                </button>
-              </div>
             </div>
 
             {canEditTimetable && (
