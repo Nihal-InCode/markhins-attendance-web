@@ -6473,6 +6473,7 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacherId")
                     from_date = data.get("fromDate")
                     to_date = data.get("toDate")
+                    all_teachers = str(teacher_id or "").lower() == "all"
                     
                     if not from_date: from_date = get_ist_now().strftime("%Y-%m-%d")
                     if not to_date: to_date = from_date
@@ -6483,13 +6484,14 @@ if __name__ == "__main__":
                     
                     # 2. Fetch Attendance for teacher in date range
                     # Robust matching: Try to resolve teacher ID and name
-                    c.execute("SELECT id, name FROM teachers WHERE id=? OR name=?", (teacher_id, teacher_id))
-                    t_row = c.fetchone()
-                    
                     t_search_id = teacher_id
                     t_search_name = None
-                    if t_row:
-                        t_search_id, t_search_name = t_row
+                    if not all_teachers:
+                        c.execute("SELECT id, name FROM teachers WHERE id=? OR name=?", (teacher_id, teacher_id))
+                        t_row = c.fetchone()
+                        
+                        if t_row:
+                            t_search_id, t_search_name = t_row
 
                     query = """
                         SELECT pa.student_id, pa.date, pa.period, pa.status 
@@ -6499,12 +6501,13 @@ if __name__ == "__main__":
                     """
                     params = [class_id, from_date, to_date]
                     
-                    if t_search_name:
-                        query += " AND (pa.teacher_id = ? OR pa.teacher_id = ?)"
-                        params.extend([t_search_id, t_search_name])
-                    else:
-                        query += " AND pa.teacher_id = ?"
-                        params.append(t_search_id)
+                    if not all_teachers:
+                        if t_search_name:
+                            query += " AND (pa.teacher_id = ? OR pa.teacher_id = ?)"
+                            params.extend([t_search_id, t_search_name])
+                        else:
+                            query += " AND pa.teacher_id = ?"
+                            params.append(t_search_id)
                     
                     query += " ORDER BY pa.date ASC, pa.period ASC"
                     c.execute(query, tuple(params))
@@ -6512,13 +6515,17 @@ if __name__ == "__main__":
 
                     # 3. Include Extra Classes
                     extra_teacher_search = t_search_name if t_search_name else str(t_search_id)
-                    c.execute("""
+                    extra_query = """
                         SELECT date, period, absent_rolls 
                         FROM extra_classes 
                         WHERE UPPER(TRIM(class)) = UPPER(TRIM(?))
-                        AND teacher = ?
                         AND date BETWEEN ? AND ?
-                    """, (class_id, extra_teacher_search, from_date, to_date))
+                    """
+                    extra_params = [class_id, from_date, to_date]
+                    if not all_teachers:
+                        extra_query += " AND teacher = ?"
+                        extra_params.append(extra_teacher_search)
+                    c.execute(extra_query, tuple(extra_params))
                     
                     extra_rows = c.fetchall()
                     for ex_date, ex_period, ex_absent in extra_rows:
@@ -6556,13 +6563,19 @@ if __name__ == "__main__":
                     # Sort sessions chronologically
                     all_sessions = sorted(all_sessions)
                     
-                    c.execute("""
+                    timetable_query = """
                         SELECT weekday, period_label
                         FROM timetable
-                        WHERE teacher_id = ?
-                          AND UPPER(TRIM(class)) = UPPER(TRIM(?))
+                        WHERE UPPER(TRIM(class)) = UPPER(TRIM(?))
+                    """
+                    timetable_params = [class_id]
+                    if not all_teachers:
+                        timetable_query += " AND teacher_id = ?"
+                        timetable_params.append(t_search_id)
+                    timetable_query += """
                         ORDER BY weekday ASC, period_label ASC
-                    """, (t_search_id, class_id))
+                    """
+                    c.execute(timetable_query, tuple(timetable_params))
                     timetable_rows = c.fetchall()
 
                     assigned_periods = 0

@@ -1365,7 +1365,9 @@ export default function DashboardPage() {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Digital Register');
 
-      const teacherName = teachers.find((t) => String(t.id) === String(selectedTeacherForRegister))?.name || "Teacher";
+      const teacherName = selectedTeacherForRegister === "all"
+        ? "All Teachers"
+        : teachers.find((t) => String(t.id) === String(selectedTeacherForRegister))?.name || "Teacher";
       const className = classes.find((c) => String(c.id) === String(selectedClassForAnalysis))?.name || selectedClassForAnalysis || "Class";
 
       const fromDateObj = new Date(registerFromDate);
@@ -4071,6 +4073,7 @@ export default function DashboardPage() {
                             onChange={(e) => setSelectedTeacherForRegister(e.target.value)}
                           >
                             <option value="">Select Teacher</option>
+                            <option value="all">All Teachers</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                           </select>
                         </section>
