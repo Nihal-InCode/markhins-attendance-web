@@ -459,6 +459,12 @@ def run_migrations():
             )
         """)
 
+        # === SYLLABUS TRACKING TYPE MIGRATION ===
+        try:
+            c.execute("ALTER TABLE syllabus_configs ADD COLUMN tracking_type TEXT DEFAULT 'page'")
+        except sqlite3.OperationalError:
+            pass
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -5154,7 +5160,8 @@ if __name__ == "__main__":
                     # Fetch configurations
                     query = """
                         SELECT sc.id, sc.class, sc.subject, sc.teacher_id, t.name as teacher_name,
-                               sc.academic_year, sc.semester, sc.book_name, sc.start_page, sc.end_page, sc.created_at
+                               sc.academic_year, sc.semester, sc.book_name, sc.start_page, sc.end_page, sc.created_at,
+                               sc.tracking_type
                         FROM syllabus_configs sc
                         JOIN teachers t ON sc.teacher_id = t.id
                         WHERE 1=1
@@ -5176,7 +5183,7 @@ if __name__ == "__main__":
                     
                     configs = []
                     for r in rows:
-                        config_id, cls, subj, t_id, t_name, acad_yr, sem, bk_name, start_p, end_p, created_at = r
+                        config_id, cls, subj, t_id, t_name, acad_yr, sem, bk_name, start_p, end_p, created_at, tracking_type = r
                         
                         # Get latest progress
                         c.execute("SELECT current_page FROM syllabus_progress WHERE syllabus_config_id=? ORDER BY id DESC LIMIT 1", (config_id,))
@@ -5194,6 +5201,7 @@ if __name__ == "__main__":
                             "academicYear": acad_yr,
                             "semester": sem,
                             "bookName": bk_name or "",
+                            "trackingType": tracking_type or "page",
                             **analytics
                         })
                         
@@ -5210,18 +5218,19 @@ if __name__ == "__main__":
                     start_page = int(data.get("start_page", 1))
                     end_page = int(data.get("end_page", 1))
                     targets = data.get("targets", []) # list of {"month": str, "target_end_page": int}
-                    
+                    tracking_type = 'hadith' if subj and 'مِشْكَاةُ' in subj else 'page'
+
                     if config_id:
                         c.execute("""
-                            UPDATE syllabus_configs 
-                            SET class=?, subject=?, teacher_id=?, academic_year=?, semester=?, book_name=?, start_page=?, end_page=?
+                            UPDATE syllabus_configs
+                            SET class=?, subject=?, teacher_id=?, academic_year=?, semester=?, book_name=?, start_page=?, end_page=?, tracking_type=?
                             WHERE id=?
-                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page, config_id))
+                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page, tracking_type, config_id))
                     else:
                         c.execute("""
-                            INSERT INTO syllabus_configs (class, subject, teacher_id, academic_year, semester, book_name, start_page, end_page)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page))
+                            INSERT INTO syllabus_configs (class, subject, teacher_id, academic_year, semester, book_name, start_page, end_page, tracking_type)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (cls, subj, teacher_id, academic_year, semester, book_name, start_page, end_page, tracking_type))
                         config_id = c.lastrowid
                         
                     # Delete existing targets

@@ -534,6 +534,29 @@ export default function DashboardPage() {
   const [selectedSyllabusSubjectFilter, setSelectedSyllabusSubjectFilter] = useState("");
   const [mySyllabusClassFilter, setMySyllabusClassFilter] = useState("");
   const [syllabusPageProgressData, setSyllabusPageProgressData] = useState({});
+
+  const getTrackingLabels = (trackingType) => {
+    const h = trackingType === 'hadith';
+    return {
+      start: h ? 'Start Hadith Number' : 'Start Page',
+      end: h ? 'End Hadith Number' : 'End Page',
+      current: h ? 'Current Hadith Number' : 'Current Page',
+      total: h ? 'Total Hadith' : 'Total Pages',
+      remaining: h ? 'Remaining Hadith' : 'Remaining Pages',
+      completed: h ? 'Completed Hadith' : 'Completed Pages',
+      target: h ? 'Target Hadith' : 'Target Page',
+      pages: h ? 'Hadith' : 'Pages',
+      page: h ? 'Hadith' : 'Page',
+      update: h ? 'Update Hadith' : 'Update Page',
+      updateNum: h ? 'Update Current Hadith Number' : 'Update Current Page Number',
+      targetPages: h ? 'Monthly Target Hadith Numbers' : 'Monthly Target End Pages',
+      targetSubtitle: h ? 'Set the target final hadith number expected by the end of each month' : 'Set the target final page index expected by the end of each month',
+      targetPlaceholder: h ? 'Target hadith' : 'Target page',
+      placeholder: h ? 'e.g. 500' : 'e.g. 187',
+      pagesLeft: h ? 'Hadiths Left' : 'Pages Left',
+    };
+  };
+
   const [principalAccessMode, setPrincipalAccessMode] = useState(false);
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPeriods, setSelectedPeriods] = useState([]);
@@ -2717,6 +2740,7 @@ export default function DashboardPage() {
                         {syllabusConfigs.map(config => {
                           const pct = config.completionPercentage;
                           const progressValue = syllabusPageProgressData[config.id] || "";
+                          const labels = getTrackingLabels(config.trackingType);
                           const statusColors = {
                             Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
                             Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
@@ -2767,7 +2791,7 @@ export default function DashboardPage() {
                                         <div className="space-y-1">
                                           <div className="flex items-center justify-between text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">
                                             <span>📅 Monthly Target Progress</span>
-                                            <span className="font-bold text-gray-600">{mPct}% ({mCompleted}/{mTargetTotal} pgs)</span>
+                                            <span className="font-bold text-gray-600">{mPct}% ({mCompleted}/{mTargetTotal} {labels.pages.toLowerCase()})</span>
                                           </div>
                                           <div className="w-full bg-gray-100 rounded-full h-1.5">
                                             <div className={`h-1.5 rounded-full transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
@@ -2780,7 +2804,7 @@ export default function DashboardPage() {
                                           <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
                                         </div>
                                         <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                          <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
+                                          <span>{config.completedPages} of {config.totalPages} {labels.pages} Completed</span>
                                           <span>{config.remainingPages} left</span>
                                         </div>
                                       </div>
@@ -2791,11 +2815,11 @@ export default function DashboardPage() {
                                 {/* Advanced Analytics Panel */}
                                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-50 text-left">
                                   <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Target Page</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{labels.target}</p>
                                     <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
                                   </div>
                                   <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50">
-                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{labels.current}</p>
                                     <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
                                   </div>
                                   <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100/50 col-span-2">
@@ -2816,7 +2840,7 @@ export default function DashboardPage() {
                                   <div className="flex-1 flex gap-2">
                                     <input
                                       type="number"
-                                      placeholder="Page"
+                                      placeholder={labels.page}
                                       className="w-20 bg-gray-50 border border-gray-150 rounded-2xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 text-gray-800"
                                       value={progressValue}
                                       onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
@@ -2826,7 +2850,7 @@ export default function DashboardPage() {
                                       disabled={!progressValue}
                                       className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${progressValue ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-300'}`}
                                     >
-                                      Update Page
+                                      {labels.update}
                                     </button>
                                   </div>
                                 ) : <div />}
@@ -4862,7 +4886,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2">
-                {syllabusConfigs.map(config => (
+                {syllabusConfigs.map(config => {
+                  const labels = getTrackingLabels(config.trackingType);
+                  return (
                   <div key={config.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -4877,14 +4903,14 @@ export default function DashboardPage() {
                       <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Teacher: {config.teacherName}</p>
 
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-gray-600 bg-gray-50 p-3 rounded-2xl">
-                        <div>Start Page: <span className="font-black text-gray-800">{config.startPage}</span></div>
-                        <div>End Page: <span className="font-black text-gray-800">{config.endPage}</span></div>
-                        <div>Total Pages: <span className="font-black text-gray-800">{config.totalPages}</span></div>
-                        <div>Current Page: <span className="font-black text-indigo-650">{config.currentPage && config.currentPage !== "-" ? config.currentPage : "No Progress"}</span></div>
+                        <div>{labels.start}: <span className="font-black text-gray-800">{config.startPage}</span></div>
+                        <div>{labels.end}: <span className="font-black text-gray-800">{config.endPage}</span></div>
+                        <div>{labels.total}: <span className="font-black text-gray-800">{config.totalPages}</span></div>
+                        <div>{labels.current}: <span className="font-black text-indigo-650">{config.currentPage && config.currentPage !== "-" ? config.currentPage : "No Progress"}</span></div>
                       </div>
 
                       <div className="mt-3">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Monthly Target Pages</p>
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{labels.targetPages}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {(() => {
                             const monthOrder = ["june", "july", "august", "september", "october", "november", "december", "january", "february", "march", "april", "may"];
@@ -4950,7 +4976,8 @@ export default function DashboardPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -5082,6 +5109,7 @@ export default function DashboardPage() {
                   <div className="grid gap-6 md:grid-cols-2">
                     {syllabusConfigs.map(config => {
                       const pct = config.completionPercentage;
+                      const labels = getTrackingLabels(config.trackingType);
                       const statusColors = {
                         Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
                         Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
@@ -5148,7 +5176,7 @@ export default function DashboardPage() {
                                       <div className={`h-2 rounded-full transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
                                     </div>
                                     <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                      <span>{config.completedPages} of {config.totalPages} Pages Completed</span>
+                                      <span>{config.completedPages} of {config.totalPages} {labels.pages} Completed</span>
                                       <span>{config.remainingPages} left</span>
                                     </div>
                                   </div>
@@ -5163,7 +5191,7 @@ export default function DashboardPage() {
                                 <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
                               </div>
                               <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Pages needed for Target</p>
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{labels.pages} needed for Target</p>
                                 <p className="mt-1 text-sm font-black text-gray-800">
                                   {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
                                 </p>
@@ -5203,6 +5231,7 @@ export default function DashboardPage() {
                     {syllabusConfigs.filter(c => c.teacherId === user?.id).map(config => {
                       const pct = config.completionPercentage;
                       const progressValue = syllabusPageProgressData[config.id] || "";
+                      const labels = getTrackingLabels(config.trackingType);
                       const statusColors = {
                         Green: { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", bar: "bg-emerald-500" },
                         Yellow: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", bar: "bg-amber-400" },
@@ -5222,7 +5251,7 @@ export default function DashboardPage() {
                               {config.bookName && (
                                 <p className="text-xs font-bold text-indigo-500 mt-1 italic">📖 Book: {config.bookName}</p>
                               )}
-                              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Book Range: Page {config.startPage} to {config.endPage} (Total {config.totalPages} Pages) | Current Page: {config.currentPage}</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">{labels.bookRange}: {labels.page} {config.startPage} to {config.endPage} (Total {config.totalPages} {labels.pages}) | {labels.current}: {config.currentPage}</p>
                             </div>
 
                             <div className="relative flex items-center justify-center h-16 w-16 shrink-0">
@@ -5261,7 +5290,7 @@ export default function DashboardPage() {
                                   <div className="space-y-1.5">
                                     <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                       <span>📅 Monthly Target Progress</span>
-                                      <span className="font-bold text-gray-600">{mPct}% ({mCompleted} of {mTargetTotal} Pages)</span>
+                                      <span className="font-bold text-gray-600">{mPct}% ({mCompleted} of {mTargetTotal} {labels.pages})</span>
                                     </div>
                                     <div className="w-full bg-gray-100 rounded-lg h-3">
                                       <div className={`h-3 rounded-lg transition-all duration-500 ${mBarColor}`} style={{ width: `${mPct}%` }}></div>
@@ -5272,13 +5301,13 @@ export default function DashboardPage() {
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                     <span>📚 Semester Syllabus Progress</span>
-                                    <span className="font-bold text-gray-650">{Math.round(pct)}% ({config.completedPages} of {config.totalPages} Pages)</span>
+                                    <span className="font-bold text-gray-650">{Math.round(pct)}% ({config.completedPages} of {config.totalPages} {labels.pages})</span>
                                   </div>
                                   <div className="w-full bg-gray-100 rounded-lg h-5">
                                     <div className={`h-5 rounded-lg transition-all duration-500 ${statusColors.bar}`} style={{ width: `${Math.min(100, pct)}%` }}></div>
                                   </div>
                                   <div className="flex items-center justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                                    <span>{config.remainingPages} Pages Remaining</span>
+                                    <span>{config.remainingPages} {labels.remaining}</span>
                                   </div>
                                 </div>
                               </div>
@@ -5288,7 +5317,7 @@ export default function DashboardPage() {
                           {/* Advanced Analytics Grid */}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100/50 text-left">
                             <div>
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Current Page</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{labels.current}</p>
                               <p className="mt-1 text-sm font-black text-gray-800">{config.currentPage}</p>
                             </div>
                             <div>
@@ -5296,7 +5325,7 @@ export default function DashboardPage() {
                               <p className="mt-1 text-sm font-black text-gray-800">{config.targetPage}</p>
                             </div>
                             <div>
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">Pages needed for Target</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-wider">{labels.pages} needed for Target</p>
                               <p className="mt-1 text-sm font-black text-gray-800">
                                 {config.targetPage !== "-" && config.currentPage !== "-" ? Math.max(0, config.targetPage - config.currentPage) : "N/A"}
                               </p>
@@ -5314,7 +5343,7 @@ export default function DashboardPage() {
                           {/* Current Page Update Input */}
                           <div className="pt-4 border-t border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Update Current Page Number</label>
+                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">{labels.updateNum}</label>
                               <p className="text-[9px] font-bold text-gray-400">Log your active classroom book progress</p>
                             </div>
                             <div className="flex gap-2">
@@ -5386,6 +5415,7 @@ export default function DashboardPage() {
                       {filteredConfigs.map(config => {
                         const pct = config.completionPercentage;
                         const progressValue = syllabusPageProgressData[config.id] || "";
+                        const labels = getTrackingLabels(config.trackingType);
                         const statusColor = config.statusColor === "Green" ? "#10b981" : config.statusColor === "Red" ? "#ef4444" : "#f59e0b";
                         const statusBg = config.statusColor === "Green" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : config.statusColor === "Red" ? "bg-red-50 border-red-200 text-red-600" : "bg-amber-50 border-amber-200 text-amber-700";
                         const mTargetTotal = Math.max(1, Number(config.targetPage) - Number(config.startPage) + 1);
@@ -5435,13 +5465,13 @@ export default function DashboardPage() {
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Monthly Target</span>
-                                    <span className="text-[10px] font-black text-gray-600">{mCompleted}/{mTargetTotal} pages</span>
+                                    <span className="text-[10px] font-black text-gray-600">{mCompleted}/{mTargetTotal} {labels.pages.toLowerCase()}</span>
                                   </div>
                                   <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
                                     <div className="absolute inset-0 h-full rounded-full transition-all duration-700" style={{ width: `${mPct}%`, background: `linear-gradient(90deg, ${statusColor}, ${statusColor}cc)` }} />
                                     <div className="absolute inset-0 h-full rounded-full opacity-30" style={{ width: `${mPct}%`, background: `linear-gradient(90deg, transparent, white, transparent)`, animation: 'shimmer 2s infinite' }} />
                                   </div>
-                                  <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{mPct}% complete{pagesLeft !== null && pagesLeft > 0 ? ` • ${pagesLeft} pages left` : ''}</p>
+                                  <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{mPct}% complete{pagesLeft !== null && pagesLeft > 0 ? ` • ${pagesLeft} ${labels.page.toLowerCase()}s left` : ''}</p>
                                 </div>
                               )}
 
@@ -5449,13 +5479,13 @@ export default function DashboardPage() {
                               <div>
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Semester Progress</span>
-                                  <span className="text-[10px] font-black text-gray-600">{config.completedPages}/{config.totalPages} pages</span>
+                                  <span className="text-[10px] font-black text-gray-600">{config.completedPages}/{config.totalPages} {labels.pages.toLowerCase()}</span>
                                 </div>
                                 <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                                   <div className="absolute inset-0 h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, pct)}%`, background: `linear-gradient(90deg, #0d9488, #14b8a6)` }} />
                                   <div className="absolute inset-0 h-full rounded-full opacity-30" style={{ width: `${Math.min(100, pct)}%`, background: `linear-gradient(90deg, transparent, white, transparent)`, animation: 'shimmer 2s infinite' }} />
                                 </div>
-                                <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{config.remainingPages} pages remaining</p>
+                                <p className="text-[9px] font-bold text-gray-400 mt-1.5 text-right">{config.remainingPages} {labels.page.toLowerCase()}s remaining</p>
                               </div>
                             </div>
 
@@ -5464,7 +5494,7 @@ export default function DashboardPage() {
                               {[
                                 { label: "Current", value: config.currentPage, color: "text-gray-800" },
                                 { label: "Target", value: config.targetPage, color: "text-gray-800" },
-                                { label: "Pages Left", value: pagesLeft ?? "N/A", color: pagesLeft !== null && pagesLeft <= 5 ? "text-amber-600" : "text-gray-800" },
+                                { label: labels.pagesLeft, value: pagesLeft ?? "N/A", color: pagesLeft !== null && pagesLeft <= 5 ? "text-amber-600" : "text-gray-800" },
                               ].map(s => (
                                 <div key={s.label} className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-center">
                                   <p className="text-[9px] font-bold text-gray-400 uppercase">{s.label}</p>
@@ -5488,11 +5518,11 @@ export default function DashboardPage() {
                             {/* Update Section */}
                             <div className="px-6 py-5 mt-4 border-t border-gray-50 flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Update Page</p>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{labels.update}</p>
                                 <p className="text-[9px] text-gray-400">Log your book progress</p>
                               </div>
                               <div className="flex gap-2">
-                                <input type="number" min={config.startPage} max={config.endPage} placeholder="Page #"
+                                <input type="number" min={config.startPage} max={config.endPage} placeholder={labels.placeholder}
                                   value={progressValue} onChange={(e) => setSyllabusPageProgressData(prev => ({ ...prev, [config.id]: e.target.value }))}
                                   className="w-20 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
                                 <button onClick={() => handleUpdateSyllabusProgress(config.id, progressValue)} disabled={!progressValue}
@@ -5770,6 +5800,10 @@ export default function DashboardPage() {
 
             {/* Form Body */}
             <form onSubmit={handleSaveSyllabusConfig} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {(() => {
+                const formTrackingType = syllabusFormData.subject && syllabusFormData.subject.includes('مِشْكَاةُ') ? 'hadith' : 'page';
+                const fl = getTrackingLabels(formTrackingType);
+                return (<>
               {/* Core Config Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -5848,7 +5882,7 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Start Page</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">{fl.start}</label>
                     <input
                       required
                       type="number"
@@ -5860,7 +5894,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">End Page</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">{fl.end}</label>
                     <input
                       required
                       type="number"
@@ -5876,8 +5910,8 @@ export default function DashboardPage() {
 
               {/* Monthly Target End Pages */}
               <div className="border-t border-gray-100 pt-6">
-                <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-1">Monthly Target End Pages</h4>
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-4">Set the target final page index expected by the end of each month</p>
+                <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider mb-1">{fl.targetPages}</h4>
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-4">{fl.targetSubtitle}</p>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {Object.keys(syllabusMonthTargets).map((month) => (
                     <div key={month}>
@@ -5885,7 +5919,7 @@ export default function DashboardPage() {
                       <input
                         type="number"
                         min="1"
-                        placeholder="Target page"
+                        placeholder={fl.targetPlaceholder}
                         value={syllabusMonthTargets[month]}
                         onChange={(e) => setSyllabusMonthTargets(prev => ({ ...prev, [month]: e.target.value }))}
                         className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-2.5 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -5911,6 +5945,7 @@ export default function DashboardPage() {
                   {syllabusFormData.id ? "Save Changes" : "Create Configuration"}
                 </button>
               </div>
+              </>)})()}
             </form>
           </div>
         </div>
