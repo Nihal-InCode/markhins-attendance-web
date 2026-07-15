@@ -4432,6 +4432,7 @@ if __name__ == "__main__":
 
                 elif action == "get_classes":
                     # Comprehensive class list from all relevant tables
+                    # Ordered chronologically: HS1, HSU1, HS2, HSU2, BS1, BSU1, BS2, BS3, BS4, BS5
                     c.execute("""
                         SELECT DISTINCT class FROM (
                             SELECT class FROM students WHERE class IS NOT NULL AND class != ''
@@ -4441,7 +4442,19 @@ if __name__ == "__main__":
                             UNION SELECT class_teacher_of as class FROM teachers WHERE class_teacher_of IS NOT NULL AND class_teacher_of != ''
                         ) 
                         WHERE UPPER(class) NOT IN ('DEVELOPER', 'MAIN PANEL', 'PRINCIPAL')
-                        ORDER BY class
+                        ORDER BY CASE class
+                            WHEN 'HS1' THEN 1
+                            WHEN 'HSU1' THEN 2
+                            WHEN 'HS2' THEN 3
+                            WHEN 'HSU2' THEN 4
+                            WHEN 'BS1' THEN 5
+                            WHEN 'BSU1' THEN 6
+                            WHEN 'BS2' THEN 7
+                            WHEN 'BS3' THEN 8
+                            WHEN 'BS4' THEN 9
+                            WHEN 'BS5' THEN 10
+                            ELSE 99
+                        END
                     """)
                     classes = [{"id": r[0], "name": r[0]} for r in c.fetchall()]
                     result = {"success": True, "data": classes}
