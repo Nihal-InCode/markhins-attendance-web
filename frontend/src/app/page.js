@@ -3914,7 +3914,8 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* 2. Class Average Attendance */}
+                    {/* 2. Class Average Attendance — Admin only */}
+                    {user?.role === 'admin' && (
                     <div className="space-y-4">
                       <div className="px-1">
                         <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Class Averages</h3>
@@ -4001,6 +4002,7 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
+                    )}
 
                     {/* 3. Batch-wise Report */}
                     <div className="space-y-4">
