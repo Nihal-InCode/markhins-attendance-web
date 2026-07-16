@@ -4389,7 +4389,7 @@ def _is_permission_manager_role(role):
 
 
 def _is_return_manager_role(role):
-    return role in ("Principal", "Vice Principal")
+    return role in ("Principal", "Vice Principal", "admin")
 
 
 def _permission_attendance_code(attendance_status):
@@ -4609,7 +4609,7 @@ def handle_get_permissions(c, data):
 
     if not _is_permission_manager_role(role):
         return {"success": False, "message": "Permission Manager is not available for this role."}
-    if view == "pending" and role not in ("Principal", "Vice Principal"):
+    if view == "pending" and role not in ("Principal", "Vice Principal", "admin"):
         return {"success": False, "message": "Only Principal and Vice Principal can access pending approvals."}
 
     where = []
@@ -4712,7 +4712,7 @@ def handle_approve_permission(c, data):
     teacher_id = data.get("teacher_id")
     permission_id = data.get("permission_id")
 
-    if role not in ("Principal", "Vice Principal"):
+    if role not in ("Principal", "Vice Principal", "admin"):
         return {"success": False, "message": "Only Principal and Vice Principal can approve permissions."}
 
     c.execute("""
@@ -4745,7 +4745,7 @@ def handle_reject_permission(c, data):
     role = str(data.get("user_role") or "")
     permission_id = data.get("permission_id")
 
-    if role not in ("Principal", "Vice Principal"):
+    if role not in ("Principal", "Vice Principal", "admin"):
         return {"success": False, "message": "Only Principal and Vice Principal can reject permissions."}
 
     c.execute("DELETE FROM permissions WHERE id=? AND status='Pending Principal Approval'", (permission_id,))

@@ -84,6 +84,27 @@ const formatTime = (createdAtStr) => {
   }
 };
 
+const parseTimeTo12HrParts = (timeStr) => {
+  if (!timeStr) return { hour: "12", minute: "00", period: "PM" };
+  const parts = timeStr.split(":");
+  if (parts.length >= 2) {
+    let hour24 = parseInt(parts[0], 10);
+    let minute = parts[1].substring(0, 2);
+    let period = hour24 >= 12 ? "PM" : "AM";
+    let hour12 = hour24 % 12;
+    hour12 = hour12 ? hour12 : 12;
+    return { hour: String(hour12), minute, period };
+  }
+  return { hour: "12", minute: "00", period: "PM" };
+};
+
+const formatPartsTo24Hr = (hour, minute, period) => {
+  let hr = parseInt(hour, 10);
+  if (period === "PM" && hr < 12) hr += 12;
+  if (period === "AM" && hr === 12) hr = 0;
+  return `${String(hr).padStart(2, "0")}:${minute}`;
+};
+
 const formatTo12Hr = (timeStr) => {
   if (!timeStr) return "";
   try {
@@ -135,7 +156,7 @@ const canUsePermissionManager = (user) => {
     || user?.role === 'admin';
 };
 
-const canApprovePermissions = (user) => user?.role === 'Principal' || user?.role === 'Vice Principal';
+const canApprovePermissions = (user) => user?.role === 'Principal' || user?.role === 'Vice Principal' || user?.role === 'admin';
 
 const getDashboardRoleBadge = (user) => {
   const role = user?.role || 'Teacher';
@@ -4533,7 +4554,7 @@ export default function DashboardPage() {
                           <h3 className="font-black text-gray-800 tracking-tight text-lg">Extra Classes Report</h3>
                           <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Report of classes taken outside regular timetable</p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row w-full sm:w-auto">
                           <select
                             className="bg-gray-100 px-4 py-2.5 rounded-2xl border-none text-[10px] font-black text-blue-600 uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[140px]"
                             value={selectedClassForExtra}
@@ -5220,7 +5241,7 @@ export default function DashboardPage() {
                     ["history", "Permission History"],
                   ].map(([id, label]) => (
                     <button key={id} onClick={() => handlePermissionViewChange(id)}
-                      className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${permissionView === id ? "bg-white text-[#0a505c]" : "bg-white/10 text-white/70 hover:bg-white/15"}`}>
+                      className={`w-full sm:w-auto text-center rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${permissionView === id ? "bg-white text-[#0a505c] shadow-md" : "bg-white/10 text-white/70 hover:bg-white/15"}`}>
                       {label}
                     </button>
                   ))}
@@ -5343,27 +5364,91 @@ export default function DashboardPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Time</label>
-                          <input type="time" value={permissionForm.leaving_time} 
-                            onChange={(e) => {
-                              setPermissionForm(prev => ({ ...prev, leaving_time: e.target.value }));
-                              setPermissionErrors(prev => ({ ...prev, leaving_time: false }));
-                            }}
-                            className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.leaving_time ? "border-red-500 bg-red-50/50 ring-2 ring-red-100" : "border-gray-100 bg-gray-50 focus:border-teal-200 focus:bg-white"}`} />
-                          {permissionForm.leaving_time && (
-                            <span className="text-[10px] text-teal-600 font-bold block mt-1">({formatTo12Hr(permissionForm.leaving_time)})</span>
-                          )}
+                          <div className="flex gap-1.5 mt-1.5">
+                            {(() => {
+                              const { hour, minute, period } = parseTimeTo12HrParts(permissionForm.leaving_time);
+                              return (
+                                <>
+                                  <select value={hour} 
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(e.target.value, minute, period);
+                                      setPermissionForm(prev => ({ ...prev, leaving_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, leaving_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.leaving_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    {Array.from({ length: 12 }, (_, i) => String(i + 1)).map(h => (
+                                      <option key={h} value={h}>{h}</option>
+                                    ))}
+                                  </select>
+                                  <select value={minute}
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(hour, e.target.value, period);
+                                      setPermissionForm(prev => ({ ...prev, leaving_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, leaving_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.leaving_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map(m => (
+                                      <option key={m} value={m}>{m}</option>
+                                    ))}
+                                  </select>
+                                  <select value={period}
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(hour, minute, e.target.value);
+                                      setPermissionForm(prev => ({ ...prev, leaving_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, leaving_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.leaving_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    <option value="AM">AM</option>
+                                    <option value="PM">PM</option>
+                                  </select>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                         <div>
                           <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Returning Time</label>
-                          <input type="time" value={permissionForm.expected_return_time} 
-                            onChange={(e) => {
-                              setPermissionForm(prev => ({ ...prev, expected_return_time: e.target.value }));
-                              setPermissionErrors(prev => ({ ...prev, expected_return_time: false }));
-                            }}
-                            className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.expected_return_time ? "border-red-500 bg-red-50/50 ring-2 ring-red-100" : "border-gray-100 bg-gray-50 focus:border-teal-200 focus:bg-white"}`} />
-                          {permissionForm.expected_return_time && (
-                            <span className="text-[10px] text-teal-600 font-bold block mt-1">({formatTo12Hr(permissionForm.expected_return_time)})</span>
-                          )}
+                          <div className="flex gap-1.5 mt-1.5">
+                            {(() => {
+                              const { hour, minute, period } = parseTimeTo12HrParts(permissionForm.expected_return_time);
+                              return (
+                                <>
+                                  <select value={hour} 
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(e.target.value, minute, period);
+                                      setPermissionForm(prev => ({ ...prev, expected_return_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, expected_return_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.expected_return_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    {Array.from({ length: 12 }, (_, i) => String(i + 1)).map(h => (
+                                      <option key={h} value={h}>{h}</option>
+                                    ))}
+                                  </select>
+                                  <select value={minute}
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(hour, e.target.value, period);
+                                      setPermissionForm(prev => ({ ...prev, expected_return_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, expected_return_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.expected_return_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map(m => (
+                                      <option key={m} value={m}>{m}</option>
+                                    ))}
+                                  </select>
+                                  <select value={period}
+                                    onChange={(e) => {
+                                      const newTime = formatPartsTo24Hr(hour, minute, e.target.value);
+                                      setPermissionForm(prev => ({ ...prev, expected_return_time: newTime }));
+                                      setPermissionErrors(prev => ({ ...prev, expected_return_time: false }));
+                                    }}
+                                    className={`flex-1 rounded-xl border bg-gray-50 px-2 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.expected_return_time ? "border-red-500 bg-red-50" : "border-gray-100 focus:border-teal-200"}`}>
+                                    <option value="AM">AM</option>
+                                    <option value="PM">PM</option>
+                                  </select>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -5469,68 +5554,108 @@ export default function DashboardPage() {
                   ) : (
                     <div className="divide-y divide-gray-50">
                       {permissionRecords.map((record) => (
-                        <div key={record.id} className="p-4 sm:p-5 flex flex-col gap-4">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-lg bg-gray-900 px-2 py-1 text-[10px] font-black text-white">{record.permissionNumber}</span>
-                                <span className="rounded-lg bg-teal-50 px-2 py-1 text-[10px] font-black text-teal-700">{record.permissionType}</span>
-                                <span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">{record.status}</span>
+                        <div key={record.id} className="p-4 sm:p-5 flex flex-col gap-4 bg-white rounded-3xl border border-gray-100 hover:border-teal-100 hover:shadow-md transition-all">
+                          {/* Card Header */}
+                          <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="rounded-lg bg-gray-900 px-2 py-1 text-[9px] font-black text-white uppercase tracking-wider">{record.permissionNumber}</span>
+                                <span className="rounded-lg bg-teal-50 px-2 py-1 text-[9px] font-black text-teal-700 uppercase tracking-wider">{record.permissionType}</span>
+                                <span className={`rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-wider ${
+                                  record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
+                                  record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
+                                  "bg-red-50 text-red-700"
+                                }`}>{record.status}</span>
                               </div>
-                              <p className="mt-2 text-sm font-black text-gray-900">{record.studentName} <span className="text-gray-400">/ Class {record.class}</span></p>
-                              <p className="mt-1 text-xs font-bold text-gray-500">
-                                {record.permissionType === "Outpass" ? (
-                                  <>Reason: {record.reason} • Leaving: {formatTo12Hr(record.leavingTime)} • Return: {formatTo12Hr(record.expectedReturnTime)}</>
-                                ) : (
-                                  <>Reason: {record.reason} • Leaving Date: {formatDate(record.leavingDate)}</>
-                                )}
-                              </p>
+                              <p className="mt-2 text-sm font-black text-gray-900">{record.studentName} <span className="text-gray-400 font-bold">/ Class {record.class}</span></p>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 text-left sm:text-right">
-                              <div>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance</p>
-                                <p className="text-xs font-black text-gray-700">{record.attendanceStatus}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{permissionView === "pending" ? "Created" : "Approval"}</p>
-                                <p className="text-[10px] font-bold text-gray-500">
-                                  {permissionView === "pending" ? formatTo12Hr(record.createdAt) : (record.approvedTime ? formatTo12Hr(record.approvedTime) : "Pending")}
-                                </p>
-                              </div>
+                            <div className="text-right">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance</p>
+                              <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-black text-amber-800 border border-amber-200/50">{record.attendanceStatus}</span>
                             </div>
                           </div>
 
-                          <div className="grid gap-2 text-[10px] font-bold text-gray-500 sm:grid-cols-3">
-                            <p><span className="text-gray-400 uppercase tracking-widest">Created By:</span> {record.createdByName || record.createdByRole || record.createdBy || "-"}</p>
-                            <p><span className="text-gray-400 uppercase tracking-widest">Approved By:</span> {record.approvedByName || record.approvedRole || record.approvedBy || "-"}</p>
-                            <p><span className="text-gray-400 uppercase tracking-widest">Created Date:</span> {record.createdDate || "-"}</p>
+                          {/* Info Grid */}
+                          <div className="grid grid-cols-2 gap-4 text-xs font-bold text-gray-700 sm:grid-cols-3 md:grid-cols-4">
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Reason</p>
+                              <p className="mt-1 text-gray-800">{record.reason || "-"}</p>
+                            </div>
+                            {record.permissionType === "Outpass" ? (
+                              <>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Time</p>
+                                  <p className="mt-1 text-gray-800">{record.leavingTime ? formatTo12Hr(record.leavingTime) : "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Expected Return</p>
+                                  <p className="mt-1 text-gray-800">{record.expectedReturnTime ? formatTo12Hr(record.expectedReturnTime) : "-"}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Date</p>
+                                <p className="mt-1 text-gray-800">{record.leavingDate ? formatDate(record.leavingDate) : "-"}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created Date</p>
+                              <p className="mt-1 text-gray-800">{record.createdDate ? formatDate(record.createdDate) : "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created By</p>
+                              <p className="mt-1 text-gray-800 truncate">{record.createdByName || record.createdByRole || record.createdBy || "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Approved By</p>
+                              <p className="mt-1 text-gray-800 truncate">{record.approvedByName || record.approvedRole || record.approvedBy || "-"}</p>
+                            </div>
+                            {(record.returnedTeacherTime || record.returnedPrincipalTime || record.returnedDate) && (
+                              <>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Teacher Return</p>
+                                  <p className="mt-1 text-gray-800">{record.returnedTeacherTime ? formatTo12Hr(record.returnedTeacherTime) : "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Final Return / Date</p>
+                                  <p className="mt-1 text-gray-800">
+                                    {record.returnedPrincipalTime ? formatTo12Hr(record.returnedPrincipalTime) : "-"}
+                                    {record.returnedDate && ` (${formatDate(record.returnedDate)})`}
+                                  </p>
+                                </div>
+                              </>
+                            )}
                           </div>
 
+                          {/* Remarks Block */}
+                          {record.remarks && (
+                            <div className="rounded-xl bg-gray-50 p-3 border border-gray-100">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Remarks</p>
+                              <p className="mt-1 text-xs italic font-bold text-gray-600">"{record.remarks}"</p>
+                            </div>
+                          )}
+
+                          {/* Action Controls */}
                           {permissionView === "pending" && canApprovePermissions(user) && (
-                            <div className="flex gap-2">
-                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleApprovePermission(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve</button>
-                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleRejectPermission(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50">Reject</button>
+                            <div className="flex gap-2 border-t border-gray-50 pt-3">
+                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleApprovePermission(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 active:scale-95 transition-all">Approve</button>
+                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleRejectPermission(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 active:scale-95 transition-all">Reject</button>
                             </div>
                           )}
 
                           {permissionView === "active" && record.permissionType === "Leave Card" && (
-                            <div className="space-y-2">
-                              <div className="grid gap-2 text-[10px] font-bold text-gray-500 sm:grid-cols-3">
-                                <p><span className="text-gray-400 uppercase tracking-widest">Teacher Return:</span> {record.returnedTeacherTime ? formatTo12Hr(record.returnedTeacherTime) : "-"}</p>
-                                <p><span className="text-gray-400 uppercase tracking-widest">Final Return:</span> {record.returnedPrincipalTime ? formatTo12Hr(record.returnedPrincipalTime) : "-"}</p>
-                                <p><span className="text-gray-400 uppercase tracking-widest">Returned Date:</span> {record.returnedDate ? formatDate(record.returnedDate) : "-"}</p>
-                              </div>
+                            <div className="border-t border-gray-50 pt-3 space-y-2">
                               {user?.role === "Class Teacher" && record.status === "Approved" && !record.returnedTeacherTime && (
-                                <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve Return</button>
-                              )}
-                              {canApprovePermissions(user) && record.status === "Approved" && (
-                                <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="w-full rounded-2xl bg-teal-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Mark Return & Close</button>
+                                <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-[#0b7a70] transition-all">Approve Return</button>
                               )}
                               {canApprovePermissions(user) && record.status === "Pending Return Approval" && (
                                 <div className="flex gap-2">
-                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve Return</button>
-                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnReject(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50">Reject Return</button>
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 transition-all">Approve Return</button>
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnReject(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 transition-all">Reject Return</button>
                                 </div>
+                              )}
+                              {canApprovePermissions(user) && record.status === "Approved" && (
+                                <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="w-full rounded-2xl bg-teal-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-teal-700 transition-all">Mark Return & Close</button>
                               )}
                             </div>
                           )}
