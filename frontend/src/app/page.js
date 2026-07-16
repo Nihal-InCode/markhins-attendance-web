@@ -1989,7 +1989,12 @@ export default function DashboardPage() {
                 <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Regular Attendance</span>
               </div>
               <section>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 block">Attendance Date 🗓️</label>
+                <div className="flex items-center gap-2 mb-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Attendance Date 🗓️</label>
+                  {attendanceDate === getIstDateString() && (
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-green-50 text-green-600 border border-green-100 px-2 py-0.5 rounded-full">Today</span>
+                  )}
+                </div>
                 <input
                   type="date"
                   className="w-full px-6 py-5 rounded-3xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 outline-none text-xl font-bold transition-all appearance-none cursor-pointer"
