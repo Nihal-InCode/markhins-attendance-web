@@ -8,6 +8,29 @@ import PencilLoader from "@/components/PencilLoader";
 
 
 // ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+const getIstToday = () => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    const parts = formatter.formatToParts(new Date());
+    const y = parts.find(p => p.type === 'year')?.value;
+    const m = parts.find(p => p.type === 'month')?.value;
+    const d = parts.find(p => p.type === 'day')?.value;
+    return `${y}-${m}-${d}`;
+};
+
+const formatDisplayDate = (dateStr) => {
+    try {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+    } catch { return dateStr; }
+};
+
+// ─────────────────────────────────────────────
 // STATUS CONFIG
 // ─────────────────────────────────────────────
 const STATUS_CYCLE = ["present", "absent", "special_leave"];
@@ -271,6 +294,14 @@ export default function AttendancePage() {
                         <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
                             {params?.subjectName} • {params?.multiMode ? `Periods: ${params?.periods?.join(', ')}` : `Period ${params?.period?.replace("P", "")}`}
                         </p>
+                        {params?.date && (
+                            <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                                <span className="text-[10px] font-bold text-gray-400">{formatDisplayDate(params.date)}</span>
+                                {params.date === getIstToday() && (
+                                    <span className="text-[9px] font-black uppercase tracking-widest bg-green-50 text-green-600 border border-green-100 px-2 py-0.5 rounded-full">Today</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div className="w-6" />
                 </div>
