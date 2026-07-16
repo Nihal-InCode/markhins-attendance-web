@@ -4519,6 +4519,31 @@ def handle_create_permission(c, data):
     expected_return_time = str(data.get("expected_return_time") or "").strip()
     expected_return_date = str(data.get("expected_return_date") or "").strip()
 
+    # Helper function to format 24h to 12h in backend
+    def format_time_12hr(time_str):
+        if not time_str:
+            return ""
+        try:
+            from datetime import datetime as dt_class
+            return dt_class.strptime(time_str, "%H:%M").strftime("%I:%M %p").lstrip('0')
+        except Exception:
+            return time_str
+
+    # Overlap validation logic
+    c.execute("""
+        SELECT permission_type, status, leaving_date, leaving_time, expected_return_time
+        FROM permissions
+        WHERE student_id=? AND status IN ('Approved', 'Pending Principal Approval', 'Pending Return Approval')
+    """, (sid,))
+    active_perms = c.fetchall()
+    for ptype, pstatus, pldate, pltime, pertime in active_perms:
+        if ptype == "Leave Card":
+            return {"success": False, "message": f"Student is already on Leave starting from {pldate}."}
+        elif ptype == "Outpass":
+            target_date = leaving_date or get_ist_now().strftime("%Y-%m-%d")
+            if pldate == target_date:
+                return {"success": False, "message": f"Student is already on Outpass today. Expected return time is {format_time_12hr(pertime)}."}
+
     if permission_type not in ("Outpass", "Leave Card"):
         return {"success": False, "message": "Invalid permission type."}
     if attendance_status not in ("Absent", "Special Leave"):
@@ -4780,10 +4805,12 @@ def handle_principal_return_approval(c, data):
         SET status='Closed',
             returned_principal_id=?,
             returned_principal_time=?,
-            returned_date=?
-        WHERE id=? AND permission_type='Leave Card' AND status='Pending Return Approval'
-          AND returned_teacher_id IS NOT NULL AND returned_principal_id IS NULL
-    """, (teacher_id, now, returned_date, permission_id))
+            returned_date=?,
+            returned_teacher_id=COALESCE(returned_teacher_id, ?),
+            returned_teacher_time=COALESCE(returned_teacher_time, ?)
+        WHERE id=? AND permission_type='Leave Card' AND status IN ('Approved', 'Pending Return Approval')
+          AND returned_principal_id IS NULL
+    """, (teacher_id, now, returned_date, teacher_id, now, permission_id))
     if c.rowcount == 0:
         return {"success": False, "message": "Pending return approval not found or already closed."}
     return {"success": True, "message": "Leave card closed successfully."}

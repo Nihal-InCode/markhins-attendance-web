@@ -1579,6 +1579,14 @@ export default function DashboardPage() {
     if (permissionForm.permission_type === "Outpass") {
       if (!permissionForm.leaving_time) errors.leaving_time = true;
       if (!permissionForm.expected_return_time) errors.expected_return_time = true;
+      if (permissionForm.leaving_time && permissionForm.expected_return_time && permissionForm.leaving_time >= permissionForm.expected_return_time) {
+        errors.leaving_time = true;
+        errors.expected_return_time = true;
+        playSound('error');
+        setPermissionMessage("Leaving time must be before the returning time.");
+        setPermissionErrors(errors);
+        return;
+      }
     } else {
       if (!permissionForm.leaving_date) errors.leaving_date = true;
     }
@@ -5226,16 +5234,19 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-4 gap-2 bg-gray-50/50 p-2.5 rounded-2xl border border-gray-100">
               {[
-                ["Pending Approvals", permissionSummary.pendingApprovals || 0],
-                ["Today's Outpasses", permissionSummary.todaysOutpasses || 0],
-                ["Active Leave Cards", permissionSummary.activeLeaveCards || 0],
-                ["Today's Permissions", permissionSummary.todaysPermissions || 0],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
-                  <p className="text-2xl font-black text-[#0d9488]">{value}</p>
-                  <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-gray-400">{label}</p>
+                ["Pending", permissionSummary.pendingApprovals || 0, "⏳"],
+                ["Outpasses", permissionSummary.todaysOutpasses || 0, "🎒"],
+                ["Leaves", permissionSummary.activeLeaveCards || 0, "🏠"],
+                ["Today's", permissionSummary.todaysPermissions || 0, "📋"],
+              ].map(([label, value, icon]) => (
+                <div key={label} className="bg-white rounded-xl p-2 text-center shadow-sm border border-gray-50">
+                  <p className="text-sm font-black text-[#0a505c] flex items-center justify-center gap-1">
+                    <span className="text-xs">{icon}</span>
+                    {value}
+                  </p>
+                  <p className="text-[7px] font-black uppercase tracking-wider text-gray-400 mt-0.5 truncate">{label}</p>
                 </div>
               ))}
             </div>
@@ -5338,6 +5349,9 @@ export default function DashboardPage() {
                               setPermissionErrors(prev => ({ ...prev, leaving_time: false }));
                             }}
                             className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.leaving_time ? "border-red-500 bg-red-50/50 ring-2 ring-red-100" : "border-gray-100 bg-gray-50 focus:border-teal-200 focus:bg-white"}`} />
+                          {permissionForm.leaving_time && (
+                            <span className="text-[10px] text-teal-600 font-bold block mt-1">({formatTo12Hr(permissionForm.leaving_time)})</span>
+                          )}
                         </div>
                         <div>
                           <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Returning Time</label>
@@ -5347,6 +5361,9 @@ export default function DashboardPage() {
                               setPermissionErrors(prev => ({ ...prev, expected_return_time: false }));
                             }}
                             className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm font-bold outline-none transition-all ${permissionErrors.expected_return_time ? "border-red-500 bg-red-50/50 ring-2 ring-red-100" : "border-gray-100 bg-gray-50 focus:border-teal-200 focus:bg-white"}`} />
+                          {permissionForm.expected_return_time && (
+                            <span className="text-[10px] text-teal-600 font-bold block mt-1">({formatTo12Hr(permissionForm.expected_return_time)})</span>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -5388,15 +5405,16 @@ export default function DashboardPage() {
                       )}
                     </div>
 
-                    {/* More Options (Shown Directly) */}
-                    <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100/50">
+                    {/* More Options (Shown Directly - Highlighted) */}
+                    <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-amber-50/40 border border-amber-200/50">
                       <div>
-                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-amber-800 flex items-center gap-1">Attendance Status ⚠️</label>
                         <select value={permissionForm.attendance_status} onChange={(e) => setPermissionForm(prev => ({ ...prev, attendance_status: e.target.value }))}
-                          className="mt-1.5 w-full rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-xs font-bold outline-none focus:border-teal-200">
+                          className="mt-1.5 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-xs font-bold outline-none focus:border-teal-200">
                           <option>Absent</option>
                           <option>Special Leave</option>
                         </select>
+                        <p className="text-[8px] text-amber-600 font-bold mt-1 leading-tight">Marks student absent during this entire duration</p>
                       </div>
                       <div>
                         <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Remarks (Optional)</label>
@@ -5504,6 +5522,9 @@ export default function DashboardPage() {
                               </div>
                               {user?.role === "Class Teacher" && record.status === "Approved" && !record.returnedTeacherTime && (
                                 <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve Return</button>
+                              )}
+                              {canApprovePermissions(user) && record.status === "Approved" && (
+                                <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="w-full rounded-2xl bg-teal-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Mark Return & Close</button>
                               )}
                               {canApprovePermissions(user) && record.status === "Pending Return Approval" && (
                                 <div className="flex gap-2">
