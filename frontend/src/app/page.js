@@ -5679,52 +5679,56 @@ export default function DashboardPage() {
                           })()}
                         </div>
 
-                        {/* Tabular List */}
-                        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                          <div className="hidden sm:grid sm:grid-cols-[1.2fr_1.5fr_1.2fr_1fr] gap-4 p-4 bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                            <div>Date</div>
-                            <div>Reason</div>
-                            <div>Approved By</div>
-                            <div className="text-right">Status</div>
-                          </div>
-
-                          {loadingPermissions ? (
-                            <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" /></div>
-                          ) : permissionRecords.length === 0 ? (
-                            <div className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">No history records found.</div>
-                          ) : (
-                            <div className="divide-y divide-gray-50">
-                              {permissionRecords.map((record) => (
-                                <button type="button" key={record.id} onClick={() => setHistorySelectedRecord(record)}
-                                  className="w-full grid grid-cols-2 gap-2 sm:grid-cols-[1.2fr_1.5fr_1.2fr_1fr] sm:gap-4 p-4 text-left hover:bg-teal-50/20 active:bg-teal-50/40 transition-colors items-center text-xs font-bold text-gray-700">
-                                  {/* Date */}
-                                  <div>
-                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Date</span>
-                                    {record.permissionType === "Outpass" ? (record.createdDate || "-") : (record.leavingDate || "-")}
-                                  </div>
-                                  {/* Reason */}
-                                  <div className="truncate">
-                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Reason</span>
-                                    {record.reason || "-"}
-                                  </div>
-                                  {/* Approved By */}
-                                  <div className="truncate">
-                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Approved By</span>
-                                    {record.approvedByName || record.approvedRole || "Pending"}
-                                  </div>
-                                  {/* Status */}
-                                  <div className="text-left sm:text-right">
-                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Status</span>
-                                    <span className={`inline-block rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                      record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
-                                      record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
-                                      "bg-red-50 text-red-700"
-                                    }`}>{record.status}</span>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                        {/* Tabular List (Excel style but highly professional) */}
+                        <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+                          <table className="w-full min-w-[500px] border-collapse text-left text-xs font-bold text-gray-750">
+                            <thead>
+                              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                <th className="px-4 py-3 border-r border-gray-200">Date</th>
+                                <th className="px-4 py-3 border-r border-gray-200">Reason</th>
+                                <th className="px-4 py-3 border-r border-gray-200">Approved by</th>
+                                <th className="px-4 py-3 text-center">status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {loadingPermissions ? (
+                                <tr>
+                                  <td colSpan={4} className="p-12 text-center">
+                                    <div className="h-8 w-8 mx-auto animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" />
+                                  </td>
+                                </tr>
+                              ) : permissionRecords.length === 0 ? (
+                                <tr>
+                                  <td colSpan={4} className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">
+                                    No history records found.
+                                  </td>
+                                </tr>
+                              ) : (
+                                permissionRecords.map((record) => (
+                                  <tr key={record.id} 
+                                    onClick={() => setHistorySelectedRecord(record)}
+                                    className="border-b border-gray-200 hover:bg-teal-50/20 active:bg-teal-50/40 transition-colors cursor-pointer">
+                                    <td className="px-4 py-3 border-r border-gray-200 font-bold text-gray-800">
+                                      {record.permissionType === "Outpass" ? (record.createdDate || "-") : (record.leavingDate || "-")}
+                                    </td>
+                                    <td className="px-4 py-3 border-r border-gray-200 max-w-[200px] truncate text-gray-600">
+                                      {record.reason || "-"}
+                                    </td>
+                                    <td className="px-4 py-3 border-r border-gray-200 truncate text-gray-600">
+                                      {record.approvedByName || record.approvedRole || "Pending"}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <span className={`inline-block rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                        record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
+                                        record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
+                                        "bg-red-50 text-red-700"
+                                      }`}>{record.status}</span>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
