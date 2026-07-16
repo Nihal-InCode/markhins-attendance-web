@@ -717,10 +717,32 @@ export default function DashboardPage() {
 
   const fetchHistoryStudents = async () => {
     try {
-      const data = await getPermissionStudents(true);
-      setHistoryStudents(Array.isArray(data) ? data : []);
+      if (classes && classes.length > 0) {
+        const promises = classes.map(c => getStudents(c.id, "", "").catch(() => []));
+        const results = await Promise.all(promises);
+        const allStudents = results.flat().filter(Boolean);
+        const uniqueStudents = [];
+        const seenIds = new Set();
+        for (const s of allStudents) {
+          if (s && s.id && !seenIds.has(s.id)) {
+            seenIds.add(s.id);
+            uniqueStudents.push({
+              id: String(s.id),
+              name: s.name,
+              rollNo: s.rollNo || s.roll,
+              class: s.class
+            });
+          }
+        }
+        setHistoryStudents(uniqueStudents);
+      } else {
+        const data = await getPermissionStudents(true);
+        setHistoryStudents(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Parallel student fetch error, falling back:", err);
+      const data = await getPermissionStudents(true).catch(() => []);
+      setHistoryStudents(Array.isArray(data) ? data : []);
     }
   };
 
@@ -3013,11 +3035,6 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <button disabled
-                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
-                        <span className="block text-2xl">⏳</span>
-                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
-                      </button>
                       {canUsePermissionManager(user) && (
                         <button onClick={() => switchTab('permission_manager')}
                           className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-center text-teal-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
@@ -3025,6 +3042,11 @@ export default function DashboardPage() {
                           <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Permission Manager</span>
                         </button>
                       )}
+                      <button disabled
+                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
+                        <span className="block text-2xl">⏳</span>
+                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
+                      </button>
                       <button disabled
                         className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
                         <span className="block text-2xl">⏳</span>
