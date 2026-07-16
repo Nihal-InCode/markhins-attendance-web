@@ -717,8 +717,10 @@ export default function DashboardPage() {
 
   const fetchHistoryStudents = async () => {
     try {
-      if (classes && classes.length > 0) {
-        const promises = classes.map(c => getStudents(c.id, "", "").catch(() => []));
+      const clsList = await getClasses();
+      const visibleClasses = Array.isArray(clsList) ? clsList : [];
+      if (visibleClasses.length > 0) {
+        const promises = visibleClasses.map(c => getStudents(c.id, "", "").catch(() => []));
         const results = await Promise.all(promises);
         const allStudents = results.flat().filter(Boolean);
         const uniqueStudents = [];
