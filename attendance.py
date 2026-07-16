@@ -4493,7 +4493,7 @@ if __name__ == "__main__":
                 elif action == "get_timetable":
                     cls = data.get("class")
                     c.execute("""
-                        SELECT tt.weekday, tt.period_label, tt.subject, t.name as teacher_name
+                        SELECT tt.weekday, tt.period_label, tt.subject, t.name as teacher_name, tt.teacher_id
                         FROM timetable tt
                         LEFT JOIN teachers t ON tt.teacher_id = t.id
                         WHERE tt.class=?
@@ -4501,7 +4501,7 @@ if __name__ == "__main__":
                     """, (cls,))
                     rows = c.fetchall()
                     timetable = [
-                        {"weekday": r[0], "period": r[1], "subject": r[2], "teacher": r[3]}
+                        {"weekday": r[0], "period": r[1], "subject": r[2], "teacher": r[3], "teacherId": r[4]}
                         for r in rows
                     ]
                     result = {"success": True, "data": timetable}

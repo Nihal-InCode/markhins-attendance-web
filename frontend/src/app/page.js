@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getClasses,
   getFullTimetable,
+  getTimetable,
   getDailyReport,
   getStudentHistory,
   resolvePeriod,
@@ -471,6 +472,7 @@ export default function DashboardPage() {
   const [digitalRegisterData, setDigitalRegisterData] = useState([]);
   const [digitalRegisterSessionLabels, setDigitalRegisterSessionLabels] = useState([]);
   const [digitalRegisterSummary, setDigitalRegisterSummary] = useState({ classesTaken: 0, assignedPeriods: 0, teachingPercentage: 0 });
+  const [myAssignedPeriods, setMyAssignedPeriods] = useState([]);
   const [registerFromDate, setRegisterFromDate] = useState(getIstDateString());
   const [registerToDate, setRegisterToDate] = useState(getIstDateString());
   const [selectedTeacherForRegister, setSelectedTeacherForRegister] = useState("");
@@ -891,6 +893,24 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchMarked();
   }, [selectedClass, activeTab, dailyRefreshTs, attendanceDate]);
+
+  // Fetch timetable to identify teacher's assigned periods for selected class
+  useEffect(() => {
+    if (!selectedClass || activeTab !== 'attendance') { setMyAssignedPeriods([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getTimetable(selectedClass);
+        if (cancelled) return;
+        const todayWeekday = (new Date().getDay() + 6) % 7;
+        const myPeriods = (Array.isArray(data) ? data : [])
+          .filter(row => row.weekday === todayWeekday && String(row.teacherId) === String(user?.id))
+          .map(row => row.period);
+        setMyAssignedPeriods(myPeriods);
+      } catch { setMyAssignedPeriods([]); }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedClass, activeTab, user?.id]);
 
   // Auto-resolve subject when class or period changes
   useEffect(() => {
@@ -1740,6 +1760,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-dvh flex-col font-sans text-gray-900" style={{ backgroundColor: 'rgba(55, 151, 169, 0.08)' }}>
+      <style>{`@keyframes softBlink{0%,100%{opacity:1}50%{opacity:.35}}.animate-soft-blink{animation:softBlink 2s ease-in-out infinite}`}</style>
 
       {/* ── HEADER — scrolls away, not sticky ── */}
       <header className="anim-header relative z-[70] border-b border-white/10 px-4 py-5 sm:px-6 rounded-b-3xl" style={{ background: 'linear-gradient(135deg, #082231 0%, #063a43 100%)', boxShadow: '0 8px 24px rgba(8,34,49,0.18)' }}>
@@ -2047,6 +2068,7 @@ export default function DashboardPage() {
                     const teacherName = markData?.teacher || "Marked";
 
                     const isSelected = multiMode ? selectedPeriods.includes(p) : selectedPeriod === p;
+                    const isMyPeriod = !isMarked && !isSelected && myAssignedPeriods.includes(p);
 
                     const handleToggle = () => {
                       if (isMarked) return;
@@ -2068,12 +2090,16 @@ export default function DashboardPage() {
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                           : isMarked
                             ? 'bg-red-50 text-red-500 border border-red-100 cursor-not-allowed opacity-90'
-                            : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
+                            : isMyPeriod
+                              ? 'bg-emerald-50 text-emerald-500 border border-emerald-200 animate-soft-blink'
+                              : 'bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100'
                           }`}
                       >
                         <span className={isMarked
                           ? 'absolute left-3 top-2 z-30 text-sm font-black text-red-500'
-                          : 'relative z-10'
+                          : isMyPeriod
+                            ? 'relative z-10 text-emerald-500 animate-soft-blink'
+                            : 'relative z-10'
                         }>
                           {p.replace('P', '')}
                         </span>
