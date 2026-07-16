@@ -105,6 +105,68 @@ const formatPartsTo24Hr = (hour, minute, period) => {
   return `${String(hr).padStart(2, "0")}:${minute}`;
 };
 
+const StampSeal = ({ name, title, date, color = "text-blue-800" }) => {
+  if (!name) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[72px] w-[72px] rounded-full border-2 border-dashed border-gray-250 opacity-40 select-none">
+        <span className="text-[8px] font-black uppercase tracking-wider text-gray-400">Pending</span>
+      </div>
+    );
+  }
+  
+  // Clean name for seal presentation (truncate/format if needed)
+  const displayName = name.length > 22 ? name.substring(0, 20) + ".." : name;
+
+  return (
+    <div className={`relative h-[72px] w-[72px] -rotate-[8deg] rounded-full bg-transparent ${color} opacity-85 mix-blend-multiply flex-shrink-0`}>
+      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <defs>
+          <path
+            id={`seal-ring-${name.replace(/[^a-zA-Z]/g, "")}`}
+            d="M 50,50 m -39,0 a 39,39 0 1,1 78,0 a 39,39 0 1,1 -78,0"
+          />
+          <mask id={`seal-wear-${name.replace(/[^a-zA-Z]/g, "")}`}>
+            <rect width="100" height="100" fill="white" />
+            <g fill="black">
+              <rect x="8" y="29" width="13" height="2.8" rx="1.4" transform="rotate(-18 8 29)" />
+              <rect x="18" y="12" width="8" height="2.2" rx="1.1" transform="rotate(24 18 12)" />
+              <rect x="39" y="7" width="15" height="2.5" rx="1.2" transform="rotate(-4 39 7)" />
+              <rect x="68" y="12" width="10" height="2.4" rx="1.2" transform="rotate(18 68 12)" />
+              <rect x="83" y="29" width="9" height="3" rx="1.5" transform="rotate(55 83 29)" />
+              <rect x="84" y="63" width="11" height="2.5" rx="1.2" transform="rotate(-58 84 63)" />
+              <rect x="65" y="84" width="14" height="2.8" rx="1.4" transform="rotate(-20 65 84)" />
+              <rect x="31" y="89" width="11" height="2.5" rx="1.2" transform="rotate(8 31 89)" />
+              <rect x="9" y="68" width="12" height="3" rx="1.5" transform="rotate(48 9 68)" />
+              <circle cx="26" cy="20" r="1.8" />
+              <circle cx="58" cy="9" r="1.5" />
+              <circle cx="89" cy="48" r="1.8" />
+              <circle cx="50" cy="90" r="1.7" />
+              <circle cx="12" cy="51" r="1.5" />
+            </g>
+          </mask>
+        </defs>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="3.5" mask={`url(#seal-wear-${name.replace(/[^a-zA-Z]/g, "")})`} />
+        <circle cx="50" cy="50" r="42.5" fill="none" stroke="currentColor" strokeWidth="1.2" mask={`url(#seal-wear-${name.replace(/[^a-zA-Z]/g, "")})`} />
+        <text fill="currentColor" fontSize="8" fontWeight="900" letterSpacing="0.8" mask={`url(#seal-wear-${name.replace(/[^a-zA-Z]/g, "")})`}>
+          <textPath href={`#seal-ring-${name.replace(/[^a-zA-Z]/g, "")}`} startOffset="1%">
+            MARKHINS BENGALURU • MARKHINS BENGALURU •
+          </textPath>
+        </text>
+      </svg>
+      <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full border border-current/30 px-1 text-center">
+        <span className="line-clamp-2 w-full break-words text-[5px] font-black leading-[1.05] uppercase tracking-tighter text-current">
+          {displayName}
+        </span>
+        {date && (
+          <span className="text-[4px] font-extrabold opacity-75 mt-0.5 whitespace-nowrap text-current">
+            {date}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const formatTo12Hr = (timeStr) => {
   if (!timeStr) return "";
   try {
@@ -5740,6 +5802,29 @@ export default function DashboardPage() {
                                 <p className="mt-1 text-xs italic font-bold text-gray-600">"{historySelectedRecord.remarks}"</p>
                               </div>
                             )}
+
+                            {/* Verification Seals */}
+                            <div className="border-t border-gray-100 pt-4 mt-2">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3 text-center">Verification Seals</p>
+                              <div className="grid grid-cols-2 gap-4 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Class Teacher</span>
+                                  <StampSeal 
+                                    name={historySelectedRecord.createdByName || historySelectedRecord.createdBy} 
+                                    date={historySelectedRecord.createdDate} 
+                                    color="text-blue-800" 
+                                  />
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Principal</span>
+                                  <StampSeal 
+                                    name={historySelectedRecord.approvedByName || historySelectedRecord.approvedBy} 
+                                    date={historySelectedRecord.approvedTime ? historySelectedRecord.approvedTime.split(" ")[0] : null} 
+                                    color="text-emerald-800" 
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
                           <button type="button" onClick={() => setHistorySelectedRecord(null)}
