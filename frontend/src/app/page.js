@@ -713,6 +713,16 @@ export default function DashboardPage() {
   const [historyStudentId, setHistoryStudentId] = useState("");
   const [historySearch, setHistorySearch] = useState("");
   const [historySelectedRecord, setHistorySelectedRecord] = useState(null);
+  const [historyStudents, setHistoryStudents] = useState([]);
+
+  const fetchHistoryStudents = async () => {
+    try {
+      const data = await getPermissionStudents(true);
+      setHistoryStudents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const handleFocusIn = (e) => {
@@ -1569,7 +1579,11 @@ export default function DashboardPage() {
     setHistoryStudentId("");
     setHistorySearch("");
     setHistorySelectedRecord(null);
-    if (view !== "new" && view !== "history") fetchPermissionRecords(view);
+    if (view === "history") {
+      fetchHistoryStudents();
+    } else if (view !== "new") {
+      fetchPermissionRecords(view);
+    }
   };
 
   const handlePermissionHistorySearch = (e) => {
@@ -2999,22 +3013,22 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <button onClick={() => { setReportType('overview'); router.push('/?tab=reports&type=overview', { scroll: false }); }}
-                        className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center text-emerald-700 shadow-sm transition-all active:scale-[0.98]">
-                        <span className="block text-2xl">📊</span>
-                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Reports</span>
+                      <button disabled
+                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
+                        <span className="block text-2xl">⏳</span>
+                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
                       </button>
                       {canUsePermissionManager(user) && (
                         <button onClick={() => switchTab('permission_manager')}
-                          className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-center text-teal-700 shadow-sm transition-all active:scale-[0.98]">
+                          className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-center text-teal-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
                           <span className="block text-2xl">🪪</span>
                           <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Permission Manager</span>
                         </button>
                       )}
-                      <button onClick={() => { setReportType('syllabus'); router.push('/?tab=reports&type=syllabus', { scroll: false }); }}
-                        className="rounded-2xl border border-violet-100 bg-violet-50 p-4 text-center text-violet-700 shadow-sm transition-all active:scale-[0.98]">
-                        <span className="block text-2xl">📖</span>
-                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Syllabus</span>
+                      <button disabled
+                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
+                        <span className="block text-2xl">⏳</span>
+                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
                       </button>
                     </div>
 
@@ -5625,7 +5639,7 @@ export default function DashboardPage() {
                         </div>
                         {historySearch.trim() !== "" && (
                           <div className="rounded-2xl border border-gray-50 divide-y divide-gray-50 bg-white overflow-hidden shadow-inner">
-                            {permissionStudents
+                            {historyStudents
                               .filter(s => `${s.name} ${s.rollNo} ${s.class}`.toLowerCase().includes(historySearch.toLowerCase()))
                               .slice(0, 3)
                               .map((student) => (
@@ -5680,14 +5694,14 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Tabular List (Excel style but highly professional) */}
-                        <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-                          <table className="w-full min-w-[500px] border-collapse text-left text-xs font-bold text-gray-750">
+                        <div className="w-full rounded-2xl border border-gray-200 bg-white shadow-sm max-h-[380px] overflow-y-auto">
+                          <table className="w-full border-collapse text-left text-xs font-bold text-gray-700 table-fixed">
                             <thead>
-                              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                                <th className="px-4 py-3 border-r border-gray-200">Date</th>
-                                <th className="px-4 py-3 border-r border-gray-200">Reason</th>
-                                <th className="px-4 py-3 border-r border-gray-200">Approved by</th>
-                                <th className="px-4 py-3 text-center">status</th>
+                              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase tracking-wider text-gray-500 sticky top-0 bg-white z-10">
+                                <th className="px-4 py-3 border-r border-gray-200 w-1/4">Date</th>
+                                <th className="px-4 py-3 border-r border-gray-200 w-[40%]">Reason</th>
+                                <th className="px-4 py-3 border-r border-gray-200 w-1/4">Approved by</th>
+                                <th className="px-4 py-3 text-center w-[10%]">status</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -5697,36 +5711,46 @@ export default function DashboardPage() {
                                     <div className="h-8 w-8 mx-auto animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" />
                                   </td>
                                 </tr>
-                              ) : permissionRecords.length === 0 ? (
-                                <tr>
-                                  <td colSpan={4} className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">
-                                    No history records found.
-                                  </td>
-                                </tr>
-                              ) : (
-                                permissionRecords.map((record) => (
-                                  <tr key={record.id} 
-                                    onClick={() => setHistorySelectedRecord(record)}
-                                    className="border-b border-gray-200 hover:bg-teal-50/20 active:bg-teal-50/40 transition-colors cursor-pointer">
-                                    <td className="px-4 py-3 border-r border-gray-200 font-bold text-gray-800">
-                                      {record.permissionType === "Outpass" ? (record.createdDate || "-") : (record.leavingDate || "-")}
-                                    </td>
-                                    <td className="px-4 py-3 border-r border-gray-200 max-w-[200px] truncate text-gray-600">
-                                      {record.reason || "-"}
-                                    </td>
-                                    <td className="px-4 py-3 border-r border-gray-200 truncate text-gray-600">
-                                      {record.approvedByName || record.approvedRole || "Pending"}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                      <span className={`inline-block rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                        record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
-                                        record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
-                                        "bg-red-50 text-red-700"
-                                      }`}>{record.status}</span>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
+                              ) : (() => {
+                                const rows = [...permissionRecords];
+                                while (rows.length < 10) {
+                                  rows.push({ id: `empty-${rows.length}`, isEmptyPlaceholder: true });
+                                }
+                                return rows.map((record) => {
+                                  if (record.isEmptyPlaceholder) {
+                                    return (
+                                      <tr key={record.id} className="border-b border-gray-200 h-[38px] select-none pointer-events-none">
+                                        <td className="px-4 py-2 border-r border-gray-200">&nbsp;</td>
+                                        <td className="px-4 py-2 border-r border-gray-200">&nbsp;</td>
+                                        <td className="px-4 py-2 border-r border-gray-200">&nbsp;</td>
+                                        <td className="px-4 py-2">&nbsp;</td>
+                                      </tr>
+                                    );
+                                  }
+                                  return (
+                                    <tr key={record.id} 
+                                      onClick={() => setHistorySelectedRecord(record)}
+                                      className="border-b border-gray-200 hover:bg-teal-50/20 active:bg-teal-50/40 transition-colors cursor-pointer h-[38px]">
+                                      <td className="px-4 py-2 border-r border-gray-200 font-bold text-gray-800 truncate">
+                                        {record.permissionType === "Outpass" ? (record.createdDate || "-") : (record.leavingDate || "-")}
+                                      </td>
+                                      <td className="px-4 py-2 border-r border-gray-200 truncate text-gray-600">
+                                        {record.reason || "-"}
+                                      </td>
+                                      <td className="px-4 py-2 border-r border-gray-200 truncate text-gray-600">
+                                        {record.approvedByName || record.approvedRole || "Pending"}
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        <span className={`inline-block rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                          record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
+                                          record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
+                                          "bg-red-50 text-red-700"
+                                        }`}>{record.status}</span>
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
                         </div>
