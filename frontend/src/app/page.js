@@ -5361,7 +5361,7 @@ export default function DashboardPage() {
 
                     {/* Date/Time Row */}
                     {permissionForm.permission_type === "Outpass" ? (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                           <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Time</label>
                           <div className="flex gap-1.5 mt-1.5">
@@ -5518,31 +5518,25 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {permissionView === "history" && (
-                  <form onSubmit={handlePermissionHistorySearch} className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                      <input value={permissionHistoryFilters.permission_number} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, permission_number: e.target.value }))} placeholder="Permission Number" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <input value={permissionHistoryFilters.student} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, student: e.target.value }))} placeholder="Student" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <select value={permissionHistoryFilters.class} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, class: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
-                        <option value="">All Classes</option>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <select value={permissionHistoryFilters.permission_type} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, permission_type: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
-                        <option value="">All Types</option>
-                        <option>Outpass</option>
-                        <option>Leave Card</option>
-                      </select>
-                      <select value={permissionHistoryFilters.attendance_status} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, attendance_status: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
-                        <option value="">All Attendance</option>
-                        <option>Absent</option>
-                        <option>Special Leave</option>
-                      </select>
-                      <input type="date" value={permissionHistoryFilters.from_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, from_date: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <input type="date" value={permissionHistoryFilters.to_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, to_date: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <input value={permissionHistoryFilters.created_by} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, created_by: e.target.value }))} placeholder="Created By" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <input value={permissionHistoryFilters.approved_by} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, approved_by: e.target.value }))} placeholder="Approved By" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <input value={permissionHistoryFilters.reason} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, reason: e.target.value }))} placeholder="Reason" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      <button type="submit" className="rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white">Search</button>
+                  <form onSubmit={handlePermissionHistorySearch} className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="lg:col-span-2">
+                        <input value={permissionHistoryFilters.student} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, student: e.target.value }))} placeholder="Search Student name or roll number..." className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-xs font-bold outline-none focus:border-teal-200" />
+                      </div>
+                      <div>
+                        <select value={permissionHistoryFilters.class} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, class: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-xs font-bold outline-none focus:border-teal-200">
+                          <option value="">All Classes</option>
+                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+                        <input type="date" value={permissionHistoryFilters.from_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, from_date: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                        <input type="date" value={permissionHistoryFilters.to_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, to_date: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      </div>
                     </div>
+                    <button type="submit" className="w-full rounded-2xl bg-[#0d9488] py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-md hover:bg-[#0b7a70] active:scale-95 transition-all">
+                      Search Permissions
+                    </button>
                   </form>
                 )}
 
