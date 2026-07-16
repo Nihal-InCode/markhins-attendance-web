@@ -465,6 +465,63 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # === PERMISSION MANAGER MIGRATIONS ===
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                permission_number TEXT UNIQUE NOT NULL,
+                student_id INTEGER NOT NULL,
+                student_name TEXT NOT NULL,
+                class TEXT NOT NULL,
+                permission_type TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                attendance_status TEXT NOT NULL,
+                remarks TEXT,
+                expected_return_time TEXT,
+                expected_return_date TEXT,
+                created_by INTEGER,
+                created_by_role TEXT,
+                created_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                approval_required INTEGER DEFAULT 0,
+                approved_by INTEGER,
+                approved_role TEXT,
+                approved_time TEXT,
+                approved_date TEXT,
+                returned_teacher_id INTEGER,
+                returned_teacher_time TEXT,
+                returned_principal_id INTEGER,
+                returned_principal_time TEXT,
+                returned_date TEXT,
+                created_day TEXT,
+                created_date TEXT,
+                FOREIGN KEY (student_id) REFERENCES students (id),
+                FOREIGN KEY (created_by) REFERENCES teachers (id),
+                FOREIGN KEY (approved_by) REFERENCES teachers (id),
+                FOREIGN KEY (returned_teacher_id) REFERENCES teachers (id),
+                FOREIGN KEY (returned_principal_id) REFERENCES teachers (id)
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_permissions_student ON permissions(student_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_permissions_status ON permissions(status)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_permissions_created_date ON permissions(created_date)")
+        for column_sql in (
+            "ALTER TABLE permissions ADD COLUMN approved_by INTEGER",
+            "ALTER TABLE permissions ADD COLUMN approved_role TEXT",
+            "ALTER TABLE permissions ADD COLUMN approved_time TEXT",
+            "ALTER TABLE permissions ADD COLUMN approved_date TEXT",
+            "ALTER TABLE permissions ADD COLUMN returned_teacher_id INTEGER",
+            "ALTER TABLE permissions ADD COLUMN returned_teacher_time TEXT",
+            "ALTER TABLE permissions ADD COLUMN returned_principal_id INTEGER",
+            "ALTER TABLE permissions ADD COLUMN returned_principal_time TEXT",
+            "ALTER TABLE permissions ADD COLUMN returned_date TEXT",
+        ):
+            try:
+                c.execute(column_sql)
+            except sqlite3.OperationalError:
+                pass
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -4323,6 +4380,458 @@ def calculate_syllabus_analytics(c, config_id, start_page, end_page, current_pag
     }
 
 
+def _is_permission_manager_role(role):
+    return role in ("Class Teacher", "Principal", "Vice Principal", "admin")
+
+
+def _is_return_manager_role(role):
+    return role in ("Principal", "Vice Principal")
+
+
+def _permission_attendance_code(attendance_status):
+    return "SL" if attendance_status == "Special Leave" else "A"
+
+
+def _permission_date_span(permission_type, created_date, expected_return_date):
+    if permission_type != "Leave Card" or not expected_return_date:
+        return [created_date]
+    try:
+        return _date_range_days(created_date, expected_return_date)
+    except Exception:
+        return [created_date]
+
+
+def sync_permission_attendance(c, permission_id, marker_id):
+    c.execute("""
+        SELECT student_id, class, permission_type, attendance_status, created_date, expected_return_date
+        FROM permissions
+        WHERE id=? AND status IN ('Approved', 'Pending Return Approval')
+    """, (permission_id,))
+    row = c.fetchone()
+    if not row:
+        return 0
+
+    student_id, class_name, permission_type, attendance_status, created_date, expected_return_date = row
+    status_code = _permission_attendance_code(attendance_status)
+    dates = _permission_date_span(permission_type, created_date, expected_return_date)
+    inserted_or_updated = 0
+
+    for date_str in dates:
+        try:
+            weekday = dt.strptime(date_str, "%Y-%m-%d").weekday()
+        except Exception:
+            continue
+        c.execute("""
+            SELECT period_label
+            FROM timetable
+            WHERE class=? AND weekday=?
+            ORDER BY period_label
+        """, (class_name, weekday))
+        periods = [r[0] for r in c.fetchall()] or ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
+        for period in periods:
+            c.execute("""
+                SELECT id
+                FROM period_attendance
+                WHERE date=? AND class=? AND period=? AND student_id=?
+                ORDER BY id DESC
+                LIMIT 1
+            """, (date_str, class_name, period, student_id))
+            existing = c.fetchone()
+            if existing:
+                c.execute("UPDATE period_attendance SET status=?, teacher_id=? WHERE id=?", (status_code, marker_id, existing[0]))
+            else:
+                c.execute("""
+                    INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (date_str, class_name, period, student_id, status_code, marker_id))
+            inserted_or_updated += 1
+    return inserted_or_updated
+
+
+def handle_get_permission_students(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+
+    if not _is_permission_manager_role(role):
+        return {"success": False, "message": "Permission Manager is not available for this role."}
+
+    params = []
+    where = "WHERE class IS NOT NULL AND class != ''"
+    if role == "Class Teacher":
+        if not class_teacher_of:
+            c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
+            row = c.fetchone()
+            class_teacher_of = str(row[0] or "").strip() if row else ""
+        if not class_teacher_of:
+            return {"success": True, "data": []}
+        where += " AND class=?"
+        params.append(class_teacher_of)
+
+    c.execute(f"""
+        SELECT id, roll_no, name, class
+        FROM students
+        {where}
+        ORDER BY class, CAST(roll_no AS INTEGER), roll_no, name
+    """, params)
+    students = [
+        {"id": r[0], "rollNo": r[1], "name": r[2], "class": r[3]}
+        for r in c.fetchall()
+    ]
+    return {"success": True, "data": students}
+
+
+def handle_create_permission(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    teacher_name = str(data.get("teacher_name") or "").strip()
+    class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+
+    if not _is_permission_manager_role(role):
+        return {"success": False, "message": "Permission Manager is not available for this role."}
+
+    student_id = data.get("student_id")
+    c.execute("SELECT id, name, class FROM students WHERE id=?", (student_id,))
+    student = c.fetchone()
+    if not student:
+        return {"success": False, "message": "Student not found."}
+
+    sid, student_name, student_class = student
+    if role == "Class Teacher":
+        if not class_teacher_of:
+            c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
+            row = c.fetchone()
+            class_teacher_of = str(row[0] or "").strip() if row else ""
+        if student_class != class_teacher_of:
+            return {"success": False, "message": "Class teachers can create permissions only for their own class."}
+
+    permission_type = str(data.get("permission_type") or "").strip()
+    reason = str(data.get("reason") or "").strip()
+    destination = str(data.get("destination") or "").strip()
+    attendance_status = str(data.get("attendance_status") or "").strip()
+    remarks = str(data.get("remarks") or "").strip()
+    expected_return_time = str(data.get("expected_return_time") or "").strip()
+    expected_return_date = str(data.get("expected_return_date") or "").strip()
+
+    if permission_type not in ("Outpass", "Leave Card"):
+        return {"success": False, "message": "Invalid permission type."}
+    if attendance_status not in ("Absent", "Special Leave"):
+        return {"success": False, "message": "Invalid attendance status."}
+    if not reason or not destination:
+        return {"success": False, "message": "Reason and destination are required."}
+    if permission_type == "Leave Card" and not expected_return_date:
+        return {"success": False, "message": "Expected return date is required for Leave Card."}
+
+    now = get_ist_now()
+    created_at = now.strftime("%Y-%m-%d %H:%M:%S")
+    created_date = now.strftime("%Y-%m-%d")
+    created_day = now.strftime("%A")
+    c.execute("SELECT COUNT(*) FROM permissions WHERE created_date=?", (created_date,))
+    sequence = (c.fetchone()[0] or 0) + 1
+    permission_number = f"PM-{now.strftime('%Y%m%d')}-{sequence:04d}"
+
+    approval_required = 1 if role == "Class Teacher" else 0
+    status = "Pending Principal Approval" if approval_required else "Approved"
+    approved_by = None if approval_required else teacher_id
+    approved_role = None if approval_required else role
+    approved_time = None if approval_required else created_at
+    approved_date = None if approval_required else created_date
+
+    c.execute("""
+        INSERT INTO permissions (
+            permission_number, student_id, student_name, class, permission_type,
+            reason, destination, attendance_status, remarks, expected_return_time,
+            expected_return_date, created_by, created_by_role, created_at, status,
+            approval_required, approved_by, approved_role, approved_time, approved_date,
+            created_day, created_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        permission_number, sid, student_name, student_class, permission_type,
+        reason, destination, attendance_status, remarks, expected_return_time or None,
+        expected_return_date or None, teacher_id, role, created_at, status,
+        approval_required, approved_by, approved_role, approved_time, approved_date,
+        created_day, created_date
+    ))
+    permission_id = c.lastrowid
+    if status == "Approved":
+        sync_permission_attendance(c, permission_id, teacher_id)
+
+    return {
+        "success": True,
+        "message": "Permission request created successfully.",
+        "data": {
+            "id": permission_id,
+            "permissionNumber": permission_number,
+            "status": status,
+            "createdBy": teacher_name,
+        }
+    }
+
+
+def handle_get_permissions(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+    view = str(data.get("view") or "history").strip()
+    filters = data.get("filters") or {}
+
+    if not _is_permission_manager_role(role):
+        return {"success": False, "message": "Permission Manager is not available for this role."}
+    if view == "pending" and role not in ("Principal", "Vice Principal"):
+        return {"success": False, "message": "Only Principal and Vice Principal can access pending approvals."}
+
+    where = []
+    params = []
+    if role == "Class Teacher":
+        if not class_teacher_of:
+            c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
+            row = c.fetchone()
+            class_teacher_of = str(row[0] or "").strip() if row else ""
+        where.append("class=?")
+        params.append(class_teacher_of)
+    if view == "pending":
+        where.append("status='Pending Principal Approval'")
+    elif view == "active_leave":
+        where.append("permission_type='Leave Card'")
+        where.append("status IN ('Approved', 'Pending Return Approval')")
+    elif view == "history":
+        student = str(filters.get("student") or "").strip()
+        class_filter = str(filters.get("class") or "").strip()
+        date_filter = str(filters.get("date") or "").strip()
+        from_date_filter = str(filters.get("from_date") or "").strip()
+        to_date_filter = str(filters.get("to_date") or "").strip()
+        permission_type_filter = str(filters.get("permission_type") or "").strip()
+        permission_number_filter = str(filters.get("permission_number") or "").strip()
+        attendance_status_filter = str(filters.get("attendance_status") or "").strip()
+        created_by_filter = str(filters.get("created_by") or "").strip()
+        approved_by_filter = str(filters.get("approved_by") or "").strip()
+        reason_filter = str(filters.get("reason") or "").strip()
+        if student:
+            where.append("(student_name LIKE ? OR CAST(student_id AS TEXT) LIKE ? OR permission_number LIKE ?)")
+            params.extend([f"%{student}%", f"%{student}%", f"%{student}%"])
+        if permission_number_filter:
+            where.append("permission_number LIKE ?")
+            params.append(f"%{permission_number_filter}%")
+        if class_filter:
+            where.append("class=?")
+            params.append(class_filter)
+        if date_filter:
+            where.append("created_date=?")
+            params.append(date_filter)
+        if from_date_filter:
+            where.append("created_date>=?")
+            params.append(from_date_filter)
+        if to_date_filter:
+            where.append("created_date<=?")
+            params.append(to_date_filter)
+        if permission_type_filter:
+            where.append("permission_type=?")
+            params.append(permission_type_filter)
+        if attendance_status_filter:
+            where.append("attendance_status=?")
+            params.append(attendance_status_filter)
+        if created_by_filter:
+            where.append("(created_by_role LIKE ? OR CAST(created_by AS TEXT) LIKE ? OR creator.name LIKE ?)")
+            params.extend([f"%{created_by_filter}%", f"%{created_by_filter}%", f"%{created_by_filter}%"])
+        if approved_by_filter:
+            where.append("(approved_role LIKE ? OR CAST(approved_by AS TEXT) LIKE ? OR approver.name LIKE ?)")
+            params.extend([f"%{approved_by_filter}%", f"%{approved_by_filter}%", f"%{approved_by_filter}%"])
+        if reason_filter:
+            where.append("reason LIKE ?")
+            params.append(f"%{reason_filter}%")
+
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    c.execute(f"""
+        SELECT p.id, p.permission_number, p.student_id, p.student_name, p.class, p.permission_type,
+               p.reason, p.destination, p.attendance_status, p.remarks, p.expected_return_time,
+               p.expected_return_date, p.created_by, p.created_by_role, p.created_at, p.status,
+               p.approval_required, p.created_day, p.created_date, p.approved_by, p.approved_role,
+               p.approved_time, p.approved_date, creator.name, approver.name,
+               p.returned_teacher_id, p.returned_teacher_time, p.returned_principal_id,
+               p.returned_principal_time, p.returned_date
+        FROM permissions p
+        LEFT JOIN teachers creator ON creator.id = p.created_by
+        LEFT JOIN teachers approver ON approver.id = p.approved_by
+        {where_sql}
+        ORDER BY p.id DESC
+        LIMIT 200
+    """, params)
+    rows = c.fetchall()
+    records = [{
+        "id": r[0], "permissionNumber": r[1], "studentId": r[2], "studentName": r[3],
+        "class": r[4], "permissionType": r[5], "reason": r[6], "destination": r[7],
+        "attendanceStatus": r[8], "remarks": r[9], "expectedReturnTime": r[10],
+        "expectedReturnDate": r[11], "createdBy": r[12], "createdByRole": r[13],
+        "createdAt": r[14], "status": r[15], "approvalRequired": bool(r[16]),
+        "createdDay": r[17], "createdDate": r[18], "approvedBy": r[19],
+        "approvedRole": r[20], "approvedTime": r[21], "approvedDate": r[22],
+        "createdByName": r[23], "approvedByName": r[24],
+        "returnedTeacherId": r[25], "returnedTeacherTime": r[26],
+        "returnedPrincipalId": r[27], "returnedPrincipalTime": r[28],
+        "returnedDate": r[29]
+    } for r in rows]
+    return {"success": True, "data": records}
+
+
+def handle_approve_permission(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    permission_id = data.get("permission_id")
+
+    if role not in ("Principal", "Vice Principal"):
+        return {"success": False, "message": "Only Principal and Vice Principal can approve permissions."}
+
+    c.execute("""
+        SELECT id, status
+        FROM permissions
+        WHERE id=? AND status='Pending Principal Approval'
+    """, (permission_id,))
+    row = c.fetchone()
+    if not row:
+        return {"success": False, "message": "Pending permission not found."}
+
+    now = get_ist_now()
+    approved_time = now.strftime("%Y-%m-%d %H:%M:%S")
+    approved_date = now.strftime("%Y-%m-%d")
+    c.execute("""
+        UPDATE permissions
+        SET status='Approved',
+            approval_required=0,
+            approved_by=?,
+            approved_role=?,
+            approved_time=?,
+            approved_date=?
+        WHERE id=? AND status='Pending Principal Approval'
+    """, (teacher_id, role, approved_time, approved_date, permission_id))
+    sync_permission_attendance(c, permission_id, teacher_id)
+    return {"success": True, "message": "Permission approved successfully."}
+
+
+def handle_reject_permission(c, data):
+    role = str(data.get("user_role") or "")
+    permission_id = data.get("permission_id")
+
+    if role not in ("Principal", "Vice Principal"):
+        return {"success": False, "message": "Only Principal and Vice Principal can reject permissions."}
+
+    c.execute("DELETE FROM permissions WHERE id=? AND status='Pending Principal Approval'", (permission_id,))
+    if c.rowcount == 0:
+        return {"success": False, "message": "Pending permission not found."}
+    return {"success": True, "message": "Permission request rejected and removed."}
+
+
+def handle_teacher_return_approval(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+    permission_id = data.get("permission_id")
+
+    if role != "Class Teacher":
+        return {"success": False, "message": "Only the class teacher can start return approval."}
+    if not class_teacher_of:
+        c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
+        row = c.fetchone()
+        class_teacher_of = str(row[0] or "").strip() if row else ""
+
+    c.execute("""
+        SELECT id
+        FROM permissions
+        WHERE id=? AND permission_type='Leave Card' AND status='Approved' AND class=?
+          AND returned_teacher_id IS NULL
+    """, (permission_id, class_teacher_of))
+    if not c.fetchone():
+        return {"success": False, "message": "Active leave card not found or return already submitted."}
+
+    now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute("""
+        UPDATE permissions
+        SET status='Pending Return Approval',
+            returned_teacher_id=?,
+            returned_teacher_time=?
+        WHERE id=? AND status='Approved' AND returned_teacher_id IS NULL
+    """, (teacher_id, now, permission_id))
+    if c.rowcount == 0:
+        return {"success": False, "message": "Return approval was already submitted."}
+    return {"success": True, "message": "Return sent for principal approval."}
+
+
+def handle_principal_return_approval(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    permission_id = data.get("permission_id")
+
+    if not _is_return_manager_role(role):
+        return {"success": False, "message": "Only Principal and Vice Principal can approve returns."}
+
+    now_obj = get_ist_now()
+    now = now_obj.strftime("%Y-%m-%d %H:%M:%S")
+    returned_date = now_obj.strftime("%Y-%m-%d")
+    c.execute("""
+        UPDATE permissions
+        SET status='Closed',
+            returned_principal_id=?,
+            returned_principal_time=?,
+            returned_date=?
+        WHERE id=? AND permission_type='Leave Card' AND status='Pending Return Approval'
+          AND returned_teacher_id IS NOT NULL AND returned_principal_id IS NULL
+    """, (teacher_id, now, returned_date, permission_id))
+    if c.rowcount == 0:
+        return {"success": False, "message": "Pending return approval not found or already closed."}
+    return {"success": True, "message": "Leave card closed successfully."}
+
+
+def handle_reject_return_approval(c, data):
+    role = str(data.get("user_role") or "")
+    permission_id = data.get("permission_id")
+
+    if not _is_return_manager_role(role):
+        return {"success": False, "message": "Only Principal and Vice Principal can reject returns."}
+
+    c.execute("""
+        UPDATE permissions
+        SET status='Approved',
+            returned_teacher_id=NULL,
+            returned_teacher_time=NULL
+        WHERE id=? AND permission_type='Leave Card' AND status='Pending Return Approval'
+          AND returned_principal_id IS NULL
+    """, (permission_id,))
+    if c.rowcount == 0:
+        return {"success": False, "message": "Pending return approval not found."}
+    return {"success": True, "message": "Return request rejected."}
+
+
+def handle_permission_summary(c, data):
+    role = str(data.get("user_role") or "")
+    teacher_id = data.get("teacher_id")
+    class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+    today = get_ist_now().strftime("%Y-%m-%d")
+
+    where = []
+    params = []
+    if role == "Class Teacher":
+        if not class_teacher_of:
+            c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
+            row = c.fetchone()
+            class_teacher_of = str(row[0] or "").strip() if row else ""
+        where.append("class=?")
+        params.append(class_teacher_of)
+
+    def count(extra_where, extra_params=None):
+        clauses = where + extra_where
+        c.execute(f"SELECT COUNT(*) FROM permissions WHERE {' AND '.join(clauses) if clauses else '1=1'}", params + (extra_params or []))
+        return c.fetchone()[0] or 0
+
+    return {
+        "success": True,
+        "data": {
+            "pendingApprovals": count(["status='Pending Principal Approval'"]),
+            "todaysOutpasses": count(["permission_type='Outpass'", "created_date=?"], [today]),
+            "activeLeaveCards": count(["permission_type='Leave Card'", "status IN ('Approved', 'Pending Return Approval')"]),
+            "todaysPermissions": count(["created_date=?"], [today]),
+        }
+    }
+
+
 # === Bridge with Node.js & Web API ===
 if __name__ == "__main__":
     try:
@@ -4356,6 +4865,39 @@ if __name__ == "__main__":
 
                 elif action == "get_event_attendance":
                     result = get_event_attendance(c)
+
+                elif action == "get_permission_students":
+                    result = handle_get_permission_students(c, data)
+
+                elif action == "create_permission":
+                    result = handle_create_permission(c, data)
+                    conn.commit()
+
+                elif action == "get_permissions":
+                    result = handle_get_permissions(c, data)
+
+                elif action == "approve_permission":
+                    result = handle_approve_permission(c, data)
+                    conn.commit()
+
+                elif action == "reject_permission":
+                    result = handle_reject_permission(c, data)
+                    conn.commit()
+
+                elif action == "teacher_return_approval":
+                    result = handle_teacher_return_approval(c, data)
+                    conn.commit()
+
+                elif action == "principal_return_approval":
+                    result = handle_principal_return_approval(c, data)
+                    conn.commit()
+
+                elif action == "reject_return_approval":
+                    result = handle_reject_return_approval(c, data)
+                    conn.commit()
+
+                elif action == "get_permission_summary":
+                    result = handle_permission_summary(c, data)
 
                 elif action == "reset_namaz_data":
                     result = handle_reset_namaz_data(c, data)

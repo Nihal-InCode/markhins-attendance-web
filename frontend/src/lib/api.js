@@ -185,6 +185,35 @@ export const getNamazAnalytics = (params = {}) => {
 export const getNamazApiMonitor = () => apiRequest('/admin/namaz-api-monitor');
 export const getEventAttendance = () => apiRequest('/event-attendance');
 
+export const getPermissionStudents = () => apiRequest('/api/permissions/students');
+export const getPermissionSummary = () => apiRequest('/api/permissions/summary');
+export const createPermission = (data) => apiRequest('/api/permissions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+});
+export const getPermissions = (view = 'history', filters = {}) => {
+    const search = new URLSearchParams({ view });
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') search.set(key, value);
+    });
+    return apiRequest(`/api/permissions?${search.toString()}`);
+};
+export const approvePermission = (id) => apiRequest(`/api/permissions/${id}/approve`, {
+    method: 'POST',
+});
+export const rejectPermission = (id) => apiRequest(`/api/permissions/${id}/reject`, {
+    method: 'DELETE',
+});
+export const approveTeacherReturn = (id) => apiRequest(`/api/permissions/${id}/return/teacher`, {
+    method: 'POST',
+});
+export const approvePrincipalReturn = (id) => apiRequest(`/api/permissions/${id}/return/principal`, {
+    method: 'POST',
+});
+export const rejectPrincipalReturn = (id) => apiRequest(`/api/permissions/${id}/return/principal`, {
+    method: 'DELETE',
+});
+
 export const markExtraAttendance = (data) =>
     apiRequest('/attendance/extra', {
         method: 'POST',

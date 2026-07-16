@@ -40,7 +40,16 @@ import {
   getTimetableEditors,
   getAdminTimetable,
   getTeacherSubjectOptions,
-  updateTimetablePeriod
+  updateTimetablePeriod,
+  getPermissionStudents,
+  getPermissionSummary,
+  createPermission,
+  getPermissions,
+  approvePermission,
+  rejectPermission,
+  approveTeacherReturn,
+  approvePrincipalReturn,
+  rejectPrincipalReturn
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -95,6 +104,15 @@ const canManageHealthStatus = (user) => {
     || user?.role === 'Urdu Principal'
     || user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
 };
+
+const canUsePermissionManager = (user) => {
+  return user?.role === 'Class Teacher'
+    || user?.role === 'Principal'
+    || user?.role === 'Vice Principal'
+    || user?.role === 'admin';
+};
+
+const canApprovePermissions = (user) => user?.role === 'Principal' || user?.role === 'Vice Principal';
 
 const getDashboardRoleBadge = (user) => {
   const role = user?.role || 'Teacher';
@@ -536,6 +554,43 @@ export default function DashboardPage() {
   const [selectedSyllabusSubjectFilter, setSelectedSyllabusSubjectFilter] = useState("");
   const [mySyllabusClassFilter, setMySyllabusClassFilter] = useState("");
   const [syllabusPageProgressData, setSyllabusPageProgressData] = useState({});
+  const [permissionView, setPermissionView] = useState("new");
+  const [permissionStudents, setPermissionStudents] = useState([]);
+  const [permissionSearch, setPermissionSearch] = useState("");
+  const [permissionRecords, setPermissionRecords] = useState([]);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [permissionMessage, setPermissionMessage] = useState("");
+  const [permissionActionBusyId, setPermissionActionBusyId] = useState(null);
+  const [permissionSummary, setPermissionSummary] = useState({
+    pendingApprovals: 0,
+    todaysOutpasses: 0,
+    activeLeaveCards: 0,
+    todaysPermissions: 0,
+  });
+  const [permissionHistoryFilters, setPermissionHistoryFilters] = useState({
+    student: "",
+    class: "",
+    date: "",
+    from_date: "",
+    to_date: "",
+    permission_number: "",
+    permission_type: "",
+    attendance_status: "",
+    created_by: "",
+    approved_by: "",
+    reason: "",
+  });
+  const [permissionForm, setPermissionForm] = useState({
+    student_id: "",
+    permission_type: "Outpass",
+    reason: "Hospital",
+    custom_reason: "",
+    destination: "",
+    attendance_status: "Absent",
+    remarks: "",
+    expected_return_time: "",
+    expected_return_date: "",
+  });
 
   const getTrackingLabels = (trackingType) => {
     const h = trackingType === 'hadith';
@@ -592,7 +647,7 @@ export default function DashboardPage() {
       return;
     }
     const urlTab = searchParams.get('tab');
-    if (urlTab && ['attendance', 'timetable', 'reports'].includes(urlTab)) {
+    if (urlTab && ['attendance', 'timetable', 'reports', 'permission_manager'].includes(urlTab)) {
       setActiveTab(urlTab);
     }
     if (urlTab === 'reports') {
@@ -675,10 +730,11 @@ export default function DashboardPage() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const periods = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
   const isReportsTab = activeTab === "reports";
+  const isPermissionTab = activeTab === "permission_manager";
   const canEditTimetable = user?.role === 'admin' || timetableEditors.includes(String(user?.id)) || timetableEditors.includes(user?.username);
   const mainShellClass = activeTab === "timetable"
     ? "max-w-7xl px-4 sm:px-6 lg:px-8"
-    : isReportsTab
+    : (isReportsTab || isPermissionTab)
       ? "max-w-6xl px-4 sm:px-6 lg:px-8"
       : "max-w-md px-6";
 
@@ -963,6 +1019,13 @@ export default function DashboardPage() {
 
     return () => window.clearInterval(monitorInterval);
   }, [activeTab, reportType, selectedDate, user?.role]);
+
+  useEffect(() => {
+    if (activeTab !== "permission_manager" || !canUsePermissionManager(user)) return;
+    fetchPermissionSummary();
+    fetchPermissionStudents();
+    if (permissionView !== "new") fetchPermissionRecords(permissionView);
+  }, [activeTab, user?.id, user?.role]);
 
   // Auto-refresh daily report every 30 seconds when on reports tab
   useEffect(() => {
@@ -1304,6 +1367,195 @@ export default function DashboardPage() {
       }
     } catch (err) {
       alert("Error: " + err.message);
+    } finally {
+      hideLoader();
+    }
+  };
+
+  const selectedPermissionStudent = permissionStudents.find(s => String(s.id) === String(permissionForm.student_id));
+  const filteredPermissionStudents = permissionStudents.filter((student) => {
+    const query = permissionSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${student.name} ${student.rollNo} ${student.class}`.toLowerCase().includes(query);
+  }).slice(0, 80);
+
+  const fetchPermissionStudents = async () => {
+    if (!canUsePermissionManager(user)) return;
+    try {
+      const data = await getPermissionStudents();
+      setPermissionStudents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to load students.");
+    }
+  };
+
+  const fetchPermissionSummary = async () => {
+    if (!canUsePermissionManager(user)) return;
+    try {
+      const data = await getPermissionSummary();
+      setPermissionSummary(data || {});
+    } catch (err) {
+      setPermissionSummary({ pendingApprovals: 0, todaysOutpasses: 0, activeLeaveCards: 0, todaysPermissions: 0 });
+    }
+  };
+
+  const fetchPermissionRecords = async (view = permissionView, filters = permissionHistoryFilters) => {
+    if (!canUsePermissionManager(user) || view === "new") return;
+    if (view === "pending" && !canApprovePermissions(user)) {
+      setPermissionMessage("Only Principal and Vice Principal can access pending approvals.");
+      setPermissionRecords([]);
+      return;
+    }
+    setLoadingPermissions(true);
+    try {
+      const apiView = view === "pending" ? "pending" : view === "active" ? "active_leave" : "history";
+      const data = await getPermissions(apiView, apiView === "history" ? filters : {});
+      setPermissionRecords(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to load permissions.");
+      setPermissionRecords([]);
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handlePermissionViewChange = (view) => {
+    if (view === "pending" && !canApprovePermissions(user)) {
+      setPermissionMessage("Only Principal and Vice Principal can access pending approvals.");
+      return;
+    }
+    setPermissionView(view);
+    setPermissionMessage("");
+    if (view !== "new") fetchPermissionRecords(view);
+  };
+
+  const handlePermissionHistorySearch = (e) => {
+    e.preventDefault();
+    fetchPermissionRecords("history", permissionHistoryFilters);
+  };
+
+  const handleApprovePermission = async (permissionId) => {
+    if (!canApprovePermissions(user)) return;
+    setPermissionActionBusyId(permissionId);
+    setPermissionMessage("");
+    try {
+      const res = await approvePermission(permissionId);
+      setPermissionMessage(res.message || "Permission approved.");
+      fetchPermissionSummary();
+      await fetchPermissionRecords("pending");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to approve permission.");
+    } finally {
+      setPermissionActionBusyId(null);
+    }
+  };
+
+  const handleRejectPermission = async (permissionId) => {
+    if (!canApprovePermissions(user)) return;
+    setPermissionActionBusyId(permissionId);
+    setPermissionMessage("");
+    try {
+      const res = await rejectPermission(permissionId);
+      setPermissionMessage(res.message || "Permission rejected.");
+      fetchPermissionSummary();
+      await fetchPermissionRecords("pending");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to reject permission.");
+    } finally {
+      setPermissionActionBusyId(null);
+    }
+  };
+
+  const handleTeacherReturnApproval = async (permissionId) => {
+    setPermissionActionBusyId(permissionId);
+    setPermissionMessage("");
+    try {
+      const res = await approveTeacherReturn(permissionId);
+      setPermissionMessage(res.message || "Return submitted.");
+      fetchPermissionSummary();
+      await fetchPermissionRecords("active");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to submit return.");
+    } finally {
+      setPermissionActionBusyId(null);
+    }
+  };
+
+  const handlePrincipalReturnApproval = async (permissionId) => {
+    setPermissionActionBusyId(permissionId);
+    setPermissionMessage("");
+    try {
+      const res = await approvePrincipalReturn(permissionId);
+      setPermissionMessage(res.message || "Leave card closed.");
+      fetchPermissionSummary();
+      await fetchPermissionRecords("active");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to approve return.");
+    } finally {
+      setPermissionActionBusyId(null);
+    }
+  };
+
+  const handlePrincipalReturnReject = async (permissionId) => {
+    setPermissionActionBusyId(permissionId);
+    setPermissionMessage("");
+    try {
+      const res = await rejectPrincipalReturn(permissionId);
+      setPermissionMessage(res.message || "Return rejected.");
+      fetchPermissionSummary();
+      await fetchPermissionRecords("active");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to reject return.");
+    } finally {
+      setPermissionActionBusyId(null);
+    }
+  };
+
+  const handleCreatePermission = async (e) => {
+    e.preventDefault();
+    setPermissionMessage("");
+    if (!permissionForm.student_id) {
+      setPermissionMessage("Please select a student.");
+      return;
+    }
+    const reason = permissionForm.reason === "Other" ? permissionForm.custom_reason.trim() : permissionForm.reason;
+    if (!reason || !permissionForm.destination.trim()) {
+      setPermissionMessage("Reason and destination are required.");
+      return;
+    }
+    if (permissionForm.permission_type === "Leave Card" && !permissionForm.expected_return_date) {
+      setPermissionMessage("Expected return date is required for Leave Card.");
+      return;
+    }
+    showLoader("Creating permission...");
+    try {
+      const res = await createPermission({
+        student_id: Number(permissionForm.student_id),
+        permission_type: permissionForm.permission_type,
+        reason,
+        destination: permissionForm.destination.trim(),
+        attendance_status: permissionForm.attendance_status,
+        remarks: permissionForm.remarks.trim(),
+        expected_return_time: permissionForm.permission_type === "Outpass" ? permissionForm.expected_return_time : "",
+        expected_return_date: permissionForm.permission_type === "Leave Card" ? permissionForm.expected_return_date : "",
+      });
+      setPermissionMessage(`${res.message || "Permission created."} ${res.data?.permissionNumber ? `No: ${res.data.permissionNumber}` : ""}`);
+      setPermissionForm({
+        student_id: "",
+        permission_type: "Outpass",
+        reason: "Hospital",
+        custom_reason: "",
+        destination: "",
+        attendance_status: "Absent",
+        remarks: "",
+        expected_return_time: "",
+        expected_return_date: "",
+      });
+      setPermissionSearch("");
+      fetchPermissionSummary();
+      trackEvent("Created permission request", res.data?.status || "");
+    } catch (err) {
+      setPermissionMessage(err.message || "Failed to create permission.");
     } finally {
       hideLoader();
     }
@@ -2575,8 +2827,34 @@ export default function DashboardPage() {
                 return (
                   <div className="space-y-6 animate-in fade-in">
                     <div className="rounded-3xl p-6 text-center" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
-                      <h2 className="text-2xl font-black text-white">Reports</h2>
-                      <p className="text-xs text-white/50 font-medium mt-1">Track attendance, analytics & more</p>
+                      <h2 className="text-2xl font-black text-white">Management</h2>
+                      <p className="text-xs text-white/50 font-medium mt-1">Reports, permissions and syllabus tools</p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => { setReportType('overview'); router.push('/?tab=reports&type=overview', { scroll: false }); }}
+                        className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center text-emerald-700 shadow-sm transition-all active:scale-[0.98]">
+                        <span className="block text-2xl">📊</span>
+                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Reports</span>
+                      </button>
+                      {canUsePermissionManager(user) && (
+                        <button onClick={() => switchTab('permission_manager')}
+                          className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-center text-teal-700 shadow-sm transition-all active:scale-[0.98]">
+                          <span className="block text-2xl">🪪</span>
+                          <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Permission Manager</span>
+                        </button>
+                      )}
+                      <button onClick={() => { setReportType('syllabus'); router.push('/?tab=reports&type=syllabus', { scroll: false }); }}
+                        className="rounded-2xl border border-violet-100 bg-violet-50 p-4 text-center text-violet-700 shadow-sm transition-all active:scale-[0.98]">
+                        <span className="block text-2xl">📖</span>
+                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Syllabus</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-gray-100" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Reports</span>
+                      <div className="h-px flex-1 bg-gray-100" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -4850,6 +5128,257 @@ export default function DashboardPage() {
           </>
         )}
 
+        {activeTab === "permission_manager" && canUsePermissionManager(user) && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="rounded-3xl p-6" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-white">Permission Manager</h2>
+                  <p className="text-xs text-white/50 font-medium mt-1">Create and track outpass and leave card requests</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ["new", "New Permission"],
+                    ...(canApprovePermissions(user) ? [["pending", "Pending Approvals"]] : []),
+                    ["active", "Active Leave Cards"],
+                    ["history", "Permission History"],
+                  ].map(([id, label]) => (
+                    <button key={id} onClick={() => handlePermissionViewChange(id)}
+                      className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${permissionView === id ? "bg-white text-[#0a505c]" : "bg-white/10 text-white/70 hover:bg-white/15"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {permissionMessage && (
+              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm font-bold text-teal-800">
+                {permissionMessage}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[
+                ["Pending Approvals", permissionSummary.pendingApprovals || 0],
+                ["Today's Outpasses", permissionSummary.todaysOutpasses || 0],
+                ["Active Leave Cards", permissionSummary.activeLeaveCards || 0],
+                ["Today's Permissions", permissionSummary.todaysPermissions || 0],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
+                  <p className="text-2xl font-black text-[#0d9488]">{value}</p>
+                  <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-gray-400">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {permissionView === "new" ? (
+              <form onSubmit={handleCreatePermission} className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-4">
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Student</label>
+                    <input value={permissionSearch} onChange={(e) => setPermissionSearch(e.target.value)}
+                      placeholder="Search by name, roll or class"
+                      className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:ring-2 focus:ring-teal-100" />
+                  </div>
+                  <div className="max-h-72 overflow-y-auto rounded-2xl border border-gray-100 divide-y divide-gray-50">
+                    {filteredPermissionStudents.map((student) => (
+                      <button type="button" key={student.id}
+                        onClick={() => setPermissionForm(prev => ({ ...prev, student_id: String(student.id) }))}
+                        className={`w-full flex items-center gap-3 p-3 text-left transition-all ${String(permissionForm.student_id) === String(student.id) ? "bg-teal-50" : "bg-white hover:bg-gray-50"}`}>
+                        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-[11px] font-black text-white">{student.rollNo}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black text-gray-800">{student.name}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class {student.class}</span>
+                        </span>
+                      </button>
+                    ))}
+                    {filteredPermissionStudents.length === 0 && (
+                      <div className="p-6 text-center text-xs font-bold text-gray-400">No students found.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Class</label>
+                      <input readOnly value={selectedPermissionStudent?.class || ""}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-black text-gray-700 outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Permission Type</label>
+                      <select value={permissionForm.permission_type}
+                        onChange={(e) => setPermissionForm(prev => ({ ...prev, permission_type: e.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200">
+                        <option>Outpass</option>
+                        <option>Leave Card</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Reason</label>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {["Hospital", "Native Place", "Passport Office", "Government Office", "Interview", "Exam", "Shopping", "Family Function", "Emergency", "Other"].map((reason) => (
+                        <button type="button" key={reason} onClick={() => setPermissionForm(prev => ({ ...prev, reason }))}
+                          className={`rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider ${permissionForm.reason === reason ? "border-teal-300 bg-teal-50 text-teal-700" : "border-gray-100 bg-white text-gray-500"}`}>
+                          {reason}
+                        </button>
+                      ))}
+                    </div>
+                    {permissionForm.reason === "Other" && (
+                      <input value={permissionForm.custom_reason} onChange={(e) => setPermissionForm(prev => ({ ...prev, custom_reason: e.target.value }))}
+                        placeholder="Enter reason"
+                        className="mt-3 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Destination</label>
+                      <input value={permissionForm.destination} onChange={(e) => setPermissionForm(prev => ({ ...prev, destination: e.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</label>
+                      <select value={permissionForm.attendance_status} onChange={(e) => setPermissionForm(prev => ({ ...prev, attendance_status: e.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200">
+                        <option>Absent</option>
+                        <option>Special Leave</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {permissionForm.permission_type === "Outpass" ? (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Expected Return Time</label>
+                      <input type="time" value={permissionForm.expected_return_time} onChange={(e) => setPermissionForm(prev => ({ ...prev, expected_return_time: e.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Expected Return Date</label>
+                      <input type="date" value={permissionForm.expected_return_date} onChange={(e) => setPermissionForm(prev => ({ ...prev, expected_return_date: e.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Remarks</label>
+                    <textarea value={permissionForm.remarks} onChange={(e) => setPermissionForm(prev => ({ ...prev, remarks: e.target.value }))}
+                      rows={3}
+                      className="mt-2 w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                  </div>
+
+                  <button type="submit" className="w-full rounded-2xl bg-[#0d9488] px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-teal-100 transition-all active:scale-[0.98]">
+                    Create Permission
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                {permissionView === "history" && (
+                  <form onSubmit={handlePermissionHistorySearch} className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      <input value={permissionHistoryFilters.permission_number} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, permission_number: e.target.value }))} placeholder="Permission Number" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <input value={permissionHistoryFilters.student} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, student: e.target.value }))} placeholder="Student" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <select value={permissionHistoryFilters.class} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, class: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
+                        <option value="">All Classes</option>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <select value={permissionHistoryFilters.permission_type} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, permission_type: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
+                        <option value="">All Types</option>
+                        <option>Outpass</option>
+                        <option>Leave Card</option>
+                      </select>
+                      <select value={permissionHistoryFilters.attendance_status} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, attendance_status: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200">
+                        <option value="">All Attendance</option>
+                        <option>Absent</option>
+                        <option>Special Leave</option>
+                      </select>
+                      <input type="date" value={permissionHistoryFilters.from_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, from_date: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <input type="date" value={permissionHistoryFilters.to_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, to_date: e.target.value }))} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <input value={permissionHistoryFilters.created_by} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, created_by: e.target.value }))} placeholder="Created By" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <input value={permissionHistoryFilters.approved_by} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, approved_by: e.target.value }))} placeholder="Approved By" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <input value={permissionHistoryFilters.reason} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, reason: e.target.value }))} placeholder="Reason" className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-bold outline-none focus:border-teal-200" />
+                      <button type="submit" className="rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white">Search</button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
+                  {loadingPermissions ? (
+                    <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" /></div>
+                  ) : permissionRecords.length === 0 ? (
+                    <div className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">No permission records found.</div>
+                  ) : (
+                    <div className="divide-y divide-gray-50">
+                      {permissionRecords.map((record) => (
+                        <div key={record.id} className="p-4 sm:p-5 flex flex-col gap-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-lg bg-gray-900 px-2 py-1 text-[10px] font-black text-white">{record.permissionNumber}</span>
+                                <span className="rounded-lg bg-teal-50 px-2 py-1 text-[10px] font-black text-teal-700">{record.permissionType}</span>
+                                <span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">{record.status}</span>
+                              </div>
+                              <p className="mt-2 text-sm font-black text-gray-900">{record.studentName} <span className="text-gray-400">/ Class {record.class}</span></p>
+                              <p className="mt-1 text-xs font-bold text-gray-500">{record.reason} to {record.destination}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-left sm:text-right">
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance</p>
+                                <p className="text-xs font-black text-gray-700">{record.attendanceStatus}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{permissionView === "pending" ? "Created" : "Approval"}</p>
+                                <p className="text-[10px] font-bold text-gray-500">{permissionView === "pending" ? record.createdAt : (record.approvedTime || "Pending")}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2 text-[10px] font-bold text-gray-500 sm:grid-cols-3">
+                            <p><span className="text-gray-400 uppercase tracking-widest">Created By:</span> {record.createdByName || record.createdByRole || record.createdBy || "-"}</p>
+                            <p><span className="text-gray-400 uppercase tracking-widest">Approved By:</span> {record.approvedByName || record.approvedRole || record.approvedBy || "-"}</p>
+                            <p><span className="text-gray-400 uppercase tracking-widest">Created Date:</span> {record.createdDate || "-"}</p>
+                          </div>
+
+                          {permissionView === "pending" && canApprovePermissions(user) && (
+                            <div className="flex gap-2">
+                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleApprovePermission(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve</button>
+                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleRejectPermission(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50">Reject</button>
+                            </div>
+                          )}
+
+                          {permissionView === "active" && record.permissionType === "Leave Card" && (
+                            <div className="space-y-2">
+                              <div className="grid gap-2 text-[10px] font-bold text-gray-500 sm:grid-cols-3">
+                                <p><span className="text-gray-400 uppercase tracking-widest">Teacher Return:</span> {record.returnedTeacherTime || "-"}</p>
+                                <p><span className="text-gray-400 uppercase tracking-widest">Final Return:</span> {record.returnedPrincipalTime || "-"}</p>
+                                <p><span className="text-gray-400 uppercase tracking-widest">Returned Date:</span> {record.returnedDate || "-"}</p>
+                              </div>
+                              {user?.role === "Class Teacher" && record.status === "Approved" && !record.returnedTeacherTime && (
+                                <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve Return</button>
+                              )}
+                              {canApprovePermissions(user) && record.status === "Pending Return Approval" && (
+                                <div className="flex gap-2">
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Approve Return</button>
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnReject(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50">Reject Return</button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── SYLLABUS MANAGEMENT TAB (ADMIN ONLY) ── */}
         {activeTab === "syllabus_management" && user?.role === 'admin' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -6074,7 +6603,7 @@ export default function DashboardPage() {
           {(() => {
             const tabs = user?.role === 'Majlis' ? [
               {
-                id: 'reports', label: 'Reports',
+                id: 'reports', label: 'Management',
                 icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
               }
             ] : [
@@ -6087,7 +6616,7 @@ export default function DashboardPage() {
                 icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>)
               },
               {
-                id: 'reports', label: 'Reports',
+                id: 'reports', label: 'Management',
                 icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)
               }
             ];
@@ -6114,22 +6643,25 @@ export default function DashboardPage() {
               });
             }
 
-            return tabs.map(({ id, label, icon }) => (
+            return tabs.map(({ id, label, icon }) => {
+              const selected = activeTab === id || (id === 'reports' && activeTab === 'permission_manager');
+              return (
               <button
                 key={id}
                 onClick={() => switchTab(id)}
                 className="flex flex-col items-center gap-1 px-2.5 py-1 rounded-2xl transition-all active:scale-90"
-                style={{ color: activeTab === id ? '#ffffff' : 'rgba(255,255,255,0.45)' }}
+                style={{ color: selected ? '#ffffff' : 'rgba(255,255,255,0.45)' }}
               >
-                <div className={`transition-all duration-200 ${activeTab === id ? 'scale-110' : 'scale-100'}`}>
+                <div className={`transition-all duration-200 ${selected ? 'scale-110' : 'scale-100'}`}>
                   {icon}
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-center">{label}</span>
-                {activeTab === id && (
+                {selected && (
                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#5eead4' }} />
                 )}
               </button>
-            ));
+              );
+            });
           })()}
         </div>
       </nav>

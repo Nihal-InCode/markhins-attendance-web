@@ -252,6 +252,24 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/api/syllabus/config/:id' && method === 'DELETE') {
         return { type: 'Syllabus', summary: 'Deleted syllabus config', meta: `Config ${req.params?.id || ''}` };
     }
+    if (routePath === '/api/permissions' && method === 'GET') {
+        return { type: 'Permission', summary: 'Viewed permissions', meta: req.query?.view || 'History' };
+    }
+    if (routePath === '/api/permissions' && method === 'POST') {
+        return { type: 'Permission', summary: 'Created permission request', meta: req.body?.permission_type || 'Permission' };
+    }
+    if (routePath === '/api/permissions/:id/approve' && method === 'POST') {
+        return { type: 'Permission', summary: 'Approved permission request', meta: `Permission ${req.params?.id || ''}` };
+    }
+    if (routePath === '/api/permissions/:id/reject' && method === 'DELETE') {
+        return { type: 'Permission', summary: 'Rejected permission request', meta: `Permission ${req.params?.id || ''}` };
+    }
+    if (routePath === '/api/permissions/:id/return/teacher' && method === 'POST') {
+        return { type: 'Permission', summary: 'Submitted leave card return', meta: `Permission ${req.params?.id || ''}` };
+    }
+    if (routePath === '/api/permissions/:id/return/principal' && method === 'POST') {
+        return { type: 'Permission', summary: 'Closed leave card return', meta: `Permission ${req.params?.id || ''}` };
+    }
     if (routePath === '/extra-subjects' && method === 'GET') {
         return { type: 'Extra Class', summary: 'Viewed extra class subjects', meta: req.query?.classId || 'All' };
     }
@@ -927,6 +945,162 @@ app.get('/event-attendance', authenticateToken, async (req, res) => {
             action: "get_event_attendance"
         });
         res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/permissions/students', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_permission_students",
+            teacher_id: req.user.id,
+            user_role: req.user.role,
+            class_teacher_of: req.user.class_teacher_of
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/permissions/summary', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_permission_summary",
+            teacher_id: req.user.id,
+            user_role: req.user.role,
+            class_teacher_of: req.user.class_teacher_of
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/permissions', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_permissions",
+            view: req.query.view || "history",
+            filters: {
+                student: req.query.student,
+                class: req.query.class,
+                date: req.query.date,
+                from_date: req.query.from_date,
+                to_date: req.query.to_date,
+                permission_number: req.query.permission_number,
+                permission_type: req.query.permission_type,
+                attendance_status: req.query.attendance_status,
+                created_by: req.query.created_by,
+                approved_by: req.query.approved_by,
+                reason: req.query.reason,
+            },
+            teacher_id: req.user.id,
+            user_role: req.user.role,
+            class_teacher_of: req.user.class_teacher_of
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/permissions', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "create_permission",
+            ...req.body,
+            teacher_id: req.user.id,
+            teacher_name: req.user.name,
+            user_role: req.user.role,
+            class_teacher_of: req.user.class_teacher_of
+        });
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/permissions/:id/approve', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') {
+            return res.status(403).json({ success: false, message: 'Only Principal and Vice Principal can approve permissions.' });
+        }
+        const result = await callPython({
+            action: "approve_permission",
+            permission_id: Number(req.params.id),
+            teacher_id: req.user.id,
+            user_role: req.user.role
+        });
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/api/permissions/:id/reject', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') {
+            return res.status(403).json({ success: false, message: 'Only Principal and Vice Principal can reject permissions.' });
+        }
+        const result = await callPython({
+            action: "reject_permission",
+            permission_id: Number(req.params.id),
+            user_role: req.user.role
+        });
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/permissions/:id/return/teacher', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Class Teacher') {
+            return res.status(403).json({ success: false, message: 'Only Class Teachers can approve student return first.' });
+        }
+        const result = await callPython({
+            action: "teacher_return_approval",
+            permission_id: Number(req.params.id),
+            teacher_id: req.user.id,
+            user_role: req.user.role,
+            class_teacher_of: req.user.class_teacher_of
+        });
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/permissions/:id/return/principal', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') {
+            return res.status(403).json({ success: false, message: 'Only Principal and Vice Principal can approve final return.' });
+        }
+        const result = await callPython({
+            action: "principal_return_approval",
+            permission_id: Number(req.params.id),
+            teacher_id: req.user.id,
+            user_role: req.user.role
+        });
+        res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/api/permissions/:id/return/principal', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') {
+            return res.status(403).json({ success: false, message: 'Only Principal and Vice Principal can reject final return.' });
+        }
+        const result = await callPython({
+            action: "reject_return_approval",
+            permission_id: Number(req.params.id),
+            user_role: req.user.role
+        });
+        res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
