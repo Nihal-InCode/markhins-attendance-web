@@ -5888,6 +5888,126 @@ export default function DashboardPage() {
                     )}
                   </div>
                 )}
+
+                {permissionView !== "history" && (
+                  <div className="space-y-4">
+                    <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
+                      {loadingPermissions ? (
+                        <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" /></div>
+                      ) : permissionRecords.length === 0 ? (
+                        <div className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">No active records found.</div>
+                      ) : (
+                        <div className="divide-y divide-gray-50">
+                          {permissionRecords.map((record) => (
+                            <div key={record.id} className="p-4 sm:p-5 flex flex-col gap-4 bg-white rounded-3xl border border-gray-100 hover:border-teal-100 hover:shadow-md transition-all">
+                              {/* Card Header */}
+                              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="rounded-lg bg-gray-900 px-2 py-1 text-[9px] font-black text-white uppercase tracking-wider">{record.permissionNumber}</span>
+                                    <span className="rounded-lg bg-teal-50 px-2 py-1 text-[9px] font-black text-teal-700 uppercase tracking-wider">{record.permissionType}</span>
+                                    <span className={`rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-wider ${
+                                      record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
+                                      record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
+                                      "bg-red-50 text-red-700"
+                                    }`}>{record.status}</span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-black text-gray-900">{record.studentName} <span className="text-gray-400 font-bold">/ Class {record.class}</span></p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</p>
+                                  <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-black text-amber-800 border border-amber-200/50">{record.attendanceStatus}</span>
+                                </div>
+                              </div>
+
+                              {/* Info Grid */}
+                              <div className="grid grid-cols-2 gap-4 text-xs font-bold text-gray-700 sm:grid-cols-3 md:grid-cols-4">
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Reason</p>
+                                  <p className="mt-1 text-gray-800">{record.reason || "-"}</p>
+                                </div>
+                                {record.permissionType === "Outpass" ? (
+                                  <>
+                                    <div>
+                                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Time</p>
+                                      <p className="mt-1 text-gray-800">{record.leavingTime ? formatTo12Hr(record.leavingTime) : "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Expected Return</p>
+                                      <p className="mt-1 text-gray-800">{record.expectedReturnTime ? formatTo12Hr(record.expectedReturnTime) : "-"}</p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Date</p>
+                                    <p className="mt-1 text-gray-800">{record.leavingDate ? formatDate(record.leavingDate) : "-"}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created Date</p>
+                                  <p className="mt-1 text-gray-800">{record.createdDate ? formatDate(record.createdDate) : "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created By</p>
+                                  <p className="mt-1 text-gray-800 truncate">{record.createdByName || record.createdByRole || "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Approved By</p>
+                                  <p className="mt-1 text-gray-800 truncate">{record.approvedByName || record.approvedRole || "-"}</p>
+                                </div>
+                                {(record.returnedTeacherTime || record.returnedPrincipalTime) && (
+                                  <>
+                                    <div>
+                                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Teacher Return</p>
+                                      <p className="mt-1 text-gray-800">{record.returnedTeacherTime ? formatTo12Hr(record.returnedTeacherTime) : "-"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Final Return</p>
+                                      <p className="mt-1 text-gray-800">{record.returnedPrincipalTime ? formatTo12Hr(record.returnedPrincipalTime) : "-"}</p>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Remarks Block */}
+                              {record.remarks && (
+                                <div className="rounded-xl bg-gray-50 p-3 border border-gray-150">
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Remarks</p>
+                                  <p className="mt-1 text-xs italic font-bold text-gray-600">"{record.remarks}"</p>
+                                </div>
+                              )}
+
+                              {/* Action Controls */}
+                              {permissionView === "pending" && canApprovePermissions(user) && (
+                                <div className="flex gap-2 border-t border-gray-50 pt-3">
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handleApprovePermission(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 active:scale-95 transition-all">Approve</button>
+                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handleRejectPermission(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 active:scale-95 transition-all">Reject</button>
+                                </div>
+                              )}
+
+                              {permissionView === "active" && record.permissionType === "Leave Card" && (
+                                <div className="border-t border-gray-50 pt-3 space-y-2">
+                                  {user?.role === "Class Teacher" && record.status === "Approved" && !record.returnedTeacherTime && (
+                                    <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-[#0b7a70] transition-all">Approve Return</button>
+                                  )}
+                                  {canApprovePermissions(user) && record.status === "Pending Return Approval" && (
+                                    <div className="flex gap-2">
+                                      <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 transition-all">Approve Return</button>
+                                      <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnReject(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 transition-all">Reject Return</button>
+                                    </div>
+                                  )}
+                                  {canApprovePermissions(user) && record.status === "Approved" && (
+                                    <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="w-full rounded-2xl bg-teal-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-teal-700 transition-all">Mark Return & Close</button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
