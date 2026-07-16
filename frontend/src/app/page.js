@@ -456,6 +456,14 @@ export default function DashboardPage() {
     const day = parts.find((part) => part.type === 'day')?.value;
     return `${year}-${month}-${day}`;
   };
+  const getIstTimeString = () => {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
+  };
   const getUpcomingDateForWeekday = (weekdayIndex) => {
     const [year, month, day] = getIstDateString().split("-").map(Number);
     const date = new Date(Date.UTC(year, month - 1, day));
@@ -588,6 +596,8 @@ export default function DashboardPage() {
     destination: "",
     attendance_status: "Absent",
     remarks: "",
+    leaving_time: getIstTimeString(),
+    leaving_date: getIstDateString(),
     expected_return_time: "",
     expected_return_date: "",
   });
@@ -1512,7 +1522,7 @@ export default function DashboardPage() {
   };
 
   const handleCreatePermission = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setPermissionMessage("");
     if (!permissionForm.student_id) {
       setPermissionMessage("Please select a student.");
@@ -1521,10 +1531,6 @@ export default function DashboardPage() {
     const reason = permissionForm.reason === "Other" ? permissionForm.custom_reason.trim() : permissionForm.reason;
     if (!reason || !permissionForm.destination.trim()) {
       setPermissionMessage("Reason and destination are required.");
-      return;
-    }
-    if (permissionForm.permission_type === "Leave Card" && !permissionForm.expected_return_date) {
-      setPermissionMessage("Expected return date is required for Leave Card.");
       return;
     }
     showLoader("Creating permission...");
@@ -1536,10 +1542,12 @@ export default function DashboardPage() {
         destination: permissionForm.destination.trim(),
         attendance_status: permissionForm.attendance_status,
         remarks: permissionForm.remarks.trim(),
+        leaving_time: permissionForm.permission_type === "Outpass" ? permissionForm.leaving_time : "",
+        leaving_date: permissionForm.permission_type === "Leave Card" ? permissionForm.leaving_date : "",
         expected_return_time: permissionForm.permission_type === "Outpass" ? permissionForm.expected_return_time : "",
-        expected_return_date: permissionForm.permission_type === "Leave Card" ? permissionForm.expected_return_date : "",
+        expected_return_date: "",
       });
-      setPermissionMessage(`${res.message || "Permission created."} ${res.data?.permissionNumber ? `No: ${res.data.permissionNumber}` : ""}`);
+      setPermissionMessage(`${res.message || "Permission created successfully."} ${res.data?.permissionNumber ? `No: ${res.data.permissionNumber}` : ""}`);
       setPermissionForm({
         student_id: "",
         permission_type: "Outpass",
@@ -1548,6 +1556,8 @@ export default function DashboardPage() {
         destination: "",
         attendance_status: "Absent",
         remarks: "",
+        leaving_time: getIstTimeString(),
+        leaving_date: getIstDateString(),
         expected_return_time: "",
         expected_return_date: "",
       });
@@ -1578,7 +1588,6 @@ export default function DashboardPage() {
       hideLoader();
     }
   };
-
 
   async function fetchExtraClassesReport(customDate) {
     const targetDate = customDate || selectedDate;
@@ -5173,109 +5182,184 @@ export default function DashboardPage() {
             </div>
 
             {permissionView === "new" ? (
-              <form onSubmit={handleCreatePermission} className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-4">
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Student</label>
-                    <input value={permissionSearch} onChange={(e) => setPermissionSearch(e.target.value)}
-                      placeholder="Search by name, roll or class"
-                      className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:ring-2 focus:ring-teal-100" />
+              <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm space-y-6">
+                {/* Step Indicators */}
+                <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${!permissionForm.student_id ? "bg-teal-600 text-white" : "bg-teal-100 text-teal-700"}`}>1</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-800">Select Student</span>
                   </div>
-                  <div className="max-h-72 overflow-y-auto rounded-2xl border border-gray-100 divide-y divide-gray-50">
-                    {filteredPermissionStudents.map((student) => (
-                      <button type="button" key={student.id}
-                        onClick={() => setPermissionForm(prev => ({ ...prev, student_id: String(student.id) }))}
-                        className={`w-full flex items-center gap-3 p-3 text-left transition-all ${String(permissionForm.student_id) === String(student.id) ? "bg-teal-50" : "bg-white hover:bg-gray-50"}`}>
-                        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-900 text-[11px] font-black text-white">{student.rollNo}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-black text-gray-800">{student.name}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class {student.class}</span>
-                        </span>
-                      </button>
-                    ))}
-                    {filteredPermissionStudents.length === 0 && (
-                      <div className="p-6 text-center text-xs font-bold text-gray-400">No students found.</div>
-                    )}
+                  <div className="h-0.5 w-8 bg-gray-100" />
+                  <div className="flex items-center gap-2">
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${permissionForm.student_id && !(permissionForm.permission_type === "Outpass" ? (permissionForm.leaving_time && permissionForm.expected_return_time && permissionForm.destination) : (permissionForm.leaving_date && permissionForm.destination)) ? "bg-teal-600 text-white" : (!permissionForm.student_id ? "bg-gray-100 text-gray-400" : "bg-teal-100 text-teal-700")}`}>2</span>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${permissionForm.student_id ? "text-gray-800" : "text-gray-400"}`}>Details</span>
+                  </div>
+                  <div className="h-0.5 w-8 bg-gray-100" />
+                  <div className="flex items-center gap-2">
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${permissionForm.student_id && (permissionForm.permission_type === "Outpass" ? (permissionForm.leaving_time && permissionForm.expected_return_time && permissionForm.destination) : (permissionForm.leaving_date && permissionForm.destination)) ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-400"}`}>3</span>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${permissionForm.student_id && (permissionForm.permission_type === "Outpass" ? (permissionForm.leaving_time && permissionForm.expected_return_time && permissionForm.destination) : (permissionForm.leaving_date && permissionForm.destination)) ? "text-gray-800" : "text-gray-400"}`}>Reason & Save</span>
                   </div>
                 </div>
 
-                <div className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                {/* STEP 1: SELECT STUDENT */}
+                <div className="space-y-4">
+                  {!permissionForm.student_id ? (
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Class</label>
-                      <input readOnly value={selectedPermissionStudent?.class || ""}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-black text-gray-700 outline-none" />
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Step 1: Search Student</label>
+                      <div className="relative mt-2">
+                        <input value={permissionSearch} onChange={(e) => setPermissionSearch(e.target.value)}
+                          placeholder="Type student name, roll or class to search..."
+                          className="w-full rounded-2xl border border-gray-100 bg-gray-50 pl-11 pr-4 py-3.5 text-sm font-bold outline-none focus:border-teal-200 focus:ring-2 focus:ring-teal-100" />
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                      </div>
+                      {permissionSearch.trim() !== "" && (
+                        <div className="mt-2 max-h-60 overflow-y-auto rounded-2xl border border-gray-100 divide-y divide-gray-50 bg-white shadow-inner">
+                          {filteredPermissionStudents.map((student) => (
+                            <button type="button" key={student.id}
+                              onClick={() => {
+                                setPermissionForm(prev => ({ ...prev, student_id: String(student.id) }));
+                                setPermissionSearch("");
+                              }}
+                              className="w-full flex items-center gap-3 p-3 text-left transition-all hover:bg-teal-50/50">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-900 text-[10px] font-black text-white">{student.rollNo}</span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-black text-gray-800">{student.name}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class {student.class}</span>
+                              </span>
+                            </button>
+                          ))}
+                          {filteredPermissionStudents.length === 0 && (
+                            <div className="p-6 text-center text-xs font-bold text-gray-400">No students found matching your search.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Permission Type</label>
-                      <select value={permissionForm.permission_type}
-                        onChange={(e) => setPermissionForm(prev => ({ ...prev, permission_type: e.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200">
-                        <option>Outpass</option>
-                        <option>Leave Card</option>
-                      </select>
+                  ) : (
+                    <div className="rounded-2xl border border-teal-100 bg-teal-50/30 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-600 text-[12px] font-black text-white">
+                          {selectedPermissionStudent?.rollNo}
+                        </span>
+                        <div>
+                          <p className="text-sm font-black text-gray-800 flex items-center gap-1.5">
+                            {selectedPermissionStudent?.name}
+                            <span className="text-teal-600">✓</span>
+                          </p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class {selectedPermissionStudent?.class} • Roll {selectedPermissionStudent?.rollNo}</p>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setPermissionForm(prev => ({ ...prev, student_id: "" }))}
+                        className="rounded-xl bg-white border border-gray-150 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors">
+                        Change Student
+                      </button>
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Reason</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                {/* STEP 2: DETAILS */}
+                {permissionForm.student_id && (
+                  <div className="space-y-4 pt-4 border-t border-gray-50 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Step 2: Permission Details</label>
+                      <div className="flex rounded-full bg-gray-100 p-0.5">
+                        {["Outpass", "Leave Card"].map((type) => (
+                          <button key={type} type="button"
+                            onClick={() => setPermissionForm(prev => ({ ...prev, permission_type: type }))}
+                            className={`rounded-full px-4 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${permissionForm.permission_type === type ? "bg-teal-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}>
+                            {type.replace(" Card", "")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {permissionForm.permission_type === "Outpass" ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Time</label>
+                          <input type="time" value={permissionForm.leaving_time} onChange={(e) => setPermissionForm(prev => ({ ...prev, leaving_time: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Returning Time</label>
+                          <input type="time" value={permissionForm.expected_return_time} onChange={(e) => setPermissionForm(prev => ({ ...prev, expected_return_time: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Date</label>
+                          <input type="date" value={permissionForm.leaving_date} onChange={(e) => setPermissionForm(prev => ({ ...prev, leaving_date: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Destination</label>
+                          <input placeholder="E.g., Home, Hospital, etc." value={permissionForm.destination} onChange={(e) => setPermissionForm(prev => ({ ...prev, destination: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
+                        </div>
+                      </div>
+                    )}
+
+                    {permissionForm.permission_type === "Outpass" && (
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Destination</label>
+                        <input placeholder="E.g., Home, Hospital, etc." value={permissionForm.destination} onChange={(e) => setPermissionForm(prev => ({ ...prev, destination: e.target.value }))}
+                          className="mt-1.5 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
+                      </div>
+                    )}
+
+                    {/* Additional Options (Collapsible for cleaner UI) */}
+                    <details className="group">
+                      <summary className="text-[9px] font-black uppercase tracking-widest text-gray-400 cursor-pointer list-none flex items-center gap-1 select-none hover:text-gray-600">
+                        <span>⚙️ More options</span>
+                        <span className="transition-transform group-open:rotate-180">▼</span>
+                      </summary>
+                      <div className="grid grid-cols-2 gap-4 mt-3 p-3 rounded-2xl bg-gray-50/50 border border-gray-50/50 animate-in fade-in duration-200">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</label>
+                          <select value={permissionForm.attendance_status} onChange={(e) => setPermissionForm(prev => ({ ...prev, attendance_status: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-xs font-bold outline-none">
+                            <option>Absent</option>
+                            <option>Special Leave</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Remarks (Optional)</label>
+                          <input placeholder="Any extra note..." value={permissionForm.remarks} onChange={(e) => setPermissionForm(prev => ({ ...prev, remarks: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-xs font-bold outline-none" />
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {/* STEP 3: REASON & SAVE */}
+                {permissionForm.student_id && (permissionForm.permission_type === "Outpass" ? (permissionForm.leaving_time && permissionForm.expected_return_time && permissionForm.destination) : (permissionForm.leaving_date && permissionForm.destination)) && (
+                  <div className="space-y-4 pt-4 border-t border-gray-50 animate-in slide-in-from-bottom-2 duration-300">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Step 3: Reason & Save</label>
+                    
+                    <div className="flex flex-wrap gap-2 mt-1">
                       {["Hospital", "Native Place", "Passport Office", "Government Office", "Interview", "Exam", "Shopping", "Family Function", "Emergency", "Other"].map((reason) => (
                         <button type="button" key={reason} onClick={() => setPermissionForm(prev => ({ ...prev, reason }))}
-                          className={`rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider ${permissionForm.reason === reason ? "border-teal-300 bg-teal-50 text-teal-700" : "border-gray-100 bg-white text-gray-500"}`}>
+                          className={`rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-all ${permissionForm.reason === reason ? "border-teal-300 bg-teal-50 text-teal-700 font-bold" : "border-gray-100 bg-white text-gray-400 hover:text-gray-600"}`}>
                           {reason}
                         </button>
                       ))}
                     </div>
+
                     {permissionForm.reason === "Other" && (
                       <input value={permissionForm.custom_reason} onChange={(e) => setPermissionForm(prev => ({ ...prev, custom_reason: e.target.value }))}
-                        placeholder="Enter reason"
-                        className="mt-3 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
+                        placeholder="Type the specific reason here..."
+                        className="mt-2 w-full rounded-xl border border-gray-100 bg-gray-50 px-3.5 py-3 text-sm font-bold outline-none focus:border-teal-200 focus:bg-white" />
                     )}
+
+                    <button type="button" onClick={handleCreatePermission}
+                      className="mt-4 w-full rounded-2xl bg-[#0d9488] px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-teal-100 transition-all hover:bg-[#0b7a70] active:scale-[0.98]">
+                      Save & Approve Request
+                    </button>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Destination</label>
-                      <input value={permissionForm.destination} onChange={(e) => setPermissionForm(prev => ({ ...prev, destination: e.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</label>
-                      <select value={permissionForm.attendance_status} onChange={(e) => setPermissionForm(prev => ({ ...prev, attendance_status: e.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200">
-                        <option>Absent</option>
-                        <option>Special Leave</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {permissionForm.permission_type === "Outpass" ? (
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Expected Return Time</label>
-                      <input type="time" value={permissionForm.expected_return_time} onChange={(e) => setPermissionForm(prev => ({ ...prev, expected_return_time: e.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Expected Return Date</label>
-                      <input type="date" value={permissionForm.expected_return_date} onChange={(e) => setPermissionForm(prev => ({ ...prev, expected_return_date: e.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Remarks</label>
-                    <textarea value={permissionForm.remarks} onChange={(e) => setPermissionForm(prev => ({ ...prev, remarks: e.target.value }))}
-                      rows={3}
-                      className="mt-2 w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:border-teal-200" />
-                  </div>
-
-                  <button type="submit" className="w-full rounded-2xl bg-[#0d9488] px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-teal-100 transition-all active:scale-[0.98]">
-                    Create Permission
-                  </button>
-                </div>
-              </form>
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
                 {permissionView === "history" && (

@@ -478,6 +478,8 @@ def run_migrations():
                 destination TEXT NOT NULL,
                 attendance_status TEXT NOT NULL,
                 remarks TEXT,
+                leaving_time TEXT,
+                leaving_date TEXT,
                 expected_return_time TEXT,
                 expected_return_date TEXT,
                 created_by INTEGER,
@@ -511,6 +513,8 @@ def run_migrations():
             "ALTER TABLE permissions ADD COLUMN approved_role TEXT",
             "ALTER TABLE permissions ADD COLUMN approved_time TEXT",
             "ALTER TABLE permissions ADD COLUMN approved_date TEXT",
+            "ALTER TABLE permissions ADD COLUMN leaving_time TEXT",
+            "ALTER TABLE permissions ADD COLUMN leaving_date TEXT",
             "ALTER TABLE permissions ADD COLUMN returned_teacher_id INTEGER",
             "ALTER TABLE permissions ADD COLUMN returned_teacher_time TEXT",
             "ALTER TABLE permissions ADD COLUMN returned_principal_id INTEGER",
@@ -4510,6 +4514,8 @@ def handle_create_permission(c, data):
     destination = str(data.get("destination") or "").strip()
     attendance_status = str(data.get("attendance_status") or "").strip()
     remarks = str(data.get("remarks") or "").strip()
+    leaving_time = str(data.get("leaving_time") or "").strip()
+    leaving_date = str(data.get("leaving_date") or "").strip()
     expected_return_time = str(data.get("expected_return_time") or "").strip()
     expected_return_date = str(data.get("expected_return_date") or "").strip()
 
@@ -4519,13 +4525,14 @@ def handle_create_permission(c, data):
         return {"success": False, "message": "Invalid attendance status."}
     if not reason or not destination:
         return {"success": False, "message": "Reason and destination are required."}
-    if permission_type == "Leave Card" and not expected_return_date:
-        return {"success": False, "message": "Expected return date is required for Leave Card."}
-
     now = get_ist_now()
     created_at = now.strftime("%Y-%m-%d %H:%M:%S")
-    created_date = now.strftime("%Y-%m-%d")
-    created_day = now.strftime("%A")
+    created_date = leaving_date or now.strftime("%Y-%m-%d")
+    leaving_time = leaving_time or now.strftime("%H:%M")
+    try:
+        created_day = dt.strptime(created_date, "%Y-%m-%d").strftime("%A")
+    except Exception:
+        created_day = now.strftime("%A")
     c.execute("SELECT COUNT(*) FROM permissions WHERE created_date=?", (created_date,))
     sequence = (c.fetchone()[0] or 0) + 1
     permission_number = f"PM-{now.strftime('%Y%m%d')}-{sequence:04d}"
@@ -4540,14 +4547,14 @@ def handle_create_permission(c, data):
     c.execute("""
         INSERT INTO permissions (
             permission_number, student_id, student_name, class, permission_type,
-            reason, destination, attendance_status, remarks, expected_return_time,
+            reason, destination, attendance_status, remarks, leaving_time, leaving_date, expected_return_time,
             expected_return_date, created_by, created_by_role, created_at, status,
             approval_required, approved_by, approved_role, approved_time, approved_date,
             created_day, created_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         permission_number, sid, student_name, student_class, permission_type,
-        reason, destination, attendance_status, remarks, expected_return_time or None,
+        reason, destination, attendance_status, remarks, leaving_time or None, leaving_date or created_date, expected_return_time or None,
         expected_return_date or None, teacher_id, role, created_at, status,
         approval_required, approved_by, approved_role, approved_time, approved_date,
         created_day, created_date
@@ -4643,8 +4650,9 @@ def handle_get_permissions(c, data):
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     c.execute(f"""
         SELECT p.id, p.permission_number, p.student_id, p.student_name, p.class, p.permission_type,
-               p.reason, p.destination, p.attendance_status, p.remarks, p.expected_return_time,
-               p.expected_return_date, p.created_by, p.created_by_role, p.created_at, p.status,
+               p.reason, p.destination, p.attendance_status, p.remarks, p.leaving_time,
+               p.leaving_date, p.expected_return_time, p.expected_return_date,
+               p.created_by, p.created_by_role, p.created_at, p.status,
                p.approval_required, p.created_day, p.created_date, p.approved_by, p.approved_role,
                p.approved_time, p.approved_date, creator.name, approver.name,
                p.returned_teacher_id, p.returned_teacher_time, p.returned_principal_id,
@@ -4660,15 +4668,16 @@ def handle_get_permissions(c, data):
     records = [{
         "id": r[0], "permissionNumber": r[1], "studentId": r[2], "studentName": r[3],
         "class": r[4], "permissionType": r[5], "reason": r[6], "destination": r[7],
-        "attendanceStatus": r[8], "remarks": r[9], "expectedReturnTime": r[10],
-        "expectedReturnDate": r[11], "createdBy": r[12], "createdByRole": r[13],
-        "createdAt": r[14], "status": r[15], "approvalRequired": bool(r[16]),
-        "createdDay": r[17], "createdDate": r[18], "approvedBy": r[19],
-        "approvedRole": r[20], "approvedTime": r[21], "approvedDate": r[22],
-        "createdByName": r[23], "approvedByName": r[24],
-        "returnedTeacherId": r[25], "returnedTeacherTime": r[26],
-        "returnedPrincipalId": r[27], "returnedPrincipalTime": r[28],
-        "returnedDate": r[29]
+        "attendanceStatus": r[8], "remarks": r[9], "leavingTime": r[10],
+        "leavingDate": r[11], "expectedReturnTime": r[12],
+        "expectedReturnDate": r[13], "createdBy": r[14], "createdByRole": r[15],
+        "createdAt": r[16], "status": r[17], "approvalRequired": bool(r[18]),
+        "createdDay": r[19], "createdDate": r[20], "approvedBy": r[21],
+        "approvedRole": r[22], "approvedTime": r[23], "approvedDate": r[24],
+        "createdByName": r[25], "approvedByName": r[26],
+        "returnedTeacherId": r[27], "returnedTeacherTime": r[28],
+        "returnedPrincipalId": r[29], "returnedPrincipalTime": r[30],
+        "returnedDate": r[31]
     } for r in rows]
     return {"success": True, "data": records}
 
