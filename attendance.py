@@ -676,7 +676,11 @@ def build_namaz_analytics(c, data):
     sessions = _filtered_namaz_sessions(c, filters)
     session_ids = [s["sessionId"] for s in sessions]
 
-    c.execute("SELECT DISTINCT class FROM students WHERE class IS NOT NULL AND class != '' ORDER BY class")
+    c.execute("""SELECT DISTINCT class FROM students WHERE class IS NOT NULL AND class != ''
+        ORDER BY CASE class
+            WHEN 'HS1' THEN 1 WHEN 'HSU1' THEN 2 WHEN 'HS2' THEN 3 WHEN 'HSU2' THEN 4
+            WHEN 'BS1' THEN 5 WHEN 'BSU1' THEN 6 WHEN 'BS2' THEN 7 WHEN 'BS3' THEN 8
+            WHEN 'BS4' THEN 9 WHEN 'BS5' THEN 10 ELSE 99 END""")
     all_classes = [row[0] for row in c.fetchall()]
     classes_scope = [filters["className"]] if filters["className"] else all_classes
     if filters["studentId"] and not filters["className"]:
@@ -4651,13 +4655,13 @@ if __name__ == "__main__":
                     """, (date,))
                     raw_classes = [row[0] for row in c.fetchall()]
                     
-                    # Custom Sorting Order
+                    # Custom Sorting Order (matches get_classes)
                     order_map = {
-                        'hs1': 10, 'hsu1': 20, 'hs2': 30, 'hsu2': 40,
-                        'bs1': 50, 'bs2': 60, 'bs3': 70, 'bs4': 80, 'bs5': 90
+                        'hs1': 1, 'hsu1': 2, 'hs2': 3, 'hsu2': 4,
+                        'bs1': 5, 'bsu1': 6, 'bs2': 7, 'bs3': 8, 'bs4': 9, 'bs5': 10
                     }
                     def class_sort_key(cls):
-                        return order_map.get(cls.lower(), 999)
+                        return order_map.get(cls.lower(), 99)
                     
                     classes = sorted(raw_classes, key=class_sort_key)
                     
@@ -4696,7 +4700,10 @@ if __name__ == "__main__":
                         SELECT DISTINCT class FROM students
                         WHERE class IS NOT NULL AND class != ''
                         AND UPPER(class) NOT IN ('DEVELOPER', 'MAIN PANEL', 'PRINCIPAL')
-                        ORDER BY class
+                        ORDER BY CASE class
+                            WHEN 'HS1' THEN 1 WHEN 'HSU1' THEN 2 WHEN 'HS2' THEN 3 WHEN 'HSU2' THEN 4
+                            WHEN 'BS1' THEN 5 WHEN 'BSU1' THEN 6 WHEN 'BS2' THEN 7 WHEN 'BS3' THEN 8
+                            WHEN 'BS4' THEN 9 WHEN 'BS5' THEN 10 ELSE 99 END
                     """)
                     all_classes = [row[0] for row in c.fetchall()]
 
@@ -4738,11 +4745,12 @@ if __name__ == "__main__":
                             "present": present
                         })
 
-                    order_map = {
-                        'bs1': 1, 'bs2': 2, 'bs3': 3, 'bs4': 4, 'bs5': 5,
-                        'hs1': 6, 'hsu1': 7, 'hs2': 8, 'hsu2': 9
+                    # Sort classes chronologically (matches get_classes)
+                    class_order = {
+                        'hs1': 1, 'hsu1': 2, 'hs2': 3, 'hsu2': 4,
+                        'bs1': 5, 'bsu1': 6, 'bs2': 7, 'bs3': 8, 'bs4': 9, 'bs5': 10
                     }
-                    class_averages.sort(key=lambda x: order_map.get(x["class"].lower(), 999))
+                    class_averages.sort(key=lambda x: class_order.get(x["class"].lower(), 99))
 
                     result = {"success": True, "data": class_averages}
 
@@ -5340,7 +5348,10 @@ if __name__ == "__main__":
                             SELECT DISTINCT class FROM (
                                 SELECT class FROM students WHERE class IS NOT NULL AND class != ''
                                 UNION SELECT class FROM timetable WHERE class IS NOT NULL AND class != ''
-                            ) ORDER BY class
+                            ) ORDER BY CASE class
+                                WHEN 'HS1' THEN 1 WHEN 'HSU1' THEN 2 WHEN 'HS2' THEN 3 WHEN 'HSU2' THEN 4
+                                WHEN 'BS1' THEN 5 WHEN 'BSU1' THEN 6 WHEN 'BS2' THEN 7 WHEN 'BS3' THEN 8
+                                WHEN 'BS4' THEN 9 WHEN 'BS5' THEN 10 ELSE 99 END
                         """)
                         classes = [r[0] for r in c.fetchall()]
                         
@@ -6230,7 +6241,10 @@ if __name__ == "__main__":
                             UNION
                             SELECT class FROM timetable WHERE class IS NOT NULL AND class != ''
                         )
-                        ORDER BY class
+                        ORDER BY CASE class
+                            WHEN 'HS1' THEN 1 WHEN 'HSU1' THEN 2 WHEN 'HS2' THEN 3 WHEN 'HSU2' THEN 4
+                            WHEN 'BS1' THEN 5 WHEN 'BSU1' THEN 6 WHEN 'BS2' THEN 7 WHEN 'BS3' THEN 8
+                            WHEN 'BS4' THEN 9 WHEN 'BS5' THEN 10 ELSE 99 END
                     """)
                     classes = [r[0] for r in c.fetchall()]
 

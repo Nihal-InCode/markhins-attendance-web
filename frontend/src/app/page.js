@@ -3719,7 +3719,8 @@ export default function DashboardPage() {
                             }
                           });
 
-                          const uniqueClasses = Array.from(new Set(flatEventsForFilters.map(e => e.className))).filter(Boolean).sort();
+                          const classOrder = {'HS1':1,'HSU1':2,'HS2':3,'HSU2':4,'BS1':5,'BSU1':6,'BS2':7,'BS3':8,'BS4':9,'BS5':10};
+                          const uniqueClasses = Array.from(new Set(flatEventsForFilters.map(e => e.className))).filter(Boolean).sort((a,b) => (classOrder[a]||99) - (classOrder[b]||99));
                           const uniqueEvents = Array.from(new Set(flatEventsForFilters.map(e => e.eventName))).filter(Boolean).sort();
 
                           return (
