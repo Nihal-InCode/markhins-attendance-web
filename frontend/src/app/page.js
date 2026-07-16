@@ -647,6 +647,10 @@ export default function DashboardPage() {
   });
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [permissionErrors, setPermissionErrors] = useState({});
+  const [historyType, setHistoryType] = useState("");
+  const [historyStudentId, setHistoryStudentId] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySelectedRecord, setHistorySelectedRecord] = useState(null);
 
   useEffect(() => {
     const handleFocusIn = (e) => {
@@ -1499,7 +1503,11 @@ export default function DashboardPage() {
     }
     setPermissionView(view);
     setPermissionMessage("");
-    if (view !== "new") fetchPermissionRecords(view);
+    setHistoryType("");
+    setHistoryStudentId("");
+    setHistorySearch("");
+    setHistorySelectedRecord(null);
+    if (view !== "new" && view !== "history") fetchPermissionRecords(view);
   };
 
   const handlePermissionHistorySearch = (e) => {
@@ -5518,146 +5526,231 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {permissionView === "history" && (
-                  <form onSubmit={handlePermissionHistorySearch} className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm space-y-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                      <div className="lg:col-span-2">
-                        <input value={permissionHistoryFilters.student} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, student: e.target.value }))} placeholder="Search Student name or roll number..." className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-xs font-bold outline-none focus:border-teal-200" />
+                  <div className="space-y-4">
+                    {/* Step 1: Select Type */}
+                    {!historyType && (
+                      <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm text-center space-y-4 animate-in fade-in duration-200">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Select History Type</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button type="button" onClick={() => setHistoryType("Outpass")}
+                            className="p-6 rounded-3xl border border-gray-100 bg-gray-50/50 hover:bg-teal-50/30 hover:border-teal-200 transition-all flex flex-col items-center gap-2 group">
+                            <span className="text-3xl group-hover:scale-110 transition-transform">🎒</span>
+                            <span className="text-sm font-black text-gray-800">Outpass History</span>
+                          </button>
+                          <button type="button" onClick={() => setHistoryType("Leave Card")}
+                            className="p-6 rounded-3xl border border-gray-100 bg-gray-50/50 hover:bg-teal-50/30 hover:border-teal-200 transition-all flex flex-col items-center gap-2 group">
+                            <span className="text-3xl group-hover:scale-110 transition-transform">🏠</span>
+                            <span className="text-sm font-black text-gray-800">Leave Card History</span>
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <select value={permissionHistoryFilters.class} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, class: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-xs font-bold outline-none focus:border-teal-200">
-                          <option value="">All Classes</option>
-                          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 lg:col-span-2">
-                        <input type="date" value={permissionHistoryFilters.from_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, from_date: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                        <input type="date" value={permissionHistoryFilters.to_date} onChange={(e) => setPermissionHistoryFilters(prev => ({ ...prev, to_date: e.target.value }))} className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-xs font-bold outline-none focus:border-teal-200" />
-                      </div>
-                    </div>
-                    <button type="submit" className="w-full rounded-2xl bg-[#0d9488] py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-md hover:bg-[#0b7a70] active:scale-95 transition-all">
-                      Search Permissions
-                    </button>
-                  </form>
-                )}
+                    )}
 
-                <div className="rounded-[2rem] border border-gray-100 bg-white shadow-sm overflow-hidden">
-                  {loadingPermissions ? (
-                    <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" /></div>
-                  ) : permissionRecords.length === 0 ? (
-                    <div className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">No permission records found.</div>
-                  ) : (
-                    <div className="divide-y divide-gray-50">
-                      {permissionRecords.map((record) => (
-                        <div key={record.id} className="p-4 sm:p-5 flex flex-col gap-4 bg-white rounded-3xl border border-gray-100 hover:border-teal-100 hover:shadow-md transition-all">
-                          {/* Card Header */}
-                          <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="rounded-lg bg-gray-900 px-2 py-1 text-[9px] font-black text-white uppercase tracking-wider">{record.permissionNumber}</span>
-                                <span className="rounded-lg bg-teal-50 px-2 py-1 text-[9px] font-black text-teal-700 uppercase tracking-wider">{record.permissionType}</span>
-                                <span className={`rounded-lg px-2 py-1 text-[9px] font-black uppercase tracking-wider ${
-                                  record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
-                                  record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
-                                  "bg-red-50 text-red-700"
-                                }`}>{record.status}</span>
-                              </div>
-                              <p className="mt-2 text-sm font-black text-gray-900">{record.studentName} <span className="text-gray-400 font-bold">/ Class {record.class}</span></p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance</p>
-                              <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-black text-amber-800 border border-amber-200/50">{record.attendanceStatus}</span>
-                            </div>
+                    {/* Step 2: Select Student */}
+                    {historyType && !historyStudentId && (
+                      <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-sm space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center justify-between">
+                          <button type="button" onClick={() => { setHistoryType(""); setHistorySearch(""); }} className="text-xs font-black text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                            ← Back
+                          </button>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full">{historyType} History</span>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Search Student</label>
+                          <input value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}
+                            placeholder="Type student name or roll number..."
+                            className="mt-2 w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-sm font-bold outline-none focus:border-teal-200 focus:ring-2 focus:ring-teal-100" />
+                        </div>
+                        {historySearch.trim() !== "" && (
+                          <div className="rounded-2xl border border-gray-50 divide-y divide-gray-50 bg-white overflow-hidden shadow-inner">
+                            {permissionStudents
+                              .filter(s => `${s.name} ${s.rollNo} ${s.class}`.toLowerCase().includes(historySearch.toLowerCase()))
+                              .slice(0, 3)
+                              .map((student) => (
+                                <button type="button" key={student.id}
+                                  onClick={() => {
+                                    setHistoryStudentId(String(student.id));
+                                    const customFilters = {
+                                      permission_type: historyType,
+                                      student: student.name,
+                                      class: "",
+                                      from_date: "",
+                                      to_date: "",
+                                      permission_number: "",
+                                      attendance_status: "",
+                                      created_by: "",
+                                      approved_by: "",
+                                      reason: ""
+                                    };
+                                    fetchPermissionRecords("history", customFilters);
+                                  }}
+                                  className="w-full flex items-center justify-between p-4 text-left transition-all hover:bg-teal-50/40">
+                                  <div className="flex items-center gap-3">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-900 text-[10px] font-black text-white">{student.rollNo}</span>
+                                    <div>
+                                      <span className="block text-sm font-black text-gray-800">{student.name}</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class {student.class}</span>
+                                    </div>
+                                  </div>
+                                  <span className="text-xs text-teal-600 font-bold">Select →</span>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 3: Show Document List */}
+                    {historyType && historyStudentId && (
+                      <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-150 p-4 shadow-sm">
+                          <button type="button" onClick={() => { setHistoryStudentId(""); setHistorySearch(""); }} className="text-xs font-black text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                            ← Change Student
+                          </button>
+                          {(() => {
+                            const student = permissionStudents.find(s => String(s.id) === String(historyStudentId));
+                            return student ? (
+                              <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-3 py-1 rounded-full uppercase tracking-wider">
+                                {student.name} (Class {student.class})
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
+
+                        {/* Tabular List */}
+                        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                          <div className="hidden sm:grid sm:grid-cols-[1.2fr_1.5fr_1.2fr_1fr] gap-4 p-4 bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                            <div>Date</div>
+                            <div>Reason</div>
+                            <div>Approved By</div>
+                            <div className="text-right">Status</div>
                           </div>
 
-                          {/* Info Grid */}
-                          <div className="grid grid-cols-2 gap-4 text-xs font-bold text-gray-700 sm:grid-cols-3 md:grid-cols-4">
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Reason</p>
-                              <p className="mt-1 text-gray-800">{record.reason || "-"}</p>
-                            </div>
-                            {record.permissionType === "Outpass" ? (
-                              <>
-                                <div>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Time</p>
-                                  <p className="mt-1 text-gray-800">{record.leavingTime ? formatTo12Hr(record.leavingTime) : "-"}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Expected Return</p>
-                                  <p className="mt-1 text-gray-800">{record.expectedReturnTime ? formatTo12Hr(record.expectedReturnTime) : "-"}</p>
-                                </div>
-                              </>
-                            ) : (
-                              <div>
-                                <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Leaving Date</p>
-                                <p className="mt-1 text-gray-800">{record.leavingDate ? formatDate(record.leavingDate) : "-"}</p>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created Date</p>
-                              <p className="mt-1 text-gray-800">{record.createdDate ? formatDate(record.createdDate) : "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Created By</p>
-                              <p className="mt-1 text-gray-800 truncate">{record.createdByName || record.createdByRole || record.createdBy || "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Approved By</p>
-                              <p className="mt-1 text-gray-800 truncate">{record.approvedByName || record.approvedRole || record.approvedBy || "-"}</p>
-                            </div>
-                            {(record.returnedTeacherTime || record.returnedPrincipalTime || record.returnedDate) && (
-                              <>
-                                <div>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Teacher Return</p>
-                                  <p className="mt-1 text-gray-800">{record.returnedTeacherTime ? formatTo12Hr(record.returnedTeacherTime) : "-"}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Final Return / Date</p>
-                                  <p className="mt-1 text-gray-800">
-                                    {record.returnedPrincipalTime ? formatTo12Hr(record.returnedPrincipalTime) : "-"}
-                                    {record.returnedDate && ` (${formatDate(record.returnedDate)})`}
-                                  </p>
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Remarks Block */}
-                          {record.remarks && (
-                            <div className="rounded-xl bg-gray-50 p-3 border border-gray-100">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Remarks</p>
-                              <p className="mt-1 text-xs italic font-bold text-gray-600">"{record.remarks}"</p>
-                            </div>
-                          )}
-
-                          {/* Action Controls */}
-                          {permissionView === "pending" && canApprovePermissions(user) && (
-                            <div className="flex gap-2 border-t border-gray-50 pt-3">
-                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleApprovePermission(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 active:scale-95 transition-all">Approve</button>
-                              <button disabled={permissionActionBusyId === record.id} onClick={() => handleRejectPermission(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 active:scale-95 transition-all">Reject</button>
-                            </div>
-                          )}
-
-                          {permissionView === "active" && record.permissionType === "Leave Card" && (
-                            <div className="border-t border-gray-50 pt-3 space-y-2">
-                              {user?.role === "Class Teacher" && record.status === "Approved" && !record.returnedTeacherTime && (
-                                <button disabled={permissionActionBusyId === record.id} onClick={() => handleTeacherReturnApproval(record.id)} className="w-full rounded-2xl bg-[#0d9488] px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-[#0b7a70] transition-all">Approve Return</button>
-                              )}
-                              {canApprovePermissions(user) && record.status === "Pending Return Approval" && (
-                                <div className="flex gap-2">
-                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-emerald-700 transition-all">Approve Return</button>
-                                  <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnReject(record.id)} className="flex-1 rounded-2xl bg-red-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-red-600 disabled:opacity-50 hover:bg-red-100 transition-all">Reject Return</button>
-                                </div>
-                              )}
-                              {canApprovePermissions(user) && record.status === "Approved" && (
-                                <button disabled={permissionActionBusyId === record.id} onClick={() => handlePrincipalReturnApproval(record.id)} className="w-full rounded-2xl bg-teal-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50 hover:bg-teal-700 transition-all">Mark Return & Close</button>
-                              )}
+                          {loadingPermissions ? (
+                            <div className="flex justify-center p-12"><div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-500 border-t-transparent" /></div>
+                          ) : permissionRecords.length === 0 ? (
+                            <div className="p-12 text-center text-xs font-black uppercase tracking-widest text-gray-400">No history records found.</div>
+                          ) : (
+                            <div className="divide-y divide-gray-50">
+                              {permissionRecords.map((record) => (
+                                <button type="button" key={record.id} onClick={() => setHistorySelectedRecord(record)}
+                                  className="w-full grid grid-cols-2 gap-2 sm:grid-cols-[1.2fr_1.5fr_1.2fr_1fr] sm:gap-4 p-4 text-left hover:bg-teal-50/20 active:bg-teal-50/40 transition-colors items-center text-xs font-bold text-gray-700">
+                                  {/* Date */}
+                                  <div>
+                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Date</span>
+                                    {record.permissionType === "Outpass" ? (record.createdDate || "-") : (record.leavingDate || "-")}
+                                  </div>
+                                  {/* Reason */}
+                                  <div className="truncate">
+                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Reason</span>
+                                    {record.reason || "-"}
+                                  </div>
+                                  {/* Approved By */}
+                                  <div className="truncate">
+                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Approved By</span>
+                                    {record.approvedByName || record.approvedRole || "Pending"}
+                                  </div>
+                                  {/* Status */}
+                                  <div className="text-left sm:text-right">
+                                    <span className="sm:hidden text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Status</span>
+                                    <span className={`inline-block rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                      record.status === "Approved" || record.status === "Closed" ? "bg-emerald-50 text-emerald-700" :
+                                      record.status.includes("Pending") ? "bg-amber-50 text-amber-700" :
+                                      "bg-red-50 text-red-700"
+                                    }`}>{record.status}</span>
+                                  </div>
+                                </button>
+                              ))}
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+
+                    {/* Detailed Card Modal / Overlay */}
+                    {historySelectedRecord && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setHistorySelectedRecord(null)}>
+                        <div className="w-full max-w-md rounded-[2.5rem] bg-white p-6 shadow-2xl space-y-4 border border-gray-100 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                            <span className="rounded-lg bg-gray-900 px-2 py-1 text-[9px] font-black text-white uppercase tracking-wider">{historySelectedRecord.permissionNumber}</span>
+                            <button type="button" onClick={() => setHistorySelectedRecord(null)} className="text-xl font-black text-gray-400 hover:text-gray-650">×</button>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Student</p>
+                              <p className="text-sm font-black text-gray-800 mt-0.5">{historySelectedRecord.studentName} (Class {historySelectedRecord.class})</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 text-xs font-bold text-gray-700">
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Type</p>
+                                <p className="mt-0.5 text-gray-800">{historySelectedRecord.permissionType}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Attendance Status</p>
+                                <p className="mt-0.5 text-gray-800">{historySelectedRecord.attendanceStatus}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Reason</p>
+                                <p className="mt-0.5 text-gray-800">{historySelectedRecord.reason || "-"}</p>
+                              </div>
+                              {historySelectedRecord.permissionType === "Outpass" ? (
+                                <>
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Time</p>
+                                    <p className="mt-0.5 text-gray-800">{historySelectedRecord.leavingTime ? formatTo12Hr(historySelectedRecord.leavingTime) : "-"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Expected Return</p>
+                                    <p className="mt-0.5 text-gray-800">{historySelectedRecord.expectedReturnTime ? formatTo12Hr(historySelectedRecord.expectedReturnTime) : "-"}</p>
+                                  </div>
+                                </>
+                              ) : (
+                                <div>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Leaving Date</p>
+                                  <p className="mt-0.5 text-gray-800">{historySelectedRecord.leavingDate ? formatDate(historySelectedRecord.leavingDate) : "-"}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Created By</p>
+                                <p className="mt-0.5 text-gray-800 truncate">{historySelectedRecord.createdByName || historySelectedRecord.createdByRole || "-"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Approved By</p>
+                                <p className="mt-0.5 text-gray-800 truncate">{historySelectedRecord.approvedByName || historySelectedRecord.approvedRole || "-"}</p>
+                              </div>
+                              {(historySelectedRecord.returnedTeacherTime || historySelectedRecord.returnedPrincipalTime) && (
+                                <>
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Teacher Return</p>
+                                    <p className="mt-0.5 text-gray-800">{historySelectedRecord.returnedTeacherTime ? formatTo12Hr(historySelectedRecord.returnedTeacherTime) : "-"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Final Return</p>
+                                    <p className="mt-0.5 text-gray-800">{historySelectedRecord.returnedPrincipalTime ? formatTo12Hr(historySelectedRecord.returnedPrincipalTime) : "-"}</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {historySelectedRecord.remarks && (
+                              <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Remarks</p>
+                                <p className="mt-1 text-xs italic font-bold text-gray-600">"{historySelectedRecord.remarks}"</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <button type="button" onClick={() => setHistorySelectedRecord(null)}
+                            className="w-full py-4 rounded-2xl bg-gray-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest transition-colors active:scale-95">
+                            Close Details
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
