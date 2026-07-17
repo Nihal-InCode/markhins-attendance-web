@@ -967,6 +967,17 @@ export default function DashboardPage() {
   }, [selectedClassForAnalysis, absenteeFilter, selectedDate]);
 
   useEffect(() => {
+    if (plannerData && selectedLeaveTeachers.length > 0) {
+      setTimeout(() => {
+        const step2El = document.getElementById("step2-coverage-grid");
+        if (step2El) {
+          step2El.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [plannerData]);
+
+  useEffect(() => {
     async function fetchData() {
       trackEvent('Opened dashboard');
       try {
@@ -5067,7 +5078,7 @@ export default function DashboardPage() {
 
                         {/* Step 2: Coverage Grid */}
                         {plannerData && selectedLeaveTeachers.length > 0 && (
-                          <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-4">
+                          <div id="step2-coverage-grid" className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm space-y-4">
                             <div className="flex items-center justify-between border-b border-gray-50 pb-3">
                               <div>
                                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Step 2: Assign Coverage</h3>
