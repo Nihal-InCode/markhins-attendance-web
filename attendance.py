@@ -7351,6 +7351,9 @@ if __name__ == "__main__":
                                 }
                                 
                             for r_class, r_period, r_subject, r_ot_id, r_ot_name in affected_rows:
+                                if str(r_class).strip().upper() in not_working_classes:
+                                    continue
+
                                 # Find available teachers
                                 leave_placeholders = ",".join("?" * len(on_leave_ids))
                                 not_working_clause = ""
