@@ -185,7 +185,7 @@ export const getNamazAnalytics = (params = {}) => {
 export const getNamazApiMonitor = () => apiRequest('/admin/namaz-api-monitor');
 export const getEventAttendance = () => apiRequest('/event-attendance');
 
-export const getPermissionStudents = () => apiRequest('/api/permissions/students');
+export const getPermissionStudents = (forHistory = false) => apiRequest(`/api/permissions/students${forHistory ? '?for_history=1' : ''}`);
 export const getPermissionSummary = () => apiRequest('/api/permissions/summary');
 export const createPermission = (data) => apiRequest('/api/permissions', {
     method: 'POST',

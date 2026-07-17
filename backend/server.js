@@ -956,7 +956,8 @@ app.get('/api/permissions/students', authenticateToken, async (req, res) => {
             action: "get_permission_students",
             teacher_id: req.user.id,
             user_role: req.user.role,
-            class_teacher_of: req.user.class_teacher_of
+            class_teacher_of: req.user.class_teacher_of,
+            for_history: req.query.for_history === '1' ? 1 : 0
         });
         res.json(result);
     } catch (error) {

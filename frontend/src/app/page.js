@@ -55,6 +55,7 @@ import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 import { playSound } from "@/lib/sound";
+import { generateSubstituteTimetablePng, getSubstituteTeacherShortName } from "@/lib/substituteTimetableImage";
 
 const formatTime = (createdAtStr) => {
   if (!createdAtStr) return "";
@@ -536,6 +537,9 @@ export default function DashboardPage() {
   const [subReportData, setSubReportData] = useState([]);
   const [subTab, setSubTab] = useState("planner");
   const [leaveSearch, setLeaveSearch] = useState("");
+  const [substituteTimetablePreview, setSubstituteTimetablePreview] = useState(null);
+  const [substituteTimetableError, setSubstituteTimetableError] = useState("");
+  const [lastSavedSubstituteTimetable, setLastSavedSubstituteTimetable] = useState(null);
 
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
@@ -1291,6 +1295,66 @@ export default function DashboardPage() {
     }
   };
 
+  const buildSavedSubstituteTimetable = (savedAssignments) => {
+    const teacherById = new Map(teachers.map((teacher) => [String(teacher.id), teacher]));
+    return {
+      date: plannerDate,
+      assignments: savedAssignments.map((assignment) => {
+        const teacher = teacherById.get(String(assignment.substitute_teacher_id));
+        return {
+          class: assignment.class,
+          period: assignment.period,
+          shortName: getSubstituteTeacherShortName(teacher)
+        };
+      })
+    };
+  };
+
+  const openSubstituteTimetablePreview = (timetableData) => {
+    try {
+      const imageUrl = generateSubstituteTimetablePng(timetableData);
+      setSubstituteTimetableError("");
+      setSubstituteTimetablePreview({ ...timetableData, imageUrl });
+    } catch (err) {
+      setSubstituteTimetableError("Assignments were saved, but the timetable image could not be generated. You can retry from this preview.");
+      setSubstituteTimetablePreview({ ...timetableData, imageUrl: null });
+    }
+  };
+
+  const retrySubstituteTimetableImage = () => {
+    if (lastSavedSubstituteTimetable) {
+      openSubstituteTimetablePreview(lastSavedSubstituteTimetable);
+    }
+  };
+
+  const downloadSubstituteTimetableImage = () => {
+    if (!substituteTimetablePreview?.imageUrl) return;
+    const link = document.createElement("a");
+    link.href = substituteTimetablePreview.imageUrl;
+    link.download = `substitute-timetable-${substituteTimetablePreview.date || "schedule"}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const shareSubstituteTimetableImage = async () => {
+    if (!substituteTimetablePreview?.imageUrl) {
+      downloadSubstituteTimetableImage();
+      return;
+    }
+    try {
+      const response = await fetch(substituteTimetablePreview.imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `substitute-timetable-${substituteTimetablePreview.date || "schedule"}.png`, { type: "image/png" });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({ files: [file], title: "Substitute Timetable" });
+      } else {
+        downloadSubstituteTimetableImage();
+      }
+    } catch (err) {
+      downloadSubstituteTimetableImage();
+    }
+  };
   const saveAssignments = async () => {
     showLoader("Saving assignments...");
     try {
@@ -1310,12 +1374,15 @@ export default function DashboardPage() {
       if (isSuccess) {
         playSound('success');
         alert("Assignments saved successfully.");
-        fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
+        const timetableData = buildSavedSubstituteTimetable(list);
+        setLastSavedSubstituteTimetable(timetableData);
+        await fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
         const widgetRes = await getSubstituteDashboardWidget();
         if (widgetRes) {
           const wData = widgetRes.success ? widgetRes.data : widgetRes;
           if (wData && wData.date) setSubWidget(wData);
         }
+        openSubstituteTimetablePreview(timetableData);
       } else {
         setError(res?.message || "Failed to save assignments.");
       }
@@ -5131,6 +5198,51 @@ export default function DashboardPage() {
                       </div>
                     )}
 
+                    {substituteTimetablePreview && (
+                      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                        onClick={(e) => { if (e.target === e.currentTarget) setSubstituteTimetablePreview(null); }}>
+                        <div className="w-full max-w-5xl rounded-[2rem] border border-gray-100 bg-white p-5 shadow-2xl">
+                          <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <h3 className="text-sm font-black uppercase tracking-wider text-gray-900">Substitute Timetable Preview</h3>
+                              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Ready to share on WhatsApp</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {substituteTimetablePreview.imageUrl && (
+                                <button onClick={shareSubstituteTimetableImage}
+                                  className="rounded-xl bg-[#0d9488] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-md shadow-[#0d9488]/15 transition-all hover:bg-[#0a7a70]">
+                                  Share to WhatsApp
+                                </button>
+                              )}
+                              {substituteTimetablePreview.imageUrl && (
+                                <button onClick={downloadSubstituteTimetableImage}
+                                  className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-50">
+                                  Download PNG
+                                </button>
+                              )}
+                              <button onClick={() => setSubstituteTimetablePreview(null)}
+                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-50">
+                                Close
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 max-h-[72vh] overflow-auto rounded-2xl border border-gray-100 bg-gray-50 p-3">
+                            {substituteTimetablePreview.imageUrl ? (
+                              <img src={substituteTimetablePreview.imageUrl} alt="Substitute timetable" className="mx-auto h-auto w-full max-w-[900px] bg-white shadow-sm" />
+                            ) : (
+                              <div className="flex min-h-80 flex-col items-center justify-center text-center">
+                                <p className="max-w-md text-sm font-bold text-red-500">{substituteTimetableError || "The timetable image could not be generated."}</p>
+                                <button onClick={retrySubstituteTimetableImage}
+                                  className="mt-4 rounded-xl bg-[#0d9488] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-[#0a7a70]">
+                                  Retry Image Generation
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {/* Popover Assigning Modal */}
                     {assigningPeriod && (
                       <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"

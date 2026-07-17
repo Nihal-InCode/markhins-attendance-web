@@ -4456,13 +4456,14 @@ def handle_get_permission_students(c, data):
     role = str(data.get("user_role") or "")
     teacher_id = data.get("teacher_id")
     class_teacher_of = str(data.get("class_teacher_of") or "").strip()
+    for_history = data.get("for_history")
 
     if not _is_permission_manager_role(role):
         return {"success": False, "message": "Permission Manager is not available for this role."}
 
     params = []
     where = "WHERE class IS NOT NULL AND class != ''"
-    if role == "Class Teacher":
+    if role == "Class Teacher" and not for_history:
         if not class_teacher_of:
             c.execute("SELECT class_teacher_of FROM teachers WHERE id=?", (teacher_id,))
             row = c.fetchone()
