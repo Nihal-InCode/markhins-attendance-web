@@ -7311,6 +7311,8 @@ if __name__ == "__main__":
                     planner_date = data.get("date")
                     on_leave_ids = data.get("on_leave_teacher_ids", [])
                     on_leave_ids = [int(x) for x in on_leave_ids if str(x).isdigit()]
+                    not_working_classes = data.get("not_working_classes", [])
+                    not_working_classes = [str(x).strip().upper() for x in not_working_classes if str(x).strip()]
                     
                     try:
                         target_dt = dt.strptime(planner_date, "%Y-%m-%d")
@@ -7351,19 +7353,25 @@ if __name__ == "__main__":
                             for r_class, r_period, r_subject, r_ot_id, r_ot_name in affected_rows:
                                 # Find available teachers
                                 leave_placeholders = ",".join("?" * len(on_leave_ids))
+                                not_working_clause = ""
+                                not_working_params = []
+                                if not_working_classes:
+                                    not_working_clause = " AND UPPER(class) NOT IN ({})".format(",".join("?" * len(not_working_classes)))
+                                    not_working_params = not_working_classes
                                 c.execute("""
                                     SELECT id, name FROM teachers
                                     WHERE id NOT IN ({})
                                       AND id NOT IN (
                                           SELECT teacher_id FROM timetable
                                           WHERE weekday = ? AND period_label = ? AND teacher_id IS NOT NULL
+                                          {}
                                       )
                                       AND id NOT IN (
                                           SELECT substitute_teacher_id FROM manual_substitute_assignments
                                           WHERE date = ? AND period = ?
                                       )
                                     ORDER BY name
-                                """.format(leave_placeholders), (*on_leave_ids, weekday, r_period, planner_date, r_period))
+                                """.format(leave_placeholders, not_working_clause), (*on_leave_ids, weekday, r_period, *not_working_params, planner_date, r_period))
                                 avail_rows = c.fetchall()
                                 
                                 avail_teachers = []

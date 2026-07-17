@@ -524,6 +524,7 @@ export default function DashboardPage() {
     return tomorrow.toISOString().split('T')[0];
   });
   const [selectedLeaveTeachers, setSelectedLeaveTeachers] = useState([]);
+  const [selectedNotWorkingClasses, setSelectedNotWorkingClasses] = useState([]);
   const [plannerData, setPlannerData] = useState(null);
   const [assigningPeriod, setAssigningPeriod] = useState(null);
   const [assigningTeacher, setAssigningTeacher] = useState(null);
@@ -540,6 +541,12 @@ export default function DashboardPage() {
   const [substituteTimetablePreview, setSubstituteTimetablePreview] = useState(null);
   const [substituteTimetableError, setSubstituteTimetableError] = useState("");
   const [lastSavedSubstituteTimetable, setLastSavedSubstituteTimetable] = useState(null);
+  const plannerDayName = (() => {
+    if (!plannerDate) return "";
+    const date = new Date(`${plannerDate}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString("en-IN", { weekday: "long" });
+  })();
 
   // Feature specific states
   const [fullTimetable, setFullTimetable] = useState(null);
@@ -1266,11 +1273,11 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchPlannerData = async (date, leaveTeacherIds) => {
+  const fetchPlannerData = async (date, leaveTeacherIds, notWorkingClasses = selectedNotWorkingClasses) => {
     setLoadingFeature(true);
     showLoader("Loading planner data...");
     try {
-      const res = await getSubstitutePlannerData(date, leaveTeacherIds);
+      const res = await getSubstitutePlannerData(date, leaveTeacherIds, notWorkingClasses);
       const pData = res?.success ? res.data : res;
       if (pData && pData.affected_periods) {
         setPlannerData(pData);
@@ -1376,7 +1383,7 @@ export default function DashboardPage() {
         alert("Assignments saved successfully.");
         const timetableData = buildSavedSubstituteTimetable(list);
         setLastSavedSubstituteTimetable(timetableData);
-        await fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id));
+        await fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id), selectedNotWorkingClasses);
         const widgetRes = await getSubstituteDashboardWidget();
         if (widgetRes) {
           const wData = widgetRes.success ? widgetRes.data : widgetRes;
@@ -4964,8 +4971,13 @@ export default function DashboardPage() {
                           
                           <div>
                             <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Date</label>
-                            <input type="date" value={plannerDate} onChange={(e) => { setPlannerDate(e.target.value); }}
-                              className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full sm:max-w-xs" />
+                            <div className="flex w-full sm:max-w-xs overflow-hidden rounded-xl border border-gray-100 bg-gray-50 focus-within:ring-2 focus-within:ring-[#0d9488]/20">
+                              <input type="date" value={plannerDate} onChange={(e) => { setPlannerDate(e.target.value); }}
+                                className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-xs font-medium outline-none" />
+                              <div className="flex items-center border-l border-gray-100 px-3 text-[10px] font-black uppercase tracking-wider text-[#0d9488]">
+                                {plannerDayName}
+                              </div>
+                            </div>
                           </div>
 
                           <div>
@@ -5010,9 +5022,41 @@ export default function DashboardPage() {
                               })}
                             </div>
 
+                            <div className="mb-4">
+                              <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Classes Not Working</label>
+                              {selectedNotWorkingClasses.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                  {selectedNotWorkingClasses.map(cls => (
+                                    <span key={cls} className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-3 py-1 rounded-xl text-xs font-bold border border-amber-100">
+                                      {cls}
+                                      <button onClick={() => setSelectedNotWorkingClasses(prev => prev.filter(x => x !== cls))}
+                                        className="text-amber-400 hover:text-amber-700 font-bold ml-1">x</button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
+                                {classes.map(c => {
+                                  const className = String(c.name || c.class || c.id || c).trim();
+                                  const isSelected = selectedNotWorkingClasses.includes(className);
+                                  return (
+                                    <button key={className}
+                                      onClick={() => {
+                                        setSelectedNotWorkingClasses(prev => (
+                                          isSelected ? prev.filter(x => x !== className) : [...prev, className]
+                                        ));
+                                      }}
+                                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left truncate ${isSelected ? 'bg-amber-50 border-amber-200 text-amber-700 font-extrabold' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                      {className}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
                             {/* Explicit CTA Confirm & Load Planner Button */}
                             <div className="flex justify-end pt-2">
-                              <button onClick={() => fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id))}
+                              <button onClick={() => fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id), selectedNotWorkingClasses)}
                                 disabled={selectedLeaveTeachers.length === 0}
                                 className="w-full sm:w-auto rounded-xl bg-[#0d9488] hover:bg-[#0a7a70] text-white px-6 py-3 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-[#0d9488]/15">
                                 Confirm Leaves & Load Planner

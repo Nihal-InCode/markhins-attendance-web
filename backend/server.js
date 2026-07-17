@@ -1963,7 +1963,7 @@ app.post('/api/timetable/editors', authenticateToken, async (req, res) => {
 // Get planner data (Admin or authorized coordinator)
 app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
     try {
-        const { date, on_leave_teacher_ids } = req.query;
+        const { date, on_leave_teacher_ids, not_working_classes } = req.query;
         
         // Authorization check: Admin or coordinator in system settings
         const coordRes = await callPython({ action: "get_substitute_coordinators" });
@@ -1972,7 +1972,8 @@ app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
         if (!isAuthorized) return res.status(403).json({ success: false, message: 'Access denied. You are not an authorized coordinator.' });
 
         const idsArray = on_leave_teacher_ids ? on_leave_teacher_ids.split(',').map(x => parseInt(x)).filter(x => !isNaN(x)) : [];
-        const result = await callPython({ action: "get_substitute_planner_data", date, on_leave_teacher_ids: idsArray });
+        const notWorkingClasses = not_working_classes ? not_working_classes.split(',').map(x => String(x).trim()).filter(Boolean) : [];
+        const result = await callPython({ action: "get_substitute_planner_data", date, on_leave_teacher_ids: idsArray, not_working_classes: notWorkingClasses });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

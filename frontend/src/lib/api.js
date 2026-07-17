@@ -365,9 +365,10 @@ export const saveTimetableEditors = (editors) => apiRequest('/api/timetable/edit
     body: JSON.stringify({ editors }),
 });
 
-export const getSubstitutePlannerData = (date, onLeaveTeacherIds) => {
+export const getSubstitutePlannerData = (date, onLeaveTeacherIds, notWorkingClasses = []) => {
     const ids = Array.isArray(onLeaveTeacherIds) ? onLeaveTeacherIds.join(',') : onLeaveTeacherIds;
-    return apiRequest(`/api/substitute/planner-data?date=${date}&on_leave_teacher_ids=${ids || ''}`);
+    const classes = Array.isArray(notWorkingClasses) ? notWorkingClasses.join(',') : notWorkingClasses;
+    return apiRequest(`/api/substitute/planner-data?date=${date}&on_leave_teacher_ids=${ids || ''}&not_working_classes=${encodeURIComponent(classes || '')}`);
 };
 export const saveSubstituteAssignments = (date, assignments) => apiRequest('/api/substitute/assign', {
     method: 'POST',
