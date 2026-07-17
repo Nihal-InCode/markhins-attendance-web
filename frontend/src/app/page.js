@@ -5338,13 +5338,13 @@ export default function DashboardPage() {
                                     return (
                                       <button key={teacher.id}
                                         onClick={() => {
-                                          if (subjects.length === 1) {
-                                            // Only one subject — assign directly
+                                          if (subjects.length === 1 || subjects.length === 0) {
+                                            // Only one or no subjects — assign directly
                                             setTemporaryAssignments(prev => ({
                                               ...prev,
                                               [assigningPeriod.key]: {
                                                 substitute_teacher_id: teacher.id,
-                                                subject: subjects[0]
+                                                subject: subjects[0] || assigningPeriod.subject || "General"
                                               }
                                             }));
                                             setAssigningPeriod(null);
