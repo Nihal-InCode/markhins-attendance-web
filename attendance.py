@@ -5872,12 +5872,12 @@ if __name__ == "__main__":
 
                 elif action == "get_teachers_list":
                     # Fetch all teachers
-                    c.execute("SELECT id, name, username, class_teacher_of, subject FROM teachers ORDER BY name")
+                    c.execute("SELECT id, name, username, teacher_code, class_teacher_of, subject FROM teachers ORDER BY name")
                     rows = c.fetchall()
                     
                     teachers_list = []
                     for r in rows:
-                        tid, tname, tuname, tcto, tsubj = r
+                        tid, tname, tuname, tcode, tcto, tsubj = r
                         
                         trole = "Subject Teacher"
                         if str(tcto).upper() == "PRINCIPAL" or str(tname).upper() == "PRINCIPAL":
@@ -5889,6 +5889,7 @@ if __name__ == "__main__":
                             "id": tid,
                             "name": tname,
                             "username": tuname,
+                            "teacher_code": tcode,
                             "role": trole,
                             "class_teacher_of": tcto if trole == "Class Teacher" else None,
                             "subject": tsubj

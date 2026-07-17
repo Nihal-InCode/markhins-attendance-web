@@ -19,18 +19,9 @@ const normalizePeriod = (period) => {
   return value;
 };
 
-export const getSubstituteTeacherShortName = (teacher) => {
+export const getSubstituteTeacherCode = (teacher) => {
   if (!teacher) return "";
-  const explicit = teacher.short_name || teacher.shortName || teacher.initials || teacher.code;
-  if (explicit) return String(explicit).trim().toUpperCase();
-  const name = teacher.name || teacher.username || "";
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
+  return String(teacher.teacher_code || "").trim().toUpperCase();
 };
 
 const drawCenteredText = (ctx, text, x, y, width, height, options = {}) => {
@@ -77,7 +68,7 @@ export const generateSubstituteTimetablePng = ({ date, assignments }) => {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = "900 54px Arial";
-  ctx.fillText("MARKHINS CAMPUS", width / 2, margin + 38);
+  ctx.fillText("MARKHINS CONNECT", width / 2, margin + 38);
   ctx.font = "800 42px Arial";
   ctx.fillText("SUBSTITUTE TIMETABLE", width / 2, margin + 95);
   ctx.font = "700 28px Arial";
@@ -104,8 +95,8 @@ export const generateSubstituteTimetablePng = ({ date, assignments }) => {
   (assignments || []).forEach((assignment) => {
     const cls = String(assignment.class || "").trim();
     const period = normalizePeriod(assignment.period);
-    if (!cls || !period || !assignment.shortName) return;
-    grid.set(`${cls}-${period}`, assignment.shortName);
+    if (!cls || !period || !assignment.teacherCode) return;
+    grid.set(`${cls}-${period}`, assignment.teacherCode);
   });
 
   CLASS_ORDER.forEach((className, rowIndex) => {

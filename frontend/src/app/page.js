@@ -55,7 +55,7 @@ import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 import { playSound } from "@/lib/sound";
-import { generateSubstituteTimetablePng, getSubstituteTeacherShortName } from "@/lib/substituteTimetableImage";
+import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
 
 const formatTime = (createdAtStr) => {
   if (!createdAtStr) return "";
@@ -1304,7 +1304,7 @@ export default function DashboardPage() {
         return {
           class: assignment.class,
           period: assignment.period,
-          shortName: getSubstituteTeacherShortName(teacher)
+          teacherCode: getSubstituteTeacherCode(teacher)
         };
       })
     };
