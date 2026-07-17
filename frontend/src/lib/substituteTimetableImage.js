@@ -96,7 +96,10 @@ export const generateSubstituteTimetablePng = ({ date, assignments }) => {
     const cls = String(assignment.class || "").trim();
     const period = normalizePeriod(assignment.period);
     if (!cls || !period || !assignment.teacherCode) return;
-    grid.set(`${cls}-${period}`, assignment.teacherCode);
+    grid.set(`${cls}-${period}`, {
+      sub: assignment.teacherCode,
+      orig: assignment.originalTeacherCode || ""
+    });
   });
 
   CLASS_ORDER.forEach((className, rowIndex) => {
@@ -105,10 +108,24 @@ export const generateSubstituteTimetablePng = ({ date, assignments }) => {
       font: "900 29px Arial",
     });
     PERIOD_COLUMNS.forEach((col, colIndex) => {
-      const value = grid.get(`${className}-${col.period}`) || "";
-      drawCenteredText(ctx, value, margin + classColWidth + colIndex * periodColWidth, y, periodColWidth, rowHeight, {
-        font: "900 32px Arial",
-      });
+      const cellData = grid.get(`${className}-${col.period}`);
+      if (cellData) {
+        const cellX = margin + classColWidth + colIndex * periodColWidth;
+        
+        // Substitute Code slightly higher (green)
+        drawCenteredText(ctx, cellData.sub, cellX, y - 10, periodColWidth, rowHeight, {
+          font: "900 28px Arial",
+          color: "#047857"
+        });
+        
+        if (cellData.orig) {
+          // Original Code slightly lower (gray with parenthesis)
+          drawCenteredText(ctx, `(${cellData.orig})`, cellX, y + 22, periodColWidth, rowHeight, {
+            font: "bold 17px Arial",
+            color: "#6b7280"
+          });
+        }
+      }
     });
   });
 

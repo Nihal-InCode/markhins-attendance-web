@@ -1319,10 +1319,12 @@ export default function DashboardPage() {
       date: plannerDate,
       assignments: savedAssignments.map((assignment) => {
         const teacher = teacherById.get(String(assignment.substitute_teacher_id));
+        const origTeacher = teacherById.get(String(assignment.original_teacher_id));
         return {
           class: assignment.class,
           period: assignment.period,
-          teacherCode: getSubstituteTeacherCode(teacher)
+          teacherCode: getSubstituteTeacherCode(teacher),
+          originalTeacherCode: getSubstituteTeacherCode(origTeacher)
         };
       })
     };
