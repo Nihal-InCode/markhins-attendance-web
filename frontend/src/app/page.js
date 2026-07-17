@@ -5273,36 +5273,43 @@ export default function DashboardPage() {
                                 <p className="py-6 text-center text-xs font-bold text-red-400 uppercase">No teachers available without conflicts.</p>
                               ) : (
                                 <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                                  {assigningPeriod.available_teachers.map(teacher => (
-                                    <button key={teacher.id}
-                                      onClick={() => {
-                                        const subjects = teacher.matched_subjects || (teacher.matched_subject ? [teacher.matched_subject] : []);
-                                        if (subjects.length === 1) {
-                                          // Only one subject — assign directly
-                                          setTemporaryAssignments(prev => ({
-                                            ...prev,
-                                            [assigningPeriod.key]: {
-                                              substitute_teacher_id: teacher.id,
-                                              subject: subjects[0]
-                                            }
-                                          }));
-                                          setAssigningPeriod(null);
-                                          setAssigningTeacher(null);
-                                        } else {
-                                          // Multiple subjects — show subject picker
-                                          setAssigningTeacher({ ...teacher, subjects });
-                                        }
-                                      }}
-                                      className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
-                                        <p className="text-[9px] font-semibold text-gray-300 mt-0.5">{(teacher.matched_subjects || []).length} subject{(teacher.matched_subjects || []).length !== 1 ? 's' : ''} available</p>
-                                      </div>
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  ))}
+                                  {[...assigningPeriod.available_teachers].sort((a, b) => {
+                                    const aSubjects = a.matched_subjects || (a.matched_subject ? [a.matched_subject] : []);
+                                    const bSubjects = b.matched_subjects || (b.matched_subject ? [b.matched_subject] : []);
+                                    return bSubjects.length - aSubjects.length;
+                                  }).map(teacher => {
+                                    const subjects = teacher.matched_subjects || (teacher.matched_subject ? [teacher.matched_subject] : []);
+
+                                    return (
+                                      <button key={teacher.id}
+                                        onClick={() => {
+                                          if (subjects.length === 1) {
+                                            // Only one subject — assign directly
+                                            setTemporaryAssignments(prev => ({
+                                              ...prev,
+                                              [assigningPeriod.key]: {
+                                                substitute_teacher_id: teacher.id,
+                                                subject: subjects[0]
+                                              }
+                                            }));
+                                            setAssigningPeriod(null);
+                                            setAssigningTeacher(null);
+                                          } else {
+                                            // Multiple subjects — show subject picker
+                                            setAssigningTeacher({ ...teacher, subjects });
+                                          }
+                                        }}
+                                        className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
+                                          <p className="text-[9px] font-semibold text-gray-300 mt-0.5">{(teacher.matched_subjects || []).length} subject{(teacher.matched_subjects || []).length !== 1 ? 's' : ''} available</p>
+                                        </div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
