@@ -1298,7 +1298,7 @@ export default function DashboardPage() {
           const loadedLeaves = pData.saved_leaves.map(sl => {
             const foundT = teachers.find(x => String(x.id) === String(sl.teacher_id));
             return {
-              id: sl.teacher_id,
+              id: String(sl.teacher_id),
               name: foundT ? foundT.name : `Teacher #${sl.teacher_id}`,
               leaveType: sl.type || 'full',
               leavePeriods: sl.periods || []
@@ -5035,7 +5035,7 @@ export default function DashboardPage() {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leaveType: 'full', leavePeriods: [] } : x));
+                                              setSelectedLeaveTeachers(prev => prev.map(x => String(x.id) === String(t.id) ? { ...x, leaveType: 'full', leavePeriods: [] } : x));
                                             }}
                                             className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${type === 'full' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 text-gray-550 hover:bg-gray-200'}`}
                                           >
@@ -5044,7 +5044,7 @@ export default function DashboardPage() {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leaveType: 'partial', leavePeriods: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'] } : x));
+                                              setSelectedLeaveTeachers(prev => prev.map(x => String(x.id) === String(t.id) ? { ...x, leaveType: 'partial', leavePeriods: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'] } : x));
                                             }}
                                             className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${type === 'partial' ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-550 hover:bg-gray-200'}`}
                                           >
@@ -5053,7 +5053,7 @@ export default function DashboardPage() {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setSelectedLeaveTeachers(prev => prev.filter(x => x.id !== t.id));
+                                              setSelectedLeaveTeachers(prev => prev.filter(x => String(x.id) !== String(t.id)));
                                             }}
                                             className="text-gray-300 hover:text-red-500 transition-colors ml-2 font-bold"
                                           >
@@ -5076,7 +5076,7 @@ export default function DashboardPage() {
                                                     const newPeriods = isChecked 
                                                       ? selectedPeriods.filter(x => x !== p)
                                                       : [...selectedPeriods, p];
-                                                    setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leavePeriods: newPeriods } : x));
+                                                    setSelectedLeaveTeachers(prev => prev.map(x => String(x.id) === String(t.id) ? { ...x, leavePeriods: newPeriods } : x));
                                                   }}
                                                   className={`px-2 py-1 rounded-lg text-[9px] font-black tracking-wider transition-all border ${isChecked ? 'bg-amber-50 border-amber-200 text-amber-700 font-extrabold' : 'bg-white border-gray-150 text-gray-450 hover:bg-gray-50'}`}
                                                 >
@@ -5096,15 +5096,15 @@ export default function DashboardPage() {
                             {/* Searchable dropdown */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50 mb-4">
                               {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
-                                const isSelected = selectedLeaveTeachers.some(x => x.id === t.id);
+                                const isSelected = selectedLeaveTeachers.some(x => String(x.id) === String(t.id));
                                 return (
                                   <button key={t.id}
                                     onClick={() => {
                                       let updated;
                                       if (isSelected) {
-                                        updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
+                                        updated = selectedLeaveTeachers.filter(x => String(x.id) !== String(t.id));
                                       } else {
-                                        updated = [...selectedLeaveTeachers, { ...t, leaveType: 'full', leavePeriods: [] }];
+                                        updated = [...selectedLeaveTeachers, { ...t, id: String(t.id), leaveType: 'full', leavePeriods: [] }];
                                       }
                                       setSelectedLeaveTeachers(updated);
                                     }}

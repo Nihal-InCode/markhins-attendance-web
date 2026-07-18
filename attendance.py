@@ -559,10 +559,10 @@ run_migrations()
 def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, not_working_classes):
     """
     Unified Teacher Availability Engine
-    leaves_config: dict mapping teacher_id (int) to leave info (dict)
+    leaves_config: dict mapping teacher_id to leave info
     """
     # 1. Check if on Full Day Leave
-    t_leave = leaves_config.get(int(teacher_id))
+    t_leave = leaves_config.get(int(teacher_id)) or leaves_config.get(str(teacher_id))
     if t_leave:
         if t_leave.get("type") == "full":
             return False
@@ -7387,6 +7387,7 @@ if __name__ == "__main__":
 
                 elif action == "get_substitute_planner_data":
                     planner_date = data.get("date")
+                    print(f"[DEBUG] get_substitute_planner_data data: {data}")
                     leaves_list = data.get("leaves", [])
                     leaves_config = {}
                     for lv in leaves_list:
@@ -7398,6 +7399,7 @@ if __name__ == "__main__":
                             }
                         except:
                             pass
+                    print(f"[DEBUG] leaves_config: {leaves_config}")
 
                     # Fallback to old format
                     if not leaves_config:
@@ -7453,7 +7455,7 @@ if __name__ == "__main__":
                             filtered_affected_rows = []
                             for row in affected_rows:
                                 r_class, r_period, r_subject, r_ot_id, r_ot_name = row
-                                t_leave = leaves_config.get(r_ot_id)
+                                t_leave = leaves_config.get(int(r_ot_id)) or leaves_config.get(str(r_ot_id))
                                 if t_leave and t_leave.get("type") == "partial":
                                     p_label = str(r_period).strip().upper()
                                     if not p_label.startswith("P"):
