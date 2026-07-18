@@ -5199,58 +5199,87 @@ export default function DashboardPage() {
                                 </div>
                                 
                                 {showClassDropdown && (
-                                  <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setShowClassDropdown(false)} />
-                                    <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto p-1.5 border border-gray-100 rounded-2xl bg-white shadow-xl z-50 space-y-1">
-                                      <div className="p-1" onClick={(e) => e.stopPropagation()}>
+                                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/40 backdrop-blur-sm">
+                                    <div className="absolute inset-0" onClick={() => setShowClassDropdown(false)} />
+                                    
+                                    <div className="relative bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] flex flex-col p-6 shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                                      {/* Header */}
+                                      <div className="flex items-center justify-between border-b border-gray-50 pb-3 mb-4">
+                                        <div>
+                                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-wider">Select Classes Not Working</h4>
+                                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Mark classes as suspended for the day</p>
+                                        </div>
+                                        <button 
+                                          onClick={() => setShowClassDropdown(false)}
+                                          className="text-gray-400 hover:text-gray-600 transition-colors text-xs font-bold w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+
+                                      {/* Search input inside modal */}
+                                      <div className="mb-3">
                                         <input 
                                           type="text" 
                                           placeholder="Search class..." 
                                           value={classSearch}
                                           onChange={(e) => setClassSearch(e.target.value)}
-                                          className="w-full px-3 py-1.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-[#0d9488]/20"
+                                          className="w-full px-4 py-2.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-[#0d9488]/20 font-medium"
                                         />
                                       </div>
-                                      <div className="border-t border-gray-50 my-1" />
-                                      
-                                      {classes.filter(c => {
-                                        const className = String(c.name || c.class || c.id || c).trim();
-                                        return className.toLowerCase().includes(classSearch.toLowerCase());
-                                      }).length === 0 ? (
-                                        <p className="py-4 text-center text-xs font-bold text-gray-400 uppercase">No classes found.</p>
-                                      ) : (
-                                        classes.filter(c => {
+
+                                      {/* Scrollable checklist */}
+                                      <div className="flex-1 overflow-y-auto space-y-1 pr-1 max-h-[45vh]">
+                                        {classes.filter(c => {
                                           const className = String(c.name || c.class || c.id || c).trim();
                                           return className.toLowerCase().includes(classSearch.toLowerCase());
-                                        }).map(c => {
-                                          const className = String(c.name || c.class || c.id || c).trim();
-                                          const isSelected = selectedNotWorkingClasses.includes(className);
-                                          return (
-                                            <button 
-                                              key={className}
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedNotWorkingClasses(prev => (
-                                                  isSelected ? prev.filter(x => x !== className) : [...prev, className]
-                                                ));
-                                              }}
-                                              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-amber-50 text-amber-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
-                                            >
-                                              <span>{className}</span>
-                                              {isSelected ? (
-                                                <span className="text-amber-600 font-extrabold text-[10px] uppercase tracking-wider bg-amber-100/50 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                                                  <span>Not Working</span>
-                                                  <span className="text-xs">✓</span>
-                                                </span>
-                                              ) : (
-                                                <span className="text-[10px] font-bold text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
-                                              )}
-                                            </button>
-                                          );
-                                        })
-                                      )}
+                                        }).length === 0 ? (
+                                          <p className="py-8 text-center text-xs font-bold text-gray-400 uppercase">No classes found.</p>
+                                        ) : (
+                                          classes.filter(c => {
+                                            const className = String(c.name || c.class || c.id || c).trim();
+                                            return className.toLowerCase().includes(classSearch.toLowerCase());
+                                          }).map(c => {
+                                            const className = String(c.name || c.class || c.id || c).trim();
+                                            const isSelected = selectedNotWorkingClasses.includes(className);
+                                            return (
+                                              <button 
+                                                key={className}
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedNotWorkingClasses(prev => (
+                                                    isSelected ? prev.filter(x => x !== className) : [...prev, className]
+                                                  ));
+                                                }}
+                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-amber-50 text-amber-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
+                                              >
+                                                <span>{className}</span>
+                                                {isSelected ? (
+                                                  <span className="text-amber-600 font-extrabold text-[10px] uppercase tracking-wider bg-amber-100/50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                                    <span>Not Working</span>
+                                                    <span className="text-xs">✓</span>
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                                                )}
+                                              </button>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+
+                                      {/* Done Footer CTA */}
+                                      <div className="border-t border-gray-50 pt-4 mt-2">
+                                        <button 
+                                          type="button"
+                                          onClick={() => setShowClassDropdown(false)}
+                                          className="w-full py-3 bg-[#0d9488] hover:bg-[#0a7a70] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-[#0d9488]/15"
+                                        >
+                                          Done
+                                        </button>
+                                      </div>
                                     </div>
-                                  </>
+                                  </div>
                                 )}
                               </div>
                             </div>
