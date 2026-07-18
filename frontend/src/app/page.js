@@ -5044,7 +5044,7 @@ export default function DashboardPage() {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setSelectedLeaveTeachers(prev => prev.map(x => String(x.id) === String(t.id) ? { ...x, leaveType: 'partial', leavePeriods: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'] } : x));
+                                              setSelectedLeaveTeachers(prev => prev.map(x => String(x.id) === String(t.id) ? { ...x, leaveType: 'partial', leavePeriods: [] } : x));
                                             }}
                                             className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${type === 'partial' ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-550 hover:bg-gray-200'}`}
                                           >
