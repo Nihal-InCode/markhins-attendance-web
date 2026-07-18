@@ -538,6 +538,9 @@ export default function DashboardPage() {
   const [subReportData, setSubReportData] = useState([]);
   const [subTab, setSubTab] = useState("planner");
   const [leaveSearch, setLeaveSearch] = useState("");
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
+  const [classSearch, setClassSearch] = useState("");
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
   const [substituteTimetablePreview, setSubstituteTimetablePreview] = useState(null);
   const [substituteTimetableError, setSubstituteTimetableError] = useState("");
   const [lastSavedSubstituteTimetable, setLastSavedSubstituteTimetable] = useState(null);
@@ -5016,8 +5019,70 @@ export default function DashboardPage() {
 
                           <div>
                             <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Teachers on Leave</label>
-                            <input type="text" placeholder="Search teacher to mark leave..." value={leaveSearch} onChange={(e) => setLeaveSearch(e.target.value)}
-                              className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3" />
+                            <div className="relative">
+                              <div className="relative">
+                                <input 
+                                  type="text" 
+                                  placeholder="Click to select teachers on leave..." 
+                                  value={leaveSearch} 
+                                  onFocus={() => setShowTeacherDropdown(true)}
+                                  onChange={(e) => {
+                                    setLeaveSearch(e.target.value);
+                                    setShowTeacherDropdown(true);
+                                  }}
+                                  className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer" 
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                  <span className="text-[10px] font-bold text-gray-450 bg-gray-100 px-2 py-0.5 rounded-md">
+                                    {selectedLeaveTeachers.length} selected
+                                  </span>
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
+                              
+                              {showTeacherDropdown && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setShowTeacherDropdown(false)} />
+                                  <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto p-1.5 border border-gray-100 rounded-2xl bg-white shadow-xl z-50 space-y-1">
+                                    {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).length === 0 ? (
+                                      <p className="py-4 text-center text-xs font-bold text-gray-400 uppercase">No teachers found.</p>
+                                    ) : (
+                                      teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
+                                        const isSelected = selectedLeaveTeachers.some(x => String(x.id) === String(t.id));
+                                        return (
+                                          <button 
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => {
+                                              let updated;
+                                              if (isSelected) {
+                                                updated = selectedLeaveTeachers.filter(x => String(x.id) !== String(t.id));
+                                              } else {
+                                                updated = [...selectedLeaveTeachers, { ...t, id: String(t.id), leaveType: 'full', leavePeriods: [] }];
+                                              }
+                                              setSelectedLeaveTeachers(updated);
+                                            }}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-red-50 text-red-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
+                                          >
+                                            <span>{t.name}</span>
+                                            {isSelected ? (
+                                              <span className="text-red-500 font-extrabold text-[10px] uppercase tracking-wider bg-red-100/50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                                <span>On Leave</span>
+                                                <span className="text-xs">✓</span>
+                                              </span>
+                                            ) : (
+                                              <span className="text-[10px] font-bold text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                                            )}
+                                          </button>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                             
                             {/* Selected Leaves Configuration List */}
                             {selectedLeaveTeachers.length > 0 && (
@@ -5093,27 +5158,7 @@ export default function DashboardPage() {
                               </div>
                             )}
 
-                            {/* Searchable dropdown */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50 mb-4">
-                              {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
-                                const isSelected = selectedLeaveTeachers.some(x => String(x.id) === String(t.id));
-                                return (
-                                  <button key={t.id}
-                                    onClick={() => {
-                                      let updated;
-                                      if (isSelected) {
-                                        updated = selectedLeaveTeachers.filter(x => String(x.id) !== String(t.id));
-                                      } else {
-                                        updated = [...selectedLeaveTeachers, { ...t, id: String(t.id), leaveType: 'full', leavePeriods: [] }];
-                                      }
-                                      setSelectedLeaveTeachers(updated);
-                                    }}
-                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left truncate ${isSelected ? 'bg-red-50 border-red-200 text-red-700 font-extrabold' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
-                                    {isSelected ? '🔴 ' : ''}{t.name}
-                                  </button>
-                                );
-                              })}
-                            </div>
+
 
                             <div className="mb-4">
                               <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Classes Not Working</label>
@@ -5128,22 +5173,73 @@ export default function DashboardPage() {
                                   ))}
                                 </div>
                               )}
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1 border border-gray-100 rounded-xl bg-gray-50/50">
-                                {classes.map(c => {
-                                  const className = String(c.name || c.class || c.id || c).trim();
-                                  const isSelected = selectedNotWorkingClasses.includes(className);
-                                  return (
-                                    <button key={className}
-                                      onClick={() => {
-                                        setSelectedNotWorkingClasses(prev => (
-                                          isSelected ? prev.filter(x => x !== className) : [...prev, className]
-                                        ));
-                                      }}
-                                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left truncate ${isSelected ? 'bg-amber-50 border-amber-200 text-amber-700 font-extrabold' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
-                                      {className}
-                                    </button>
-                                  );
-                                })}
+                              
+                              <div className="relative">
+                                <div className="relative">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Click to select classes not working..." 
+                                    value={classSearch} 
+                                    onFocus={() => setShowClassDropdown(true)}
+                                    onChange={(e) => {
+                                      setClassSearch(e.target.value);
+                                      setShowClassDropdown(true);
+                                    }}
+                                    className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer" 
+                                  />
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                                      {selectedNotWorkingClasses.length} selected
+                                    </span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                                
+                                {showClassDropdown && (
+                                  <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowClassDropdown(false)} />
+                                    <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto p-1.5 border border-gray-100 rounded-2xl bg-white shadow-xl z-50 space-y-1">
+                                      {classes.filter(c => {
+                                        const className = String(c.name || c.class || c.id || c).trim();
+                                        return className.toLowerCase().includes(classSearch.toLowerCase());
+                                      }).length === 0 ? (
+                                        <p className="py-4 text-center text-xs font-bold text-gray-400 uppercase">No classes found.</p>
+                                      ) : (
+                                        classes.filter(c => {
+                                          const className = String(c.name || c.class || c.id || c).trim();
+                                          return className.toLowerCase().includes(classSearch.toLowerCase());
+                                        }).map(c => {
+                                          const className = String(c.name || c.class || c.id || c).trim();
+                                          const isSelected = selectedNotWorkingClasses.includes(className);
+                                          return (
+                                            <button 
+                                              key={className}
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedNotWorkingClasses(prev => (
+                                                  isSelected ? prev.filter(x => x !== className) : [...prev, className]
+                                                ));
+                                              }}
+                                              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-amber-50 text-amber-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
+                                            >
+                                              <span>{className}</span>
+                                              {isSelected ? (
+                                                <span className="text-amber-600 font-extrabold text-[10px] uppercase tracking-wider bg-amber-100/50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                                  <span>Not Working</span>
+                                                  <span className="text-xs">✓</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-bold text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                                              )}
+                                            </button>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </div>
 
