@@ -370,10 +370,14 @@ export const getSubstitutePlannerData = (date, leavesOrIds, notWorkingClasses = 
     let leavesStr = "";
     let idsStr = "";
     if (Array.isArray(leavesOrIds)) {
-        // If it's a simple array of IDs (fallback/legacy)
-        idsStr = leavesOrIds.join(',');
+        if (leavesOrIds.length > 0 && typeof leavesOrIds[0] === 'object' && leavesOrIds[0] !== null) {
+            // New structured leaves list
+            leavesStr = encodeURIComponent(JSON.stringify(leavesOrIds));
+        } else {
+            // Legacy IDs array
+            idsStr = leavesOrIds.join(',');
+        }
     } else if (typeof leavesOrIds === 'object' && leavesOrIds !== null) {
-        // If it's the new leaves structure
         leavesStr = encodeURIComponent(JSON.stringify(leavesOrIds));
     }
     return apiRequest(`/api/substitute/planner-data?date=${date}&on_leave_teacher_ids=${idsStr}&not_working_classes=${encodeURIComponent(classes || '')}&leaves=${leavesStr}`);
