@@ -632,9 +632,9 @@ app.post('/login', async (req, res) => {
             return res.json({ success: true, user: majlisUser, token });
         }
 
-        // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
+                // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
         const sysAdminUser = process.env.WEB_ADMIN_USERNAME || "admin";
-        let sysAdminPass = process.env.WEB_ADMIN_PASSWORD;
+        let sysAdminPass = process.env.WEB_ADMIN_PASSWORD || "admin";
 
         // Check if there is a password set in the database
         try {
@@ -1963,7 +1963,7 @@ app.post('/api/timetable/editors', authenticateToken, async (req, res) => {
 // Get planner data (Admin or authorized coordinator)
 app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
     try {
-        const { date, on_leave_teacher_ids, not_working_classes } = req.query;
+        const { date, on_leave_teacher_ids, not_working_classes, leaves } = req.query;
         
         // Authorization check: Admin or coordinator in system settings
         const coordRes = await callPython({ action: "get_substitute_coordinators" });
@@ -1973,7 +1973,21 @@ app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
 
         const idsArray = on_leave_teacher_ids ? on_leave_teacher_ids.split(',').map(x => parseInt(x)).filter(x => !isNaN(x)) : [];
         const notWorkingClasses = not_working_classes ? not_working_classes.split(',').map(x => String(x).trim()).filter(Boolean) : [];
-        const result = await callPython({ action: "get_substitute_planner_data", date, on_leave_teacher_ids: idsArray, not_working_classes: notWorkingClasses });
+        
+        let parsedLeaves = [];
+        if (leaves) {
+            try {
+                parsedLeaves = JSON.parse(leaves);
+            } catch (e) {}
+        }
+
+        const result = await callPython({ 
+            action: "get_substitute_planner_data", 
+            date, 
+            on_leave_teacher_ids: idsArray, 
+            not_working_classes: notWorkingClasses,
+            leaves: parsedLeaves
+        });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1983,7 +1997,7 @@ app.get('/api/substitute/planner-data', authenticateToken, async (req, res) => {
 // Assign substitutes (Admin or authorized coordinator)
 app.post('/api/substitute/assign', authenticateToken, async (req, res) => {
     try {
-        const { date, assignments } = req.body;
+        const { date, assignments, leaves } = req.body;
         
         // Authorization check
         const coordRes = await callPython({ action: "get_substitute_coordinators" });
@@ -1995,6 +2009,7 @@ app.post('/api/substitute/assign', authenticateToken, async (req, res) => {
             action: "save_substitute_assignments", 
             date, 
             assignments, 
+            leaves: leaves || [],
             coordinator: req.user.name || req.user.username || 'Coordinator' 
         });
         res.json(result);
@@ -2028,29 +2043,13 @@ app.get('/api/substitute/dashboard-widget', authenticateToken, async (req, res) 
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-        // Fetch all assignments for tomorrow
+        // Fetch dashboard widget details from Python
         const result = await callPython({ 
-            action: "get_substitute_assignments_report", 
-            fromDate: tomorrowStr, 
-            toDate: tomorrowStr 
+            action: "get_substitute_dashboard_widget_data", 
+            date: tomorrowStr
         });
         
-        if (result.success) {
-            const list = result.data || [];
-            const assignedCount = list.filter(a => a.substitute_teacher).length;
-            res.json({
-                success: true,
-                data: {
-                    date: tomorrowStr,
-                    totalSubstitutes: list.length,
-                    assigned: assignedCount,
-                    pending: list.length - assignedCount,
-                    list: list
-                }
-            });
-        } else {
-            res.json(result);
-        }
+        res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

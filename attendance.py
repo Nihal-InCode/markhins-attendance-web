@@ -254,6 +254,28 @@ def run_migrations():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Migration to add leave_type and leave_periods to manual_substitute_assignments
+        try:
+            c.execute("ALTER TABLE manual_substitute_assignments ADD COLUMN original_teacher_leave_type TEXT DEFAULT 'full'")
+        except Exception as e:
+            pass
+        try:
+            c.execute("ALTER TABLE manual_substitute_assignments ADD COLUMN original_teacher_leave_periods TEXT")
+        except Exception as e:
+            pass
+            
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS teacher_leaves (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                teacher_id INTEGER NOT NULL,
+                leave_type TEXT NOT NULL, -- 'full' or 'partial'
+                periods TEXT, -- comma-separated list of periods if partial
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(date, teacher_id)
+            )
+        """)
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS system_settings (
@@ -533,6 +555,62 @@ def run_migrations():
 
 # Run migrations on startup
 run_migrations()
+
+def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, not_working_classes):
+    """
+    Unified Teacher Availability Engine
+    leaves_config: dict mapping teacher_id (int) to leave info (dict)
+    """
+    # 1. Check if on Full Day Leave
+    t_leave = leaves_config.get(int(teacher_id))
+    if t_leave:
+        if t_leave.get("type") == "full":
+            return False
+        # 2. Check if on Partial Leave for this specific period
+        elif t_leave.get("type") == "partial":
+            p_label = str(period).strip().upper()
+            if not p_label.startswith("P"):
+                p_label = f"P{p_label}"
+            
+            leave_periods = t_leave.get("periods", [])
+            normalized_leave_periods = []
+            for lp in leave_periods:
+                lp_str = str(lp).strip().upper()
+                if not lp_str.startswith("P"):
+                    lp_str = f"P{lp_str}"
+                normalized_leave_periods.append(lp_str)
+            
+            if p_label in normalized_leave_periods:
+                return False
+
+    # 3. Check if teaching another scheduled class during that period in timetable (unless class is not working)
+    not_working_clause = ""
+    not_working_params = []
+    if not_working_classes:
+        not_working_clause = " AND UPPER(class) NOT IN ({})".format(",".join("?" * len(not_working_classes)))
+        not_working_params = [str(x).strip().upper() for x in not_working_classes]
+
+    p_query = str(period).strip().upper()
+    if not p_query.startswith("P"):
+        p_query = f"P{p_query}"
+
+    c.execute(f"""
+        SELECT COUNT(*) FROM timetable
+        WHERE teacher_id = ? AND weekday = ? AND period_label = ?
+        {not_working_clause}
+    """, (teacher_id, weekday, p_query, *not_working_params))
+    if c.fetchone()[0] > 0:
+        return False
+
+    # 4. Check if already assigned as a substitute during that period on this date
+    c.execute("""
+        SELECT COUNT(*) FROM manual_substitute_assignments
+        WHERE date = ? AND period = ? AND substitute_teacher_id = ?
+    """, (date, p_query, teacher_id))
+    if c.fetchone()[0] > 0:
+        return False
+
+    return True
 
 NAMAZ_SESSION_TYPES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
@@ -7309,10 +7387,45 @@ if __name__ == "__main__":
 
                 elif action == "get_substitute_planner_data":
                     planner_date = data.get("date")
-                    on_leave_ids = data.get("on_leave_teacher_ids", [])
-                    on_leave_ids = [int(x) for x in on_leave_ids if str(x).isdigit()]
+                    leaves_list = data.get("leaves", [])
+                    leaves_config = {}
+                    for lv in leaves_list:
+                        try:
+                            tid = int(lv.get("teacher_id"))
+                            leaves_config[tid] = {
+                                "type": lv.get("type", "full"),
+                                "periods": lv.get("periods", [])
+                            }
+                        except:
+                            pass
+
+                    # Fallback to old format
+                    if not leaves_config:
+                        old_ids = data.get("on_leave_teacher_ids", [])
+                        if isinstance(old_ids, str):
+                            old_ids = [x.strip() for x in old_ids.split(",") if x.strip()]
+                        for oid in old_ids:
+                            try:
+                                tid = int(oid)
+                                leaves_config[tid] = {"type": "full", "periods": []}
+                            except:
+                                pass
+
+                    # If leaves not provided in request, load saved leaves from database
+                    if not leaves_config:
+                        c.execute("SELECT teacher_id, leave_type, periods FROM teacher_leaves WHERE date = ?", (planner_date,))
+                        for tid, ltype, lperiods in c.fetchall():
+                            leaves_config[tid] = {
+                                "type": ltype,
+                                "periods": [p.strip() for p in lperiods.split(",") if p.strip()] if lperiods else []
+                            }
+
+                    on_leave_ids = list(leaves_config.keys())
                     not_working_classes = data.get("not_working_classes", [])
-                    not_working_classes = [str(x).strip().upper() for x in not_working_classes if str(x).strip()]
+                    if isinstance(not_working_classes, str):
+                        not_working_classes = [x.strip().upper() for x in not_working_classes.split(",") if x.strip()]
+                    else:
+                        not_working_classes = [str(x).strip().upper() for x in not_working_classes if str(x).strip()]
                     
                     try:
                         target_dt = dt.strptime(planner_date, "%Y-%m-%d")
@@ -7336,6 +7449,28 @@ if __name__ == "__main__":
                             """.format(",".join("?" * len(on_leave_ids))), (weekday, *on_leave_ids))
                             affected_rows = c.fetchall()
                             
+                            # Filter affected_rows based on partial leave periods
+                            filtered_affected_rows = []
+                            for row in affected_rows:
+                                r_class, r_period, r_subject, r_ot_id, r_ot_name = row
+                                t_leave = leaves_config.get(r_ot_id)
+                                if t_leave and t_leave.get("type") == "partial":
+                                    p_label = str(r_period).strip().upper()
+                                    if not p_label.startswith("P"):
+                                        p_label = f"P{p_label}"
+                                    
+                                    leave_periods = t_leave.get("periods", [])
+                                    normalized_leave_periods = []
+                                    for lp in leave_periods:
+                                        lp_str = str(lp).strip().upper()
+                                        if not lp_str.startswith("P"):
+                                            lp_str = f"P{lp_str}"
+                                        normalized_leave_periods.append(lp_str)
+                                    
+                                    if p_label not in normalized_leave_periods:
+                                        continue
+                                filtered_affected_rows.append(row)
+                            
                             # 3. Get existing manual substitutions for this date
                             c.execute("""
                                 SELECT period, class, original_teacher_id, substitute_teacher_id, substitute_teacher_name, subject
@@ -7350,54 +7485,36 @@ if __name__ == "__main__":
                                     "subject": esub
                                 }
                                 
-                            for r_class, r_period, r_subject, r_ot_id, r_ot_name in affected_rows:
+                            for r_class, r_period, r_subject, r_ot_id, r_ot_name in filtered_affected_rows:
                                 if str(r_class).strip().upper() in not_working_classes:
                                     continue
 
-                                # Find available teachers
-                                leave_placeholders = ",".join("?" * len(on_leave_ids))
-                                not_working_clause = ""
-                                not_working_params = []
-                                if not_working_classes:
-                                    not_working_clause = " AND UPPER(class) NOT IN ({})".format(",".join("?" * len(not_working_classes)))
-                                    not_working_params = not_working_classes
-                                c.execute("""
-                                    SELECT id, name FROM teachers
-                                    WHERE id NOT IN ({})
-                                      AND id NOT IN (
-                                          SELECT teacher_id FROM timetable
-                                          WHERE weekday = ? AND period_label = ? AND teacher_id IS NOT NULL
-                                          {}
-                                      )
-                                      AND id NOT IN (
-                                          SELECT substitute_teacher_id FROM manual_substitute_assignments
-                                          WHERE date = ? AND period = ?
-                                      )
-                                    ORDER BY name
-                                """.format(leave_placeholders, not_working_clause), (*on_leave_ids, weekday, r_period, *not_working_params, planner_date, r_period))
-                                avail_rows = c.fetchall()
-                                
+                                # Find available teachers using our availability engine
+                                c.execute("SELECT id, name FROM teachers ORDER BY name")
+                                all_teachers_raw = c.fetchall()
                                 avail_teachers = []
-                                for av_id, av_name in avail_rows:
-                                    # Return ALL subjects this teacher teaches in this class
-                                    c.execute("""
-                                        SELECT DISTINCT subject
-                                        FROM timetable
-                                        WHERE teacher_id = ?
-                                          AND UPPER(class) = UPPER(?)
-                                          AND subject IS NOT NULL
-                                          AND TRIM(subject) != ''
-                                        ORDER BY subject COLLATE NOCASE
-                                    """, (av_id, r_class))
-                                    subj_rows = c.fetchall()
-                                    matched_subjects = [r[0] for r in subj_rows]
+                                for av_id, av_name in all_teachers_raw:
+                                    if av_id == r_ot_id:
+                                        continue
+                                    if is_teacher_available(c, av_id, planner_date, weekday, r_period, leaves_config, not_working_classes):
+                                        c.execute("""
+                                            SELECT DISTINCT subject
+                                            FROM timetable
+                                            WHERE teacher_id = ?
+                                              AND UPPER(class) = UPPER(?)
+                                              AND subject IS NOT NULL
+                                              AND TRIM(subject) != ''
+                                            ORDER BY subject COLLATE NOCASE
+                                        """, (av_id, r_class))
+                                        subj_rows = c.fetchall()
+                                        matched_subjects = [r[0] for r in subj_rows]
 
-                                    avail_teachers.append({
-                                        "id": av_id,
-                                        "name": av_name,
-                                        "matched_subject": matched_subjects[0] if matched_subjects else "",
-                                        "matched_subjects": matched_subjects
-                                    })
+                                        avail_teachers.append({
+                                            "id": av_id,
+                                            "name": av_name,
+                                            "matched_subject": matched_subjects[0] if matched_subjects else "",
+                                            "matched_subjects": matched_subjects
+                                        })
                                     
                                 existing = existing_map.get((r_period, r_class, r_ot_id))
                                 affected_periods.append({
@@ -7416,7 +7533,8 @@ if __name__ == "__main__":
                             "success": True,
                             "data": {
                                 "affected_periods": affected_periods,
-                                "all_teachers": all_teachers
+                                "all_teachers": all_teachers,
+                                "saved_leaves": [{"teacher_id": tid, "type": info["type"], "periods": info["periods"]} for tid, info in leaves_config.items()]
                             }
                         }
 
@@ -7424,14 +7542,42 @@ if __name__ == "__main__":
                     planner_date = data.get("date")
                     coordinator = data.get("coordinator", "Admin")
                     assignments = data.get("assignments", [])
+                    leaves_list = data.get("leaves", [])
                     
                     try:
                         target_dt = dt.strptime(planner_date, "%Y-%m-%d")
                         weekday = target_dt.weekday()
                         
+                        # Delete old assignments
                         c.execute("DELETE FROM manual_substitute_assignments WHERE date = ?", (planner_date,))
                         c.execute("DELETE FROM substitute_log_simple WHERE date = ? AND notes LIKE 'Manually assigned%'", (planner_date,))
                         
+                        # Save leaves configuration
+                        c.execute("DELETE FROM teacher_leaves WHERE date = ?", (planner_date,))
+                        for lv in leaves_list:
+                            try:
+                                tid = int(lv.get("teacher_id"))
+                                ltype = lv.get("type", "full")
+                                lperiods = ",".join(str(p).strip().upper() for p in lv.get("periods", []) if str(p).strip())
+                                c.execute("""
+                                    INSERT INTO teacher_leaves (date, teacher_id, leave_type, periods)
+                                    VALUES (?, ?, ?, ?)
+                                """, (planner_date, tid, ltype, lperiods if ltype == 'partial' else None))
+                            except Exception as e:
+                                pass
+                                
+                        # Create leaves lookup for assignments history record
+                        leaves_config = {}
+                        for lv in leaves_list:
+                            try:
+                                tid = int(lv.get("teacher_id"))
+                                leaves_config[tid] = {
+                                    "type": lv.get("type", "full"),
+                                    "periods": lv.get("periods", [])
+                                }
+                            except:
+                                pass
+                                
                         c.execute("SELECT id, name FROM teachers")
                         teacher_names = {r[0]: r[1] for r in c.fetchall()}
                         
@@ -7445,11 +7591,16 @@ if __name__ == "__main__":
                             ot_name = teacher_names.get(ot_id, f"Teacher #{ot_id}")
                             st_name = teacher_names.get(st_id, f"Teacher #{st_id}")
                             
+                            # Get leave type/periods for history logs
+                            t_leave = leaves_config.get(ot_id, {"type": "full", "periods": []})
+                            leave_type = t_leave.get("type", "full")
+                            leave_periods_str = ",".join(t_leave.get("periods", [])) if leave_type == 'partial' else None
+                            
                             c.execute("""
                                 INSERT INTO manual_substitute_assignments 
-                                (date, period, class, original_teacher_id, original_teacher_name, substitute_teacher_id, substitute_teacher_name, subject, assigned_by)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (planner_date, period, class_id, ot_id, ot_name, st_id, st_name, subject, coordinator))
+                                (date, period, class, original_teacher_id, original_teacher_name, substitute_teacher_id, substitute_teacher_name, subject, assigned_by, original_teacher_leave_type, original_teacher_leave_periods)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (planner_date, period, class_id, ot_id, ot_name, st_id, st_name, subject, coordinator, leave_type, leave_periods_str))
                             
                             c.execute("""
                                 INSERT INTO substitute_log_simple
@@ -7462,6 +7613,89 @@ if __name__ == "__main__":
                     except Exception as e:
                         result = {"success": False, "message": f"Failed to save assignments: {str(e)}"}
 
+                elif action == "get_substitute_dashboard_widget_data":
+                    target_date = data.get("date")
+                    
+                    try:
+                        target_dt = dt.strptime(target_date, "%Y-%m-%d")
+                        weekday = target_dt.weekday()
+                        
+                        # 1. Get saved leaves
+                        c.execute("SELECT teacher_id, leave_type, periods FROM teacher_leaves WHERE date = ?", (target_date,))
+                        leaves_rows = c.fetchall()
+                        
+                        leaves_config = {}
+                        for tid, ltype, lperiods in leaves_rows:
+                            periods_list = [p.strip().upper() for p in lperiods.split(",") if p.strip()] if lperiods else []
+                            leaves_config[tid] = {
+                                "type": ltype,
+                                "periods": periods_list
+                            }
+                            
+                        on_leave_ids = list(leaves_config.keys())
+                        
+                        total_affected = 0
+                        if on_leave_ids:
+                            # 2. Get affected periods
+                            c.execute("""
+                                SELECT tt.class, tt.period_label, tt.teacher_id
+                                FROM timetable tt
+                                WHERE tt.weekday = ? AND tt.teacher_id IN ({})
+                            """.format(",".join("?" * len(on_leave_ids))), (weekday, *on_leave_ids))
+                            for r_class, r_period, r_tid in c.fetchall():
+                                t_leave = leaves_config.get(r_tid)
+                                if t_leave:
+                                    if t_leave.get("type") == "partial":
+                                        p_label = str(r_period).strip().upper()
+                                        if not p_label.startswith("P"):
+                                            p_label = f"P{p_label}"
+                                        if p_label not in t_leave.get("periods", []):
+                                            continue
+                                    total_affected += 1
+                                    
+                        # 3. Get manual assignments
+                        c.execute("""
+                            SELECT id, date, period, class, original_teacher_name, substitute_teacher_name, subject, assigned_by, created_at, original_teacher_leave_type, original_teacher_leave_periods
+                            FROM manual_substitute_assignments
+                            WHERE date = ?
+                        """, (target_date,))
+                        rows = c.fetchall()
+                        assigned_count = len(rows)
+                        
+                        if total_affected < assigned_count:
+                            total_affected = assigned_count
+                            
+                        list_data = []
+                        for r in rows:
+                            ltype = r[9] if len(r) > 9 and r[9] else 'full'
+                            lperiods = r[10] if len(r) > 10 and r[10] else ''
+                            list_data.append({
+                                "id": r[0],
+                                "date": r[1],
+                                "period": r[2],
+                                "class": r[3],
+                                "original_teacher": r[4],
+                                "substitute_teacher": r[5],
+                                "subject": r[6],
+                                "assigned_by": r[7],
+                                "created_at": r[8],
+                                "leave_type": ltype,
+                                "leave_periods": lperiods
+                            })
+                            
+                        result = {
+                            "success": True,
+                            "data": {
+                                "date": target_date,
+                                "totalSubstitutes": total_affected,
+                                "assigned": assigned_count,
+                                "pending": max(0, total_affected - assigned_count),
+                                "list": list_data
+                            }
+                        }
+                    except Exception as e:
+                        result = {"success": False, "message": f"Failed to load widget: {str(e)}"}
+
                 elif action == "get_substitute_assignments_report":
                     from_date = data.get("fromDate", get_ist_now().strftime("%Y-%m-%d"))
                     to_date = data.get("toDate", from_date)
@@ -7469,7 +7703,7 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacherId")
                     
                     query = """
-                        SELECT id, date, period, class, original_teacher_name, substitute_teacher_name, subject, assigned_by, created_at
+                        SELECT id, date, period, class, original_teacher_name, substitute_teacher_name, subject, assigned_by, created_at, original_teacher_leave_type, original_teacher_leave_periods
                         FROM manual_substitute_assignments
                         WHERE date BETWEEN ? AND ?
                     """
@@ -7486,17 +7720,23 @@ if __name__ == "__main__":
                     c.execute(query, tuple(params))
                     rows = c.fetchall()
                     
-                    report_data = [{
-                        "id": r[0],
-                        "date": r[1],
-                        "period": r[2],
-                        "class": r[3],
-                        "original_teacher": r[4],
-                        "substitute_teacher": r[5],
-                        "subject": r[6],
-                        "assigned_by": r[7],
-                        "created_at": r[8]
-                    } for r in rows]
+                    report_data = []
+                    for r in rows:
+                        ltype = r[9] if len(r) > 9 and r[9] else 'full'
+                        lperiods = r[10] if len(r) > 10 and r[10] else ''
+                        report_data.append({
+                            "id": r[0],
+                            "date": r[1],
+                            "period": r[2],
+                            "class": r[3],
+                            "original_teacher": r[4],
+                            "substitute_teacher": r[5],
+                            "subject": r[6],
+                            "assigned_by": r[7],
+                            "created_at": r[8],
+                            "leave_type": ltype,
+                            "leave_periods": lperiods
+                        })
                     
                     result = {"success": True, "data": report_data}
 

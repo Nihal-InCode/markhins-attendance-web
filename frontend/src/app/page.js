@@ -1284,14 +1284,29 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchPlannerData = async (date, leaveTeacherIds, notWorkingClasses = selectedNotWorkingClasses) => {
+  const fetchPlannerData = async (date, leavesOrIds, notWorkingClasses = selectedNotWorkingClasses) => {
     setLoadingFeature(true);
     showLoader("Loading planner data...");
     try {
-      const res = await getSubstitutePlannerData(date, leaveTeacherIds, notWorkingClasses);
+      const res = await getSubstitutePlannerData(date, leavesOrIds, notWorkingClasses);
       const pData = res?.success ? res.data : res;
       if (pData && pData.affected_periods) {
         setPlannerData(pData);
+        
+        // Auto-load saved leaves if returned from backend
+        if (Array.isArray(pData.saved_leaves)) {
+          const loadedLeaves = pData.saved_leaves.map(sl => {
+            const foundT = teachers.find(x => String(x.id) === String(sl.teacher_id));
+            return {
+              id: sl.teacher_id,
+              name: foundT ? foundT.name : `Teacher #${sl.teacher_id}`,
+              leaveType: sl.type || 'full',
+              leavePeriods: sl.periods || []
+            };
+          });
+          setSelectedLeaveTeachers(loadedLeaves);
+        }
+        
         const temp = {};
         pData.affected_periods.forEach(p => {
           if (p.assigned_substitute_id) {
@@ -1389,14 +1404,20 @@ export default function DashboardPage() {
         };
       });
 
-      const res = await saveSubstituteAssignments(plannerDate, list);
+      const leavesPayload = selectedLeaveTeachers.map(t => ({
+        teacher_id: t.id,
+        type: t.leaveType || 'full',
+        periods: t.leavePeriods || []
+      }));
+
+      const res = await saveSubstituteAssignments(plannerDate, list, leavesPayload);
       const isSuccess = res?.success || res?.message?.includes("successfully");
       if (isSuccess) {
         playSound('success');
         alert("Assignments saved successfully.");
         const timetableData = buildSavedSubstituteTimetable(list);
         setLastSavedSubstituteTimetable(timetableData);
-        await fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id), selectedNotWorkingClasses);
+        await fetchPlannerData(plannerDate, leavesPayload, selectedNotWorkingClasses);
         const widgetRes = await getSubstituteDashboardWidget();
         if (widgetRes) {
           const wData = widgetRes.success ? widgetRes.data : widgetRes;
@@ -4998,18 +5019,77 @@ export default function DashboardPage() {
                             <input type="text" placeholder="Search teacher to mark leave..." value={leaveSearch} onChange={(e) => setLeaveSearch(e.target.value)}
                               className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3" />
                             
-                            {/* Selected Leaves Badges */}
+                            {/* Selected Leaves Configuration List */}
                             {selectedLeaveTeachers.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mb-3">
-                                {selectedLeaveTeachers.map(t => (
-                                  <span key={t.id} className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-3 py-1 rounded-xl text-xs font-bold border border-red-100">
-                                    {t.name}
-                                    <button onClick={() => {
-                                      const updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
-                                      setSelectedLeaveTeachers(updated);
-                                    }} className="text-red-400 hover:text-red-700 font-bold ml-1">✕</button>
-                                  </span>
-                                ))}
+                              <div className="space-y-3 mb-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Configure Leave Type</label>
+                                {selectedLeaveTeachers.map(t => {
+                                  const type = t.leaveType || 'full';
+                                  const selectedPeriods = t.leavePeriods || [];
+                                  
+                                  return (
+                                    <div key={t.id} className="bg-white p-3 rounded-xl border border-gray-100 space-y-2.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-gray-800">{t.name}</span>
+                                        <div className="flex gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leaveType: 'full', leavePeriods: [] } : x));
+                                            }}
+                                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${type === 'full' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 text-gray-550 hover:bg-gray-200'}`}
+                                          >
+                                            Full Day
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leaveType: 'partial', leavePeriods: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'] } : x));
+                                            }}
+                                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${type === 'partial' ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-550 hover:bg-gray-200'}`}
+                                          >
+                                            Partial Leave
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedLeaveTeachers(prev => prev.filter(x => x.id !== t.id));
+                                            }}
+                                            className="text-gray-300 hover:text-red-500 transition-colors ml-2 font-bold"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      </div>
+                                      
+                                      {type === 'partial' && (
+                                        <div className="border-t border-gray-50 pt-2">
+                                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">Select Leave Periods</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map(p => {
+                                              const isChecked = selectedPeriods.includes(p);
+                                              return (
+                                                <button
+                                                  type="button"
+                                                  key={p}
+                                                  onClick={() => {
+                                                    const newPeriods = isChecked 
+                                                      ? selectedPeriods.filter(x => x !== p)
+                                                      : [...selectedPeriods, p];
+                                                    setSelectedLeaveTeachers(prev => prev.map(x => x.id === t.id ? { ...x, leavePeriods: newPeriods } : x));
+                                                  }}
+                                                  className={`px-2 py-1 rounded-lg text-[9px] font-black tracking-wider transition-all border ${isChecked ? 'bg-amber-50 border-amber-200 text-amber-700 font-extrabold' : 'bg-white border-gray-150 text-gray-450 hover:bg-gray-50'}`}
+                                                >
+                                                  {p}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
 
@@ -5024,7 +5104,7 @@ export default function DashboardPage() {
                                       if (isSelected) {
                                         updated = selectedLeaveTeachers.filter(x => x.id !== t.id);
                                       } else {
-                                        updated = [...selectedLeaveTeachers, t];
+                                        updated = [...selectedLeaveTeachers, { ...t, leaveType: 'full', leavePeriods: [] }];
                                       }
                                       setSelectedLeaveTeachers(updated);
                                     }}
@@ -5069,7 +5149,14 @@ export default function DashboardPage() {
 
                             {/* Explicit CTA Confirm & Load Planner Button */}
                             <div className="flex justify-end pt-2">
-                              <button onClick={() => fetchPlannerData(plannerDate, selectedLeaveTeachers.map(t => t.id), selectedNotWorkingClasses)}
+                              <button onClick={() => {
+                                const leavesPayload = selectedLeaveTeachers.map(t => ({
+                                  teacher_id: t.id,
+                                  type: t.leaveType || 'full',
+                                  periods: t.leavePeriods || []
+                                }));
+                                fetchPlannerData(plannerDate, leavesPayload, selectedNotWorkingClasses);
+                              }}
                                 disabled={selectedLeaveTeachers.length === 0}
                                 className="w-full sm:w-auto rounded-xl bg-[#0d9488] hover:bg-[#0a7a70] text-white px-6 py-3 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-[#0d9488]/15">
                                 Confirm Leaves & Load Planner
@@ -5237,7 +5324,18 @@ export default function DashboardPage() {
                                   <td className="px-5 py-3 font-bold text-gray-700">{row.date}</td>
                                   <td className="px-5 py-3 font-mono font-bold text-[#0d9488]">{row.class}</td>
                                   <td className="px-5 py-3">{row.period}</td>
-                                  <td className="px-5 py-3 text-gray-600">{row.original_teacher}</td>
+                                  <td className="px-5 py-3 text-gray-600">
+                                    <div>{row.original_teacher}</div>
+                                    {row.leave_type === 'partial' ? (
+                                      <span className="inline-block text-[8px] font-black uppercase bg-amber-50 text-amber-600 border border-amber-100 px-1.5 py-0.5 rounded-md mt-0.5">
+                                        Partial Leave: {row.leave_periods || 'N/A'}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-block text-[8px] font-black uppercase bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-md mt-0.5">
+                                        Full Day Leave
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="px-5 py-3 font-bold text-emerald-700">{row.substitute_teacher}</td>
                                   <td className="px-5 py-3 font-semibold">{row.subject}</td>
                                   <td className="px-5 py-3 text-gray-400">{row.assigned_by}</td>
