@@ -5020,20 +5020,15 @@ export default function DashboardPage() {
                           <div>
                             <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Teachers on Leave</label>
                             <div className="relative">
-                              <div className="relative">
-                                <input 
-                                  type="text" 
-                                  placeholder="Click to select teachers on leave..." 
-                                  value={leaveSearch} 
-                                  onFocus={() => setShowTeacherDropdown(true)}
-                                  onChange={(e) => {
-                                    setLeaveSearch(e.target.value);
-                                    setShowTeacherDropdown(true);
-                                  }}
-                                  className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer" 
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                                  <span className="text-[10px] font-bold text-gray-450 bg-gray-100 px-2 py-0.5 rounded-md">
+                              <div 
+                                onClick={() => setShowTeacherDropdown(prev => !prev)}
+                                className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer flex items-center justify-between min-h-[38px] select-none"
+                              >
+                                <span className="text-gray-500">
+                                  Click to select teachers on leave...
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-gray-455 bg-gray-100 px-2 py-0.5 rounded-md">
                                     {selectedLeaveTeachers.length} selected
                                   </span>
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -5046,6 +5041,17 @@ export default function DashboardPage() {
                                 <>
                                   <div className="fixed inset-0 z-40" onClick={() => setShowTeacherDropdown(false)} />
                                   <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto p-1.5 border border-gray-100 rounded-2xl bg-white shadow-xl z-50 space-y-1">
+                                    <div className="p-1" onClick={(e) => e.stopPropagation()}>
+                                      <input 
+                                        type="text" 
+                                        placeholder="Search teacher..." 
+                                        value={leaveSearch}
+                                        onChange={(e) => setLeaveSearch(e.target.value)}
+                                        className="w-full px-3 py-1.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-[#0d9488]/20"
+                                      />
+                                    </div>
+                                    <div className="border-t border-gray-50 my-1" />
+                                    
                                     {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).length === 0 ? (
                                       <p className="py-4 text-center text-xs font-bold text-gray-400 uppercase">No teachers found.</p>
                                     ) : (
@@ -5175,19 +5181,14 @@ export default function DashboardPage() {
                               )}
                               
                               <div className="relative">
-                                <div className="relative">
-                                  <input 
-                                    type="text" 
-                                    placeholder="Click to select classes not working..." 
-                                    value={classSearch} 
-                                    onFocus={() => setShowClassDropdown(true)}
-                                    onChange={(e) => {
-                                      setClassSearch(e.target.value);
-                                      setShowClassDropdown(true);
-                                    }}
-                                    className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer" 
-                                  />
-                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                <div 
+                                  onClick={() => setShowClassDropdown(prev => !prev)}
+                                  className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20 w-full mb-3 cursor-pointer flex items-center justify-between min-h-[38px] select-none"
+                                >
+                                  <span className="text-gray-500">
+                                    Click to select classes not working...
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
                                     <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
                                       {selectedNotWorkingClasses.length} selected
                                     </span>
@@ -5201,6 +5202,17 @@ export default function DashboardPage() {
                                   <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowClassDropdown(false)} />
                                     <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto p-1.5 border border-gray-100 rounded-2xl bg-white shadow-xl z-50 space-y-1">
+                                      <div className="p-1" onClick={(e) => e.stopPropagation()}>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Search class..." 
+                                          value={classSearch}
+                                          onChange={(e) => setClassSearch(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-[#0d9488]/20"
+                                        />
+                                      </div>
+                                      <div className="border-t border-gray-50 my-1" />
+                                      
                                       {classes.filter(c => {
                                         const className = String(c.name || c.class || c.id || c).trim();
                                         return className.toLowerCase().includes(classSearch.toLowerCase());
