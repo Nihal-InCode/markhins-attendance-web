@@ -17,6 +17,7 @@ import {
   getLeaveList,
   getPeriodSummary,
   getLastAttendance,
+  deleteLastAttendance,
   getMarkedPeriods,
   apiRequest,
   getAdminActivityLog,
@@ -658,6 +659,49 @@ export default function DashboardPage() {
   const [searchRollNo, setSearchRollNo] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(getIstDateString());
 
+  // 10-Minute Recent Attendance Timer & Delete Box
+  const [recentMarkedSession, setRecentMarkedSession] = useState(null);
+  const [deletingLastRecord, setDeletingLastRecord] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  // Restore recent marked session & countdown timer
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('recent_marked_session_info');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const elapsed = Math.floor((Date.now() - parsed.markedAt) / 1000);
+        if (elapsed < 600) {
+          setRecentMarkedSession({
+            ...parsed,
+            remainingSeconds: 600 - elapsed,
+          });
+        } else {
+          localStorage.removeItem('recent_marked_session_info');
+        }
+      }
+    } catch (e) {
+      console.error("Error reading recent session info", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!recentMarkedSession || !recentMarkedSession.markedAt) return;
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - recentMarkedSession.markedAt) / 1000);
+      const remaining = 600 - elapsed;
+      if (remaining <= 0) {
+        setRecentMarkedSession(null);
+        try {
+          localStorage.removeItem('recent_marked_session_info');
+        } catch (e) {}
+      } else {
+        setRecentMarkedSession((prev) => (prev ? { ...prev, remainingSeconds: remaining } : null));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [recentMarkedSession?.markedAt]);
+
   // Syllabus tracker states
   const [syllabusConfigs, setSyllabusConfigsState] = useState([]);
   const [loadingSyllabus, setLoadingSyllabus] = useState(false);
@@ -1142,6 +1186,41 @@ export default function DashboardPage() {
       setMarkedDetails([]);
     }
   }
+
+  const handleDeleteLastRecord = async () => {
+    if (!recentMarkedSession) return;
+    setDeletingLastRecord(true);
+    showLoader("Deleting last attendance record...");
+    try {
+      const res = await deleteLastAttendance({
+        classId: recentMarkedSession.classId,
+        period: recentMarkedSession.period,
+        date: recentMarkedSession.date,
+      });
+
+      if (res && (res.success || (res.message && res.message.includes("deleted")))) {
+        playSound('success');
+        alert(res.message || "Attendance record deleted successfully.");
+        setRecentMarkedSession(null);
+        try {
+          localStorage.removeItem('recent_marked_session_info');
+        } catch (e) {}
+        setShowDeleteConfirmModal(false);
+        fetchMarked();
+        fetchLastAttendance();
+      } else {
+        playSound('error');
+        alert(res?.error || res?.message || "Failed to delete attendance record.");
+      }
+    } catch (err) {
+      playSound('error');
+      alert("Error deleting attendance: " + err.message);
+    } finally {
+      setDeletingLastRecord(false);
+      setShowDeleteConfirmModal(false);
+      hideLoader();
+    }
+  };
 
   // Fetch marked periods for the selected class
   useEffect(() => {
@@ -2570,6 +2649,84 @@ export default function DashboardPage() {
                 </div>
               </button>
             </div>
+
+            {/* ── 10-MINUTE RECENT ATTENDANCE TIMER & DELETE CARD ── */}
+            {recentMarkedSession && recentMarkedSession.remainingSeconds > 0 && (
+              <div className="anim-fade-up bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 rounded-[2.5rem] shadow-xl border border-slate-700/60 text-white relative overflow-hidden space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-700/50 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">
+                      Attendance Marked Recently
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-600/60 px-3 py-1 rounded-full text-xs font-mono font-bold text-amber-300 shadow-inner">
+                    <span>⏱️</span>
+                    <span>
+                      {String(Math.floor(recentMarkedSession.remainingSeconds / 60)).padStart(2, '0')}:
+                      {String(recentMarkedSession.remainingSeconds % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-black text-white leading-tight">
+                      {recentMarkedSession.className} • Period {recentMarkedSession.period}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-300 mt-0.5">
+                      {recentMarkedSession.subjectName} • {recentMarkedSession.date}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowDeleteConfirmModal(true)}
+                    disabled={deletingLastRecord}
+                    className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-lg shadow-red-900/40 transition-all border border-red-400/30 disabled:opacity-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>{deletingLastRecord ? "Deleting..." : "delete the last record"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── DELETE CONFIRMATION MODAL ── */}
+            {showDeleteConfirmModal && (
+              <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+                  <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-red-100">
+                    ⚠️
+                  </div>
+                  <div className="text-center space-y-1.5">
+                    <h3 className="text-lg font-black text-gray-900">Delete Attendance Record?</h3>
+                    <p className="text-xs font-medium text-gray-500 leading-relaxed">
+                      Are you sure you want to delete attendance for <span className="font-bold text-gray-800">{recentMarkedSession?.className}</span> (Period {recentMarkedSession?.period}) marked for <span className="font-bold text-gray-800">{recentMarkedSession?.date}</span>?
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => setShowDeleteConfirmModal(false)}
+                      className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-2xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteLastRecord}
+                      disabled={deletingLastRecord}
+                      className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-red-100 transition-all disabled:opacity-50"
+                    >
+                      {deletingLastRecord ? "Deleting..." : "Yes, Delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── REGULAR ATTENDANCE FORM ── */}
             <div ref={regularFormRef} className="anim-fade-up bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-8" style={{ animationDelay: '0.15s' }}>

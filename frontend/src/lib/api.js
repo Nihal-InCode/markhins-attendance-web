@@ -138,6 +138,12 @@ export const editLastAttendance = (records, { classId, period, date } = {}) =>
         body: JSON.stringify({ records, classId, period, date }),
     });
 
+export const deleteLastAttendance = ({ classId, period, date } = {}) =>
+    apiRequest('/attendance/delete-last', {
+        method: 'POST',
+        body: JSON.stringify({ classId, period, date }),
+    });
+
 
 /**
  * Extra Class Attendance

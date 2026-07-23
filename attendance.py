@@ -6281,6 +6281,34 @@ if __name__ == "__main__":
                         conn.commit()
                         result = {"success": True, "message": "Attendance updated successfully."}
 
+                elif action == "delete_last_attendance":
+                    class_id  = data.get("classId")
+                    period    = data.get("period")
+                    del_date  = data.get("date")
+                    teacher_id= data.get("teacher_id", 1)
+
+                    if not class_id or not period or not del_date:
+                        result = {"success": False, "error": "Missing class, period, or date for deletion."}
+                    else:
+                        c.execute("""
+                            SELECT teacher_id, id FROM period_attendance
+                            WHERE class=? AND period=? AND date=?
+                            ORDER BY id DESC LIMIT 1
+                        """, (class_id, period, del_date))
+                        record = c.fetchone()
+
+                        if not record:
+                            result = {"success": False, "error": "No attendance record found to delete."}
+                        elif record[0] != teacher_id:
+                            result = {"success": False, "error": "Unauthorized: You did not mark this attendance record."}
+                        else:
+                            c.execute("""
+                                DELETE FROM period_attendance
+                                WHERE class=? AND period=? AND date=? AND teacher_id=?
+                            """, (class_id, period, del_date, teacher_id))
+                            conn.commit()
+                            result = {"success": True, "message": f"Attendance record for {class_id} ({period}) deleted successfully."}
+
 
                 elif action == "get_extra_subjects":
                     # Return all known subjects for manual selection (only from timetable)

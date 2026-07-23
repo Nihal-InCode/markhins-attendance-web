@@ -251,6 +251,19 @@ export default function AttendancePage() {
                 if (result.success) {
                     trackEvent('Marked attendance', `${params.classId} ${params.period}`);
                     playSound('attendanceSuccess');
+                    try {
+                        const sessionInfo = {
+                            classId: params.classId,
+                            className: params.className || params.classId,
+                            period: params.multiMode ? (params.periods || []).join(', ') : params.period,
+                            subjectName: params.subjectName || 'General',
+                            date: params.date || getIstToday(),
+                            markedAt: Date.now(),
+                        };
+                        localStorage.setItem('recent_marked_session_info', JSON.stringify(sessionInfo));
+                    } catch (e) {
+                        console.error('Failed to save recent session info to localStorage:', e);
+                    }
                     setShowConfirm(true);
                 } else {
                     playSound('attendanceError');
@@ -276,7 +289,6 @@ export default function AttendancePage() {
             if (counts[st] !== undefined) counts[st]++;
         }
     });
-
 
     if (loading) return <PencilLoader />;
 

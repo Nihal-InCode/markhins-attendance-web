@@ -219,6 +219,9 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/attendance/edit-last' && method === 'PUT') {
         return { type: 'AttendanceEdit', summary: 'Edited last attendance', meta: 'Manual correction' };
     }
+    if (routePath === '/attendance/delete-last' && method === 'POST') {
+        return { type: 'AttendanceDelete', summary: 'Deleted last attendance record', meta: 'Undo attendance' };
+    }
     if (routePath === '/mark-attendance' && method === 'POST') {
         return { type: 'Attendance', summary: 'Submitted attendance', meta: `${req.body?.classId || req.body?.class || '-'} ${req.body?.period || '-'}` };
     }
@@ -1337,6 +1340,34 @@ app.put('/attendance/edit-last', authenticateToken, async (req, res) => {
             date,
             teacher_id: Number(teacher_id),
             records: records,
+        });
+
+        if (!result.success && result.error?.includes("Unauthorized")) {
+            return res.status(403).json(result);
+        }
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /attendance/delete-last — delete the last marked attendance
+app.post('/attendance/delete-last', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const { classId, period, date } = req.body;
+
+        if (!classId || !period || !date) {
+            return res.status(400).json({ success: false, error: 'Missing classId, period or date. Cannot delete.' });
+        }
+
+        const result = await callPython({
+            action: "delete_last_attendance",
+            classId,
+            period,
+            date,
+            teacher_id: Number(teacher_id),
         });
 
         if (!result.success && result.error?.includes("Unauthorized")) {
