@@ -2650,52 +2650,6 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* ── 10-MINUTE RECENT ATTENDANCE TIMER & DELETE CARD ── */}
-            {recentMarkedSession && recentMarkedSession.remainingSeconds > 0 && (
-              <div className="anim-fade-up bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 rounded-[2.5rem] shadow-xl border border-slate-700/60 text-white relative overflow-hidden space-y-4">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-700/50 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-3 w-3 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">
-                      Attendance Marked Recently
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-600/60 px-3 py-1 rounded-full text-xs font-mono font-bold text-amber-300 shadow-inner">
-                    <span>⏱️</span>
-                    <span>
-                      {String(Math.floor(recentMarkedSession.remainingSeconds / 60)).padStart(2, '0')}:
-                      {String(recentMarkedSession.remainingSeconds % 60).padStart(2, '0')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-black text-white leading-tight">
-                      {recentMarkedSession.className} • Period {recentMarkedSession.period}
-                    </p>
-                    <p className="text-xs font-semibold text-slate-300 mt-0.5">
-                      {recentMarkedSession.subjectName} • {recentMarkedSession.date}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => setShowDeleteConfirmModal(true)}
-                    disabled={deletingLastRecord}
-                    className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-lg shadow-red-900/40 transition-all border border-red-400/30 disabled:opacity-50"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span>{deletingLastRecord ? "Deleting..." : "delete the last record"}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* ── DELETE CONFIRMATION MODAL ── */}
             {showDeleteConfirmModal && (
               <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -3007,6 +2961,57 @@ export default function DashboardPage() {
               >
                 Edit
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 10-MINUTE RECENT ATTENDANCE TIMER & DELETE CARD (PLACED UNDER EDIT ATTENDANCE) ── */}
+        {activeTab === "attendance" && recentMarkedSession && recentMarkedSession.remainingSeconds > 0 && (
+          <div
+            className="mx-auto max-w-md mt-4"
+            style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.35s' }}
+          >
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 rounded-[2.5rem] shadow-xl border border-slate-700/60 text-white relative overflow-hidden space-y-4">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-700/50 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">
+                    Attendance Marked Recently
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-600/60 px-3 py-1 rounded-full text-xs font-mono font-bold text-amber-300 shadow-inner">
+                  <span>⏱️</span>
+                  <span>
+                    {String(Math.floor(recentMarkedSession.remainingSeconds / 60)).padStart(2, '0')}:
+                    {String(recentMarkedSession.remainingSeconds % 60).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-lg font-black text-white leading-tight">
+                    {recentMarkedSession.className} • Period {recentMarkedSession.period}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-300 mt-0.5">
+                    {recentMarkedSession.subjectName} • {recentMarkedSession.date}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowDeleteConfirmModal(true)}
+                  disabled={deletingLastRecord}
+                  className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-lg shadow-red-900/40 transition-all border border-red-400/30 disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>{deletingLastRecord ? "Deleting..." : "delete the last record"}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
