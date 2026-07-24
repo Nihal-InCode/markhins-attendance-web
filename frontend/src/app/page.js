@@ -58,6 +58,12 @@ import VolumeToggle from "@/components/VolumeToggle";
 import { playSound } from "@/lib/sound";
 import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
 
+const isNonTeacherAdmin = (t) => {
+  const name = String(t?.name || "").trim().toUpperCase();
+  const user = String(t?.username || "").trim().toLowerCase();
+  return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+};
+
 const formatTime = (createdAtStr) => {
   if (!createdAtStr) return "";
   try {
@@ -3234,7 +3240,7 @@ export default function DashboardPage() {
                                         <select value={timetableEditorData.teacherId} onChange={(e) => handleTimetableEditorTeacherChange(e.target.value)}
                                           className="w-full rounded-xl border border-gray-100 px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20">
                                           <option value="">Clear</option>
-                                          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                          {teachers.filter(t => !isNonTeacherAdmin(t)).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                         </select>
                                         <div className="flex items-center justify-between">
                                           <label className="text-[10px] font-bold text-gray-400 uppercase">Subject</label>
@@ -5216,10 +5222,10 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="border-t border-gray-50 my-1" />
                                     
-                                    {teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).length === 0 ? (
+                                    {teachers.filter(t => !isNonTeacherAdmin(t) && t.name.toLowerCase().includes(leaveSearch.toLowerCase())).length === 0 ? (
                                       <p className="py-4 text-center text-xs font-bold text-gray-400 uppercase">No teachers found.</p>
                                     ) : (
-                                      teachers.filter(t => t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
+                                      teachers.filter(t => !isNonTeacherAdmin(t) && t.name.toLowerCase().includes(leaveSearch.toLowerCase())).map(t => {
                                         const isSelected = selectedLeaveTeachers.some(x => String(x.id) === String(t.id));
                                         return (
                                           <button 
@@ -5740,6 +5746,7 @@ export default function DashboardPage() {
                                   .map(([key, val]) => String(val.substitute_teacher_id));
 
                                 const filteredAvailableTeachers = assigningPeriod.available_teachers.filter(teacher => {
+                                  if (isNonTeacherAdmin(teacher)) return false;
                                   if (String(teacher.id) === "-1" || String(teacher.id) === "-2") return true;
                                   return !assignedTeacherIdsForThisPeriod.includes(String(teacher.id));
                                 });

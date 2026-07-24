@@ -7472,7 +7472,13 @@ if __name__ == "__main__":
                     else:
                         # 1. Fetch all teachers for selection list
                         c.execute("SELECT id, name, username, subject FROM teachers ORDER BY name")
-                        all_teachers = [{"id": r[0], "name": r[1], "username": r[2], "subject": r[3]} for r in c.fetchall()]
+                        all_teachers = []
+                        for r in c.fetchall():
+                            t_name = (r[1] or "").strip().upper()
+                            t_user = (r[2] or "").strip().lower()
+                            if t_name in ("MARKHINS OFFICIAL", "ADMIN") or t_user in ("markhinsofficial", "admin"):
+                                continue
+                            all_teachers.append({"id": r[0], "name": r[1], "username": r[2], "subject": r[3]})
                         all_teachers.append({"id": -1, "name": "LIBRARY", "username": "library", "subject": "Library"})
                         all_teachers.append({"id": -2, "name": "IT LAB", "username": "it_lab", "subject": "IT Lab"})
                         
@@ -7547,6 +7553,9 @@ if __name__ == "__main__":
                                 ]
                                 for av_id, av_name in all_teachers_raw:
                                     if av_id == r_ot_id:
+                                        continue
+                                    av_name_clean = (av_name or "").strip().upper()
+                                    if av_name_clean in ("MARKHINS OFFICIAL", "ADMIN"):
                                         continue
                                     if is_teacher_available(c, av_id, planner_date, weekday, r_period, leaves_config, not_working_classes):
                                         c.execute("""
