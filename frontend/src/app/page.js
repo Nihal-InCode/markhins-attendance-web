@@ -1412,6 +1412,8 @@ export default function DashboardPage() {
 
   const buildSavedSubstituteTimetable = (savedAssignments) => {
     const teacherById = new Map(teachers.map((teacher) => [String(teacher.id), teacher]));
+    teacherById.set("-1", { id: -1, name: "LIBRARY", teacher_code: "LIBRARY" });
+    teacherById.set("-2", { id: -2, name: "IT LAB", teacher_code: "IT LAB" });
     return {
       date: plannerDate,
       assignments: savedAssignments.map((assignment) => {
@@ -5506,8 +5508,14 @@ export default function DashboardPage() {
                                           let subName = p.assigned_substitute_name;
                                           let subSubject = p.assigned_subject;
                                           if (temp) {
-                                            const teacherObj = teachers.find(t => t.id === temp.substitute_teacher_id);
-                                            subName = teacherObj ? teacherObj.name : `Teacher #${temp.substitute_teacher_id}`;
+                                            if (String(temp.substitute_teacher_id) === "-1") {
+                                              subName = "LIBRARY";
+                                            } else if (String(temp.substitute_teacher_id) === "-2") {
+                                              subName = "IT LAB";
+                                            } else {
+                                              const teacherObj = teachers.find(t => String(t.id) === String(temp.substitute_teacher_id));
+                                              subName = teacherObj ? teacherObj.name : `Teacher #${temp.substitute_teacher_id}`;
+                                            }
                                             subSubject = temp.subject;
                                           }
 
@@ -5732,6 +5740,7 @@ export default function DashboardPage() {
                                   .map(([key, val]) => String(val.substitute_teacher_id));
 
                                 const filteredAvailableTeachers = assigningPeriod.available_teachers.filter(teacher => {
+                                  if (String(teacher.id) === "-1" || String(teacher.id) === "-2") return true;
                                   return !assignedTeacherIdsForThisPeriod.includes(String(teacher.id));
                                 });
 

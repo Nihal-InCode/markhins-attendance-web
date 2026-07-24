@@ -21,7 +21,9 @@ const normalizePeriod = (period) => {
 
 export const getSubstituteTeacherCode = (teacher) => {
   if (!teacher) return "";
-  return String(teacher.teacher_code || "").trim().toUpperCase();
+  if (teacher.teacher_code) return String(teacher.teacher_code).trim().toUpperCase();
+  if (teacher.name) return String(teacher.name).trim().toUpperCase();
+  return "";
 };
 
 const drawCenteredText = (ctx, text, x, y, width, height, options = {}) => {

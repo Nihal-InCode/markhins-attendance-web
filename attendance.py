@@ -561,6 +561,13 @@ def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, no
     Unified Teacher Availability Engine
     leaves_config: dict mapping teacher_id to leave info
     """
+    try:
+        if int(teacher_id) in (-1, -2):
+            return True
+    except (ValueError, TypeError):
+        if str(teacher_id) in ("-1", "-2"):
+            return True
+
     # 1. Check if on Full Day Leave
     t_leave = leaves_config.get(int(teacher_id)) or leaves_config.get(str(teacher_id))
     if t_leave:
@@ -7466,6 +7473,8 @@ if __name__ == "__main__":
                         # 1. Fetch all teachers for selection list
                         c.execute("SELECT id, name, username, subject FROM teachers ORDER BY name")
                         all_teachers = [{"id": r[0], "name": r[1], "username": r[2], "subject": r[3]} for r in c.fetchall()]
+                        all_teachers.append({"id": -1, "name": "LIBRARY", "username": "library", "subject": "Library"})
+                        all_teachers.append({"id": -2, "name": "IT LAB", "username": "it_lab", "subject": "IT Lab"})
                         
                         affected_periods = []
                         if on_leave_ids:
@@ -7522,7 +7531,20 @@ if __name__ == "__main__":
                                 # Find available teachers using our availability engine
                                 c.execute("SELECT id, name FROM teachers ORDER BY name")
                                 all_teachers_raw = c.fetchall()
-                                avail_teachers = []
+                                avail_teachers = [
+                                    {
+                                        "id": -1,
+                                        "name": "LIBRARY",
+                                        "matched_subject": "Library",
+                                        "matched_subjects": ["Library"]
+                                    },
+                                    {
+                                        "id": -2,
+                                        "name": "IT LAB",
+                                        "matched_subject": "IT Lab",
+                                        "matched_subjects": ["IT Lab"]
+                                    }
+                                ]
                                 for av_id, av_name in all_teachers_raw:
                                     if av_id == r_ot_id:
                                         continue
@@ -7610,6 +7632,8 @@ if __name__ == "__main__":
                                 
                         c.execute("SELECT id, name FROM teachers")
                         teacher_names = {r[0]: r[1] for r in c.fetchall()}
+                        teacher_names[-1] = "LIBRARY"
+                        teacher_names[-2] = "IT LAB"
                         
                         for ass in assignments:
                             ot_id = int(ass["original_teacher_id"])
