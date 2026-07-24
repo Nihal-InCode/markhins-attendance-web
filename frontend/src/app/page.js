@@ -5756,6 +5756,11 @@ export default function DashboardPage() {
                                 ) : (
                                   <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                                     {[...filteredAvailableTeachers].sort((a, b) => {
+                                      const isASpecial = String(a.id) === "-1" || String(a.id) === "-2";
+                                      const isBSpecial = String(b.id) === "-1" || String(b.id) === "-2";
+                                      if (isASpecial && !isBSpecial) return -1;
+                                      if (!isASpecial && isBSpecial) return 1;
+                                      if (isASpecial && isBSpecial) return Number(a.id) - Number(b.id);
                                       const aSubjects = a.matched_subjects || (a.matched_subject ? [a.matched_subject] : []);
                                       const bSubjects = b.matched_subjects || (b.matched_subject ? [b.matched_subject] : []);
                                       return bSubjects.length - aSubjects.length;
