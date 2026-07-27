@@ -223,6 +223,47 @@ export default function ProfilePage() {
                                 </div>
                                 <span className="text-lg">⏱️</span>
                             </div>
+
+                            {/* Class History List */}
+                            {stats.classHistory && stats.classHistory.length > 0 && (
+                                <div className="rounded-2xl bg-gray-50 border border-gray-100 p-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">All Classes</p>
+                                    <div className="space-y-2">
+                                        {stats.classHistory.map((cls, idx) => (
+                                            <div key={idx} className="flex items-center justify-between rounded-xl bg-white border border-gray-100 px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0d9488]/10 text-xs font-black text-[#0d9488]">
+                                                        {cls.class}
+                                                    </span>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800">{cls.class}</p>
+                                                        <p className="text-[10px] text-gray-400 font-medium">
+                                                            {cls.lastDate ? new Date(cls.lastDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-black text-gray-800">{cls.total}</p>
+                                                        <div className="flex items-center gap-1.5 justify-end">
+                                                            {cls.regular > 0 && (
+                                                                <span className="text-[9px] font-bold text-[#0d9488] bg-[#0d9488]/10 px-1.5 py-0.5 rounded-full">
+                                                                    {cls.regular} reg
+                                                                </span>
+                                                            )}
+                                                            {cls.extra > 0 && (
+                                                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                                                                    {cls.extra} ext
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

@@ -5803,6 +5803,24 @@ if __name__ == "__main__":
                             except Exception as e:
                                 pass
                         
+                        # Build per-class stats (regular/extra counts + last date)
+                        class_stats = {}
+                        for item in combined:
+                            cc = item["class"]
+                            if cc not in class_stats:
+                                class_stats[cc] = {"class": cc, "total": 0, "regular": 0, "extra": 0, "lastDate": item["date"]}
+                            class_stats[cc]["total"] += 1
+                            if item["type"] == "regular":
+                                class_stats[cc]["regular"] += 1
+                            else:
+                                class_stats[cc]["extra"] += 1
+                            # Track most recent date
+                            if item["date"] > class_stats[cc]["lastDate"]:
+                                class_stats[cc]["lastDate"] = item["date"]
+
+                        # Sort by lastDate descending (most recent first)
+                        class_history = sorted(class_stats.values(), key=lambda x: x["lastDate"], reverse=True)
+
                         # Most taught class
                         most_taught = "-"
                         if class_counts:
@@ -5862,7 +5880,8 @@ if __name__ == "__main__":
                                 "extraClasses": extra_count,
                                 "lastClassConducted": last_class_str,
                                 "mostTaughtClass": most_taught,
-                                "mostActiveDay": most_active_day
+                                "mostActiveDay": most_active_day,
+                                "classHistory": class_history
                             }
                         }
 
