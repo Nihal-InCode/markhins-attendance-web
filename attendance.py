@@ -395,6 +395,23 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # Ensure 'teacher_id' exists in extra_classes
+        try:
+            c.execute("ALTER TABLE extra_classes ADD COLUMN teacher_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+
+        # Backfill teacher_id from teachers.name where missing
+        try:
+            c.execute("""
+                UPDATE extra_classes SET teacher_id = (
+                    SELECT t.id FROM teachers t WHERE t.name = extra_classes.teacher
+                ) WHERE teacher_id IS NULL AND teacher IS NOT NULL
+            """)
+            conn.commit()
+        except Exception as e:
+            print(f"[MIGRATION] extra_classes teacher_id backfill note: {e}")
+
         # Check and add other missing columns in substitute_log
         try:
             c.execute("PRAGMA table_info(substitute_log)")
@@ -1561,14 +1578,14 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message, trus
             if existing_extra:
                 c.execute("""
                     UPDATE extra_classes 
-                    SET time=?, absent_rolls=''
+                    SET time=?, absent_rolls='', teacher_id=?
                     WHERE id=?
-                """, (current_time_str, existing_extra[0]))
+                """, (current_time_str, teacher_id, existing_extra[0]))
             else:
                 c.execute("""
-                    INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (today, class_name, subject_name, teacher_name, current_time_str, ""))
+                    INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, teacher_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (today, class_name, subject_name, teacher_name, current_time_str, "", teacher_id))
             conn.commit()
             
             response = (
@@ -1693,14 +1710,14 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message, trus
             if existing_extra:
                 c.execute("""
                     UPDATE extra_classes 
-                    SET absent_rolls=?, time=?
+                    SET absent_rolls=?, time=?, teacher_id=?
                     WHERE id=?
-                """, (absent_rolls_str, current_time_str, existing_extra[0]))
+                """, (absent_rolls_str, current_time_str, teacher_id, existing_extra[0]))
             else:
                 c.execute("""
-                    INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, period)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (today, class_name, subject_name, teacher_name, current_time_str, absent_rolls_str, period_val))
+                    INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, period, teacher_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (today, class_name, subject_name, teacher_name, current_time_str, absent_rolls_str, period_val, teacher_id))
             conn.commit()
             
             # Build Summary
@@ -5704,13 +5721,13 @@ if __name__ == "__main__":
                         """, (teacher_id,))
                         reg_rows = c.fetchall()
                         
-                        # Get extra classes
+                        # Get extra classes (prefer teacher_id match for reliability)
                         c.execute("""
                             SELECT date, class, period 
                             FROM extra_classes 
-                            WHERE teacher=? 
+                            WHERE teacher_id=?
                             GROUP BY date, class, period
-                        """, (teacher_name,))
+                        """, (teacher_id,))
                         extra_rows = c.fetchall()
                         
                         combined = []
@@ -6360,11 +6377,8 @@ if __name__ == "__main__":
                         params.append(class_id)
                         
                     if teacher_id:
-                        c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))
-                        t_row = c.fetchone()
-                        if t_row:
-                            query += " AND teacher = ?"
-                            params.append(t_row[0])
+                        query += " AND teacher_id = ?"
+                        params.append(teacher_id)
                     
                     query += " ORDER BY time DESC"
                     c.execute(query, tuple(params))
@@ -6433,14 +6447,14 @@ if __name__ == "__main__":
 
                     if existing:
                         c.execute("""
-                            UPDATE extra_classes SET absent_rolls=?, time=?
+                            UPDATE extra_classes SET absent_rolls=?, time=?, teacher_id=?
                             WHERE id=?
-                        """, (absent_rolls_str, now_ts, existing[0]))
+                        """, (absent_rolls_str, now_ts, teacher_id, existing[0]))
                     else:
                         c.execute("""
-                            INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, period)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (date, class_id, subject_name, teacher_name, now_ts, absent_rolls_str, period_val))
+                            INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, period, teacher_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (date, class_id, subject_name, teacher_name, now_ts, absent_rolls_str, period_val, teacher_id))
 
                     conn.commit()
 
@@ -7247,7 +7261,6 @@ if __name__ == "__main__":
                     attendance_rows = list(c.fetchall())
 
                     # 3. Include Extra Classes
-                    extra_teacher_search = t_search_name if t_search_name else str(t_search_id)
                     extra_query = """
                         SELECT date, period, absent_rolls 
                         FROM extra_classes 
@@ -7256,8 +7269,8 @@ if __name__ == "__main__":
                     """
                     extra_params = [class_id, from_date, to_date]
                     if not all_teachers:
-                        extra_query += " AND teacher = ?"
-                        extra_params.append(extra_teacher_search)
+                        extra_query += " AND teacher_id = ?"
+                        extra_params.append(t_search_id)
                     c.execute(extra_query, tuple(extra_params))
                     
                     extra_rows = c.fetchall()
