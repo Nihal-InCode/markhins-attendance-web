@@ -423,6 +423,13 @@ def run_migrations():
                 ) WHERE teacher_id IS NULL AND teacher IS NOT NULL
             """)
             conn.commit()
+            # Sync teacher TEXT column to match current teachers.name
+            c.execute("""
+                UPDATE extra_classes SET teacher = (
+                    SELECT t.name FROM teachers t WHERE t.id = extra_classes.teacher_id
+                ) WHERE teacher_id IS NOT NULL
+            """)
+            conn.commit()
         except Exception as e:
             print(f"[MIGRATION] extra_classes teacher_id backfill note: {e}")
 
@@ -5818,8 +5825,8 @@ if __name__ == "__main__":
                             if item["date"] > class_stats[cc]["lastDate"]:
                                 class_stats[cc]["lastDate"] = item["date"]
 
-                        # Sort by lastDate descending (most recent first)
-                        class_history = sorted(class_stats.values(), key=lambda x: x["lastDate"], reverse=True)
+                        # Sort by total count descending (most classes first)
+                        class_history = sorted(class_stats.values(), key=lambda x: x["total"], reverse=True)
 
                         # Most taught class
                         most_taught = "-"
