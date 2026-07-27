@@ -408,6 +408,20 @@ def run_migrations():
                     SELECT t.id FROM teachers t WHERE t.name = extra_classes.teacher
                 ) WHERE teacher_id IS NULL AND teacher IS NOT NULL
             """)
+            # Fix any name mismatches: if teacher name doesn't match teachers table,
+            # try to find a partial match (e.g. "HAFIZ ABDUL BASITH" -> "ABDUL BASITH QADIRI")
+            c.execute("""
+                UPDATE extra_classes SET teacher_id = (
+                    SELECT t.id FROM teachers t 
+                    WHERE extra_classes.teacher NOT IN (SELECT name FROM teachers)
+                    AND (
+                        t.name LIKE '%' || extra_classes.teacher || '%'
+                        OR extra_classes.teacher LIKE '%' || t.name || '%'
+                        OR REPLACE(t.name, 'QADIRI', '') = REPLACE(extra_classes.teacher, 'HAFIZ', '')
+                    )
+                    LIMIT 1
+                ) WHERE teacher_id IS NULL AND teacher IS NOT NULL
+            """)
             conn.commit()
         except Exception as e:
             print(f"[MIGRATION] extra_classes teacher_id backfill note: {e}")
