@@ -5545,17 +5545,22 @@ if __name__ == "__main__":
                         """, (cls, weekday, p_label, sub_row[4]))
                         tt_row = c.fetchone()
                         timetable_subject = tt_row[0] if tt_row else sub_row[0]
-                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True, "is_substitute": True, "originalTeacher": sub_row[3], "originalTeacherId": sub_row[4], "is_own_substitute": is_own, "timetableSubject": timetable_subject}}
+                        # Get teacher codes
+                        c.execute("SELECT teacher_code FROM teachers WHERE id=?", (sub_row[2],))
+                        st_code_row = c.fetchone()
+                        c.execute("SELECT teacher_code FROM teachers WHERE id=?", (sub_row[4],))
+                        ot_code_row = c.fetchone()
+                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "teacherCode": st_code_row[0] if st_code_row else None, "isSubstitute": True, "is_substitute": True, "originalTeacher": sub_row[3], "originalTeacherId": sub_row[4], "originalTeacherCode": ot_code_row[0] if ot_code_row else None, "is_own_substitute": is_own, "timetableSubject": timetable_subject}}
                     else:
                         c.execute("""
-                            SELECT tt.subject, t.name, t.id
+                            SELECT tt.subject, t.name, t.id, t.teacher_code
                             FROM timetable tt 
                             LEFT JOIN teachers t ON tt.teacher_id = t.id 
                             WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
                         """, (cls, weekday, p_label))
                         row = c.fetchone()
                         if row:
-                            result = {"success": True, "data": {"subject": row[0], "teacher": row[1], "teacherId": row[2]}}
+                            result = {"success": True, "data": {"subject": row[0], "teacher": row[1], "teacherId": row[2], "teacherCode": row[3]}}
                         else:
                             result = {"success": False, "message": f"No subject scheduled for {cls} in Period {p_label} today."}
 
@@ -6102,26 +6107,33 @@ if __name__ == "__main__":
                                     """, (cls, weekday, p, sub["original_teacher_id"]))
                                     tt_subj_row = c.fetchone()
                                     timetable_subject = tt_subj_row[0] if tt_subj_row else sub["subject"]
+                                    # Get teacher codes
+                                    c.execute("SELECT teacher_code FROM teachers WHERE id=?", (sub["substitute_teacher_id"],))
+                                    st_code_row = c.fetchone()
+                                    c.execute("SELECT teacher_code FROM teachers WHERE id=?", (sub["original_teacher_id"],))
+                                    ot_code_row = c.fetchone()
                                     periods_dict[p] = {
                                         "subject": sub["subject"],
                                         "teacher": sub["substitute_teacher_name"],
+                                        "teacherCode": st_code_row[0] if st_code_row else None,
                                         "isSubstitute": True,
                                         "is_substitute": True,
                                         "is_own_substitute": sub["original_teacher_id"] == sub["substitute_teacher_id"],
                                         "originalTeacher": sub["original_teacher_name"],
                                         "originalTeacherId": sub["original_teacher_id"],
+                                        "originalTeacherCode": ot_code_row[0] if ot_code_row else None,
                                         "substituteTeacherId": sub["substitute_teacher_id"],
                                         "timetableSubject": timetable_subject
                                     }
                                 else:
                                     c.execute("""
-                                        SELECT tt.subject, t.name, tt.teacher_id
+                                        SELECT tt.subject, t.name, tt.teacher_id, t.teacher_code
                                         FROM timetable tt 
                                         LEFT JOIN teachers t ON tt.teacher_id = t.id 
                                         WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? LIMIT 1
                                     """, (cls, weekday, p))
                                     row = c.fetchone()
-                                    periods_dict[p] = {"subject": row[0], "teacher": row[1], "teacherId": row[2]} if row else None
+                                    periods_dict[p] = {"subject": row[0], "teacher": row[1], "teacherId": row[2], "teacherCode": row[3]} if row else None
                             full_tt.append({"class": cls, "periods": periods_dict})
                         
                         result = {"success": True, "data": full_tt}
