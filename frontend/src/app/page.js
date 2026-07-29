@@ -2886,19 +2886,33 @@ export default function DashboardPage() {
                           ) : (
                             <div>
                               {resolvedSubject.is_substitute && (
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-2 ${resolvedSubject.is_own_substitute ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-3 ${resolvedSubject.is_own_substitute ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                                   {resolvedSubject.is_own_substitute ? 'Own Substitute' : 'General Substitute'}
                                 </span>
                               )}
-                              <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
-                              <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
                               {resolvedSubject.is_substitute && resolvedSubject.originalTeacher ? (
-                                <div className="mt-1 flex flex-col gap-0.5">
-                                  <p className="text-xs font-bold uppercase tracking-widest opacity-50 line-through decoration-gray-300">{resolvedSubject.originalTeacher}</p>
-                                  <p className={`text-xs font-black uppercase tracking-widest ${resolvedSubject.is_own_substitute ? 'text-blue-700' : 'text-amber-700'}`}>→ {resolvedSubject.teacher}</p>
+                                <div className="space-y-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">✕ SCHEDULED</span>
+                                    <div className="flex items-baseline gap-1.5 line-through decoration-gray-300 opacity-45">
+                                      <p className="text-sm font-bold text-gray-600 uppercase">{resolvedSubject.originalTeacher}</p>
+                                      <p className="text-[10px] font-semibold text-gray-500 uppercase">({resolvedSubject.subject})</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">→ COVERING</span>
+                                    <div className="flex items-baseline gap-1.5">
+                                      <p className={`text-base font-black uppercase ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher}</p>
+                                      <p className={`text-xs font-bold uppercase ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>({resolvedSubject.subject})</p>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
-                                <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
+                                  <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
+                                  <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
+                                </div>
                               )}
                             </div>
                           )
