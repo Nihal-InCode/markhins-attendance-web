@@ -2892,19 +2892,13 @@ export default function DashboardPage() {
                               )}
                               {resolvedSubject.is_substitute && resolvedSubject.originalTeacher ? (
                                 <div className="space-y-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">✕ SCHEDULED</span>
-                                    <div className="flex items-baseline gap-1.5 line-through decoration-gray-300 opacity-45">
-                                      <p className="text-sm font-bold text-gray-600 uppercase">{resolvedSubject.originalTeacher}</p>
-                                      <p className="text-[10px] font-semibold text-gray-500 uppercase">({resolvedSubject.subject})</p>
-                                    </div>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">📋 TIMETABLE</span>
+                                    <p className="text-sm font-bold text-gray-600 uppercase truncate line-through decoration-gray-300 opacity-45 min-w-0">{resolvedSubject.originalTeacher} <span className="text-[10px] font-semibold">({resolvedSubject.subject})</span></p>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">→ COVERING</span>
-                                    <div className="flex items-baseline gap-1.5">
-                                      <p className={`text-base font-black uppercase ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher}</p>
-                                      <p className={`text-xs font-bold uppercase ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>({resolvedSubject.subject})</p>
-                                    </div>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">🔄 SUBSTITUTE</span>
+                                    <p className={`text-base font-black uppercase truncate min-w-0 ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher} <span className={`text-xs font-bold ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>({resolvedSubject.subject})</span></p>
                                   </div>
                                 </div>
                               ) : (
