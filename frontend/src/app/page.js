@@ -2894,12 +2894,12 @@ export default function DashboardPage() {
                                 <div className="space-y-2.5">
                                   <div className="min-w-0">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">📋 TIMETABLE</span>
-                                    <p className="text-sm font-bold text-gray-600 uppercase line-through decoration-gray-300 opacity-45 mt-0.5 truncate">{resolvedSubject.originalTeacherCode || resolvedSubject.originalTeacher}</p>
+                                    <p className="text-sm font-bold text-gray-600 uppercase line-through decoration-gray-300 opacity-45 mt-0.5 truncate">{resolvedSubject.originalTeacher}</p>
                                     <p className="text-[11px] font-semibold text-gray-500 uppercase line-through decoration-gray-300 opacity-45 truncate">{resolvedSubject.timetableSubject || resolvedSubject.subject}</p>
                                   </div>
                                   <div className="min-w-0">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">🔄 SUBSTITUTE</span>
-                                    <p className={`text-base font-black uppercase mt-0.5 truncate ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacherCode || resolvedSubject.teacher}</p>
+                                    <p className={`text-base font-black uppercase mt-0.5 truncate ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher}</p>
                                     <p className={`text-xs font-bold uppercase truncate ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>{resolvedSubject.subject}</p>
                                   </div>
                                 </div>
@@ -2907,7 +2907,7 @@ export default function DashboardPage() {
                                 <div>
                                   <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
                                   <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
-                                  <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacherCode || resolvedSubject.teacher}</p>
+                                  <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
                                 </div>
                               )}
                             </div>
