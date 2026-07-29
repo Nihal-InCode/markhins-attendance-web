@@ -2892,7 +2892,14 @@ export default function DashboardPage() {
                               )}
                               <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">Today&apos;s Schedule</p>
                               <p className="text-2xl font-black leading-tight">{resolvedSubject.subject}</p>
-                              <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
+                              {resolvedSubject.is_substitute && resolvedSubject.originalTeacher ? (
+                                <div className="mt-1 flex flex-col gap-0.5">
+                                  <p className="text-xs font-bold uppercase tracking-widest opacity-50 line-through decoration-gray-300">{resolvedSubject.originalTeacher}</p>
+                                  <p className={`text-xs font-black uppercase tracking-widest ${resolvedSubject.is_own_substitute ? 'text-blue-700' : 'text-amber-700'}`}>→ {resolvedSubject.teacher}</p>
+                                </div>
+                              ) : (
+                                <p className="text-xs font-bold mt-1 uppercase tracking-widest opacity-80">Teacher: {resolvedSubject.teacher}</p>
+                              )}
                             </div>
                           )
                         ) : (

@@ -5528,14 +5528,15 @@ if __name__ == "__main__":
                     
                     # Check manual substitutions first
                     c.execute("""
-                        SELECT subject, substitute_teacher_name, substitute_teacher_id
+                        SELECT subject, substitute_teacher_name, substitute_teacher_id, original_teacher_name, original_teacher_id
                         FROM manual_substitute_assignments
                         WHERE date=? AND class=? AND period=?
                         LIMIT 1
                     """, (date_str or get_ist_now().strftime("%Y-%m-%d"), cls, p_label))
                     sub_row = c.fetchone()
                     if sub_row:
-                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True}}
+                        is_own = str(sub_row[2]) == str(sub_row[4])
+                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True, "is_substitute": True, "originalTeacher": sub_row[3], "originalTeacherId": sub_row[4], "is_own_substitute": is_own}}
                     else:
                         c.execute("""
                             SELECT tt.subject, t.name, t.id
