@@ -2892,13 +2892,15 @@ export default function DashboardPage() {
                               )}
                               {resolvedSubject.is_substitute && resolvedSubject.originalTeacher ? (
                                 <div className="space-y-2.5">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">📋 TIMETABLE</span>
-                                    <p className="text-sm font-bold text-gray-600 uppercase truncate line-through decoration-gray-300 opacity-45 min-w-0">{resolvedSubject.originalTeacher} <span className="text-[10px] font-semibold">({resolvedSubject.subject})</span></p>
+                                  <div className="min-w-0">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">📋 TIMETABLE</span>
+                                    <p className="text-sm font-bold text-gray-600 uppercase line-through decoration-gray-300 opacity-45 mt-0.5 truncate">{resolvedSubject.originalTeacher}</p>
+                                    <p className="text-[11px] font-semibold text-gray-500 uppercase line-through decoration-gray-300 opacity-45 truncate">{resolvedSubject.timetableSubject || resolvedSubject.subject}</p>
                                   </div>
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-16 shrink-0">🔄 SUBSTITUTE</span>
-                                    <p className={`text-base font-black uppercase truncate min-w-0 ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher} <span className={`text-xs font-bold ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>({resolvedSubject.subject})</span></p>
+                                  <div className="min-w-0">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">🔄 SUBSTITUTE</span>
+                                    <p className={`text-base font-black uppercase mt-0.5 truncate ${resolvedSubject.is_own_substitute ? 'text-blue-800' : 'text-amber-800'}`}>{resolvedSubject.teacher}</p>
+                                    <p className={`text-xs font-bold uppercase truncate ${resolvedSubject.is_own_substitute ? 'text-blue-600' : 'text-amber-600'}`}>{resolvedSubject.subject}</p>
                                   </div>
                                 </div>
                               ) : (
@@ -3240,7 +3242,7 @@ export default function DashboardPage() {
                                     {item ? (
                                       <div className="space-y-0.5">
                                         <div className="flex items-center justify-center gap-1">
-                                          <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
+                                          <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.timetableSubject || item.subject}</p>
                                           {isSub && (
                                             <span className={`px-1 rounded text-[7px] font-black border uppercase ${isMySubstitutionPeriod ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
                                           )}
@@ -7433,7 +7435,7 @@ export default function DashboardPage() {
                             <td key={period} className={`border px-1 py-2 text-center ${cellColor}`}>
                               {item ? (
                                 <>
-                                  <p className="text-[8px] font-black leading-tight text-slate-800">{item.subject}</p>
+                                  <p className="text-[8px] font-black leading-tight text-slate-800">{item.timetableSubject || item.subject}</p>
                                   {isSubstitute && item.originalTeacher ? (
                                     <>
                                       <p className="mt-0.5 text-[5px] font-bold uppercase leading-tight text-slate-400 line-through decoration-slate-300">{item.originalTeacher}</p>

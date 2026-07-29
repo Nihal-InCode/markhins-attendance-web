@@ -5536,7 +5536,16 @@ if __name__ == "__main__":
                     sub_row = c.fetchone()
                     if sub_row:
                         is_own = str(sub_row[2]) == str(sub_row[4])
-                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True, "is_substitute": True, "originalTeacher": sub_row[3], "originalTeacherId": sub_row[4], "is_own_substitute": is_own}}
+                        # Also get the timetable subject for the original teacher
+                        c.execute("""
+                            SELECT tt.subject
+                            FROM timetable tt
+                            WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? AND tt.teacher_id=?
+                            LIMIT 1
+                        """, (cls, weekday, p_label, sub_row[4]))
+                        tt_row = c.fetchone()
+                        timetable_subject = tt_row[0] if tt_row else sub_row[0]
+                        result = {"success": True, "data": {"subject": sub_row[0], "teacher": sub_row[1], "teacherId": sub_row[2], "isSubstitute": True, "is_substitute": True, "originalTeacher": sub_row[3], "originalTeacherId": sub_row[4], "is_own_substitute": is_own, "timetableSubject": timetable_subject}}
                     else:
                         c.execute("""
                             SELECT tt.subject, t.name, t.id
@@ -6084,6 +6093,15 @@ if __name__ == "__main__":
                             for p in ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]:
                                 sub = sub_map.get((cls, p))
                                 if sub:
+                                    # Get the timetable subject for the original teacher
+                                    c.execute("""
+                                        SELECT tt.subject
+                                        FROM timetable tt
+                                        WHERE tt.class=? AND tt.weekday=? AND tt.period_label=? AND tt.teacher_id=?
+                                        LIMIT 1
+                                    """, (cls, weekday, p, sub["original_teacher_id"]))
+                                    tt_subj_row = c.fetchone()
+                                    timetable_subject = tt_subj_row[0] if tt_subj_row else sub["subject"]
                                     periods_dict[p] = {
                                         "subject": sub["subject"],
                                         "teacher": sub["substitute_teacher_name"],
@@ -6092,7 +6110,8 @@ if __name__ == "__main__":
                                         "is_own_substitute": sub["original_teacher_id"] == sub["substitute_teacher_id"],
                                         "originalTeacher": sub["original_teacher_name"],
                                         "originalTeacherId": sub["original_teacher_id"],
-                                        "substituteTeacherId": sub["substitute_teacher_id"]
+                                        "substituteTeacherId": sub["substitute_teacher_id"],
+                                        "timetableSubject": timetable_subject
                                     }
                                 else:
                                     c.execute("""
