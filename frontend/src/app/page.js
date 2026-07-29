@@ -3241,20 +3241,21 @@ export default function DashboardPage() {
                                     onClick={timetableEditMode && canEditTimetable ? () => openTimetableEditCell(row.class, p, item) : undefined}>
                                     {item ? (
                                       <div className="space-y-0.5">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.timetableSubject || item.subject}</p>
-                                          {isSub && (
-                                            <span className={`px-1 rounded text-[6px] font-black border uppercase shrink-0 ${isMySubstitutionPeriod ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
-                                          )}
-                                        </div>
                                         {isSub && item.originalTeacher ? (
-                                          <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide truncate">
-                                            <span className="line-through decoration-gray-300">{item.originalTeacher}</span>
-                                            <span className={`mx-0.5 ${isMySubstitutionPeriod ? 'text-red-500' : 'text-amber-500'}`}>→</span>
-                                            <span className={`font-bold ${isMySubstitutionPeriod ? 'text-red-600' : 'text-amber-600'}`}>{item.teacher}</span>
-                                          </p>
+                                          <>
+                                            <p style={{ fontSize: `${7 * zoomScale}px` }} className="font-semibold text-gray-400 uppercase leading-tight line-through decoration-gray-300 opacity-45 truncate">{item.timetableSubject || item.subject}</p>
+                                            <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide truncate">
+                                              <span className="line-through decoration-gray-300">{item.originalTeacher}</span>
+                                              <span className={`mx-0.5 ${isMySubstitutionPeriod ? 'text-red-500' : 'text-amber-500'}`}>→</span>
+                                              <span className={`font-bold ${isMySubstitutionPeriod ? 'text-red-600' : 'text-amber-600'}`}>{item.teacher}</span>
+                                            </p>
+                                            <p style={{ fontSize: `${7 * zoomScale}px` }} className={`font-bold uppercase leading-tight truncate ${isMySubstitutionPeriod ? 'text-red-500' : 'text-amber-500'}`}>{item.subject}</p>
+                                          </>
                                         ) : (
-                                          <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
+                                          <>
+                                            <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
+                                            <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
+                                          </>
                                         )}
                                       </div>
                                     ) : (
@@ -7436,15 +7437,21 @@ export default function DashboardPage() {
                             <td key={period} className={`border px-1 py-2 text-center ${cellColor}`}>
                               {item ? (
                                 <>
-                                  <p className="text-[8px] font-black leading-tight text-slate-800">{item.timetableSubject || item.subject}</p>
                                   {isSubstitute && item.originalTeacher ? (
-                                    <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500 truncate">
-                                      <span className="line-through decoration-slate-300">{item.originalTeacher}</span>
-                                      <span className={`mx-0.5 ${isMySubstitution || isOwnSubstitute ? "text-red-500" : "text-amber-500"}`}>→</span>
-                                      <span className={`${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>{item.teacher}</span>
-                                    </p>
+                                    <>
+                                      <p className="text-[5px] font-semibold uppercase leading-tight text-slate-400 line-through decoration-slate-300 opacity-45 truncate">{item.timetableSubject || item.subject}</p>
+                                      <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500 truncate">
+                                        <span className="line-through decoration-slate-300">{item.originalTeacher}</span>
+                                        <span className={`mx-0.5 ${isMySubstitution || isOwnSubstitute ? "text-red-500" : "text-amber-500"}`}>→</span>
+                                        <span className={`${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>{item.teacher}</span>
+                                      </p>
+                                      <p className={`text-[5px] font-bold uppercase leading-tight truncate ${isMySubstitution || isOwnSubstitute ? "text-red-500" : "text-amber-500"}`}>{item.subject}</p>
+                                    </>
                                   ) : (
-                                    <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
+                                    <>
+                                      <p className="text-[8px] font-black leading-tight text-slate-800">{item.subject}</p>
+                                      <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
+                                    </>
                                   )}
                                 </>
                               ) : (
