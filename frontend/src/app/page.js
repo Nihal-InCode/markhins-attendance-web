@@ -3223,14 +3223,21 @@ export default function DashboardPage() {
                                   <td key={p} style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'} ${timetableEditMode && canEditTimetable ? 'cursor-pointer hover:ring-2 hover:ring-[#0d9488]/30' : ''}`}
                                     onClick={timetableEditMode && canEditTimetable ? () => openTimetableEditCell(row.class, p, item) : undefined}>
                                     {item ? (
-                                      <div className="space-y-1">
+                                      <div className="space-y-0.5">
                                         <div className="flex items-center justify-center gap-1">
                                           <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
                                           {isSub && (
                                             <span className={`px-1 rounded text-[7px] font-black border uppercase ${isMySubstitutionPeriod ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>SUB</span>
                                           )}
                                         </div>
-                                        <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
+                                        {isSub && item.originalTeacher ? (
+                                          <p style={{ fontSize: `${8 * zoomScale}px` }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide line-through decoration-gray-300">{item.originalTeacher}</p>
+                                        ) : (
+                                          <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacher})</p>
+                                        )}
+                                        {isSub && item.originalTeacher && (
+                                          <p style={{ fontSize: `${8 * zoomScale}px` }} className={`font-bold leading-tight uppercase tracking-wide ${isMySubstitutionPeriod ? 'text-red-600' : 'text-amber-600'}`}>{item.teacher}</p>
+                                        )}
                                       </div>
                                     ) : (
                                       <span style={{ fontSize: fontSizeSubject }} className="text-gray-200 font-black">—</span>
@@ -7412,8 +7419,15 @@ export default function DashboardPage() {
                               {item ? (
                                 <>
                                   <p className="text-[8px] font-black leading-tight text-slate-800">{item.subject}</p>
-                                  <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
-                                  {isSubstitute && <p className={`mt-0.5 text-[5px] font-black uppercase ${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>Substitute</p>}
+                                  {isSubstitute && item.originalTeacher ? (
+                                    <>
+                                      <p className="mt-0.5 text-[5px] font-bold uppercase leading-tight text-slate-400 line-through decoration-slate-300">{item.originalTeacher}</p>
+                                      <p className={`text-[6px] font-black uppercase leading-tight ${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>{item.teacher}</p>
+                                    </>
+                                  ) : (
+                                    <p className="mt-0.5 text-[6px] font-bold uppercase leading-tight text-slate-500">{item.teacher}</p>
+                                  )}
+                                  {isSubstitute && <p className={`text-[5px] font-black uppercase ${isMySubstitution || isOwnSubstitute ? "text-red-700" : "text-amber-700"}`}>Sub</p>}
                                 </>
                               ) : (
                                 <span className="text-slate-200">—</span>
