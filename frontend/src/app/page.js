@@ -3244,7 +3244,7 @@ export default function DashboardPage() {
                                         {isSub && item.originalTeacher ? (
                                           <>
                                             <p style={{ fontSize: `${7 * zoomScale}px` }} className="font-semibold text-gray-400 uppercase leading-tight line-through decoration-gray-300 opacity-45 truncate">{item.timetableSubject || item.subject}</p>
-                                            <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide truncate">
+                                            <p style={{ fontSize: fontSizeSubject }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide truncate">
                                               <span className="line-through decoration-gray-300">{item.originalTeacherCode || item.originalTeacher}</span>
                                               <span className={`mx-0.5 ${isMySubstitutionPeriod ? 'text-red-500' : 'text-amber-500'}`}>→</span>
                                               <span className={`font-bold ${isMySubstitutionPeriod ? 'text-red-600' : 'text-amber-600'}`}>{item.teacherCode || item.teacher}</span>
@@ -3254,7 +3254,7 @@ export default function DashboardPage() {
                                         ) : (
                                           <>
                                             <p style={{ fontSize: fontSizeSubject }} className="font-bold text-gray-800 leading-tight break-words">{item.subject}</p>
-                                            <p style={{ fontSize: fontSizeTeacher }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacherCode || item.teacher})</p>
+                                            <p style={{ fontSize: fontSizeSubject }} className="text-gray-400 font-semibold leading-tight uppercase tracking-wide">({item.teacherCode || item.teacher})</p>
                                           </>
                                         )}
                                       </div>
