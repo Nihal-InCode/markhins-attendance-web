@@ -726,6 +726,7 @@ export default function DashboardPage() {
       }
       if (selectedNamazClass) {
         setSelectedNamazClass("");
+        fetchNamazAnalytics({ className: "" });
         return;
       }
       if (namazViewMode === "analytics") {
@@ -799,7 +800,8 @@ export default function DashboardPage() {
 
   const openNamazClassAnalytics = (className) => {
     setSelectedNamazClass(className);
-    fetchNamazAnalytics();
+    setSelectedNamazSession("");
+    fetchNamazAnalytics({ className: className, sessionType: "" });
     if (className) {
       window.history.pushState({ namazStep: "classAnalytics" }, "");
     }
@@ -810,6 +812,7 @@ export default function DashboardPage() {
       window.history.back();
     } else {
       setSelectedNamazClass("");
+      fetchNamazAnalytics({ className: "" });
     }
   };
   const [eventAttendance, setEventAttendance] = useState([]);
@@ -2171,16 +2174,22 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchNamazAnalytics() {
+  async function fetchNamazAnalytics(overrides = {}) {
     setLoadingNamaz(true);
     setReportError("");
     try {
+      const cls = overrides.className !== undefined ? overrides.className : selectedNamazClass;
+      const st = overrides.studentId !== undefined ? overrides.studentId : selectedNamazStudent;
+      const sess = overrides.sessionType !== undefined ? overrides.sessionType : selectedNamazSession;
+      const fromD = overrides.fromDate !== undefined ? overrides.fromDate : namazFromDate;
+      const toD = overrides.toDate !== undefined ? overrides.toDate : namazToDate;
+
       const data = await getNamazAnalytics({
-        fromDate: namazFromDate,
-        toDate: namazToDate,
-        className: selectedNamazClass,
-        studentId: selectedNamazStudent.trim(),
-        sessionType: selectedNamazSession,
+        fromDate: fromD,
+        toDate: toD,
+        className: cls,
+        studentId: st ? st.trim() : "",
+        sessionType: sess,
       });
       setNamazAnalytics(data || null);
     } catch (err) {
@@ -4209,15 +4218,12 @@ export default function DashboardPage() {
                               }}
                               className="px-4 py-2.5 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-black transition-all flex items-center gap-2 shadow-sm active:scale-95"
                             >
-                              <span>←</span> Back to Today's Namaz Data
+                              <span>←</span> BACK
                             </button>
                             <div>
                               <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
                                 <span>🕌</span> Namaz Advanced Analytics & Monthly Reports
                               </h3>
-                              <p className="text-xs text-gray-400 font-bold mt-0.5">
-                                Campus overview, class rankings, student percentage scorecards, and data export suite
-                              </p>
                             </div>
                           </div>
 
@@ -4268,6 +4274,7 @@ export default function DashboardPage() {
                                     const lastDay = `${y}-${String(m).padStart(2, "0")}-${String(lastDayObj.getDate()).padStart(2, "0")}`;
                                     setNamazFromDate(firstDay);
                                     setNamazToDate(lastDay);
+                                    fetchNamazAnalytics({ fromDate: firstDay, toDate: lastDay });
                                   }
                                 }}
                                 className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200"
@@ -4299,12 +4306,18 @@ export default function DashboardPage() {
                               <select
                                 value={selectedNamazClass}
                                 onChange={(e) => {
-                                  setSelectedNamazClass(e.target.value);
-                                  fetchNamazAnalytics();
+                                  const cls = e.target.value;
+                                  setSelectedNamazClass(cls);
+                                  if (cls) {
+                                    setSelectedNamazSession("");
+                                    fetchNamazAnalytics({ className: cls, sessionType: "" });
+                                  } else {
+                                    fetchNamazAnalytics({ className: "" });
+                                  }
                                 }}
                                 className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200"
                               >
-                                <option value="">🏫 All Campus Classes</option>
+                                <option value="">🏫 All Class</option>
                                 {classes.map((c) => (
                                   <option key={c.id} value={c.id}>
                                     Class {c.name}
@@ -4313,23 +4326,26 @@ export default function DashboardPage() {
                               </select>
                             </div>
 
-                            {/* Prayer Session Dropdown */}
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1">Select Prayer</label>
-                              <select
-                                value={selectedNamazSession}
-                                onChange={(e) => {
-                                  setSelectedNamazSession(e.target.value);
-                                  fetchNamazAnalytics();
-                                }}
-                                className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200"
-                              >
-                                <option value="">🕌 All 5 Prayers</option>
-                                {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((s) => (
-                                  <option key={s} value={s}>{s}</option>
-                                ))}
-                              </select>
-                            </div>
+                            {/* Prayer Session Dropdown - Only shown when NO class is selected */}
+                            {!selectedNamazClass && (
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1">Select Prayer</label>
+                                <select
+                                  value={selectedNamazSession}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSelectedNamazSession(val);
+                                    fetchNamazAnalytics({ sessionType: val });
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200"
+                                >
+                                  <option value="">🕌 All 5 Prayers</option>
+                                  {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
 
                             {/* Action Button */}
                             <div>
