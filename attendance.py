@@ -957,6 +957,20 @@ def build_namaz_analytics(c, data):
             for item in sorted(groups.values(), key=lambda x: x["label"])
         ]
 
+    # Class-level aggregated statistics
+    class_totals = {}
+    for _roll, status, _stype, cls_name, _date, _name in attendance_rows:
+        if cls_name:
+            c_item = class_totals.setdefault(cls_name, {"className": cls_name, "present": 0, "total": 0})
+            c_item["total"] += 1
+            if status == "present":
+                c_item["present"] += 1
+    class_summaries = []
+    for c_item in class_totals.values():
+        c_item["percent"] = _pct(c_item["present"], c_item["total"])
+        class_summaries.append(c_item)
+    class_summaries.sort(key=lambda x: x["percent"], reverse=True)
+
     return {
         "success": True,
         "data": {
@@ -966,12 +980,16 @@ def build_namaz_analytics(c, data):
                 "totalSessions": len(set(session_ids)),
                 "missingSessionData": missing_session_data,
                 "studentsAbove90": sum(1 for item in student_rows if item["percent"] >= 90),
+                "students80To89": sum(1 for item in student_rows if 80 <= item["percent"] < 90),
+                "students70To79": sum(1 for item in student_rows if 70 <= item["percent"] < 80),
+                "studentsBelow70": sum(1 for item in student_rows if item["percent"] < 70),
                 "studentsBelow80": sum(1 for item in student_rows if item["percent"] < 80),
                 **{f"{name.lower()}Percent": by_session_type[name]["percent"] for name in NAMAZ_SESSION_TYPES},
             },
             "sessionTypes": by_session_type,
             "classAnalytics": class_analytics,
             "studentAnalytics": student_analytics,
+            "classSummaries": class_summaries,
             "trends": grouped_trend("date"),
             "monthlyTrends": grouped_trend("month"),
             "sessionComparison": grouped_trend("session"),
