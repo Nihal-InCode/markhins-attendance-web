@@ -707,10 +707,15 @@ export default function DashboardPage() {
   const [namazViewMode, setNamazViewMode] = useState("daily");
   const [namazAdvancedTab, setNamazAdvancedTab] = useState("monthly");
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
+  const [selectedStudentDetailModal, setSelectedStudentDetailModal] = useState(null);
 
   // Handle phone native back button & browser back history for Namaz subviews / modals
   useEffect(() => {
     const handlePopState = () => {
+      if (selectedStudentDetailModal) {
+        setSelectedStudentDetailModal(null);
+        return;
+      }
       if (selectedClassModalSession) {
         setSelectedClassModalSession(null);
         return;
@@ -731,7 +736,22 @@ export default function DashboardPage() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [selectedClassModalSession, selectedTodayPrayer, selectedNamazClass, namazViewMode]);
+  }, [selectedStudentDetailModal, selectedClassModalSession, selectedTodayPrayer, selectedNamazClass, namazViewMode]);
+
+  const openStudentDetailModal = (student) => {
+    setSelectedStudentDetailModal(student);
+    if (student) {
+      window.history.pushState({ namazStep: "studentDetailModal" }, "");
+    }
+  };
+
+  const closeStudentDetailModal = () => {
+    if (window.history.state?.namazStep === "studentDetailModal") {
+      window.history.back();
+    } else {
+      setSelectedStudentDetailModal(null);
+    }
+  };
 
   const openTodayPrayer = (prayerName) => {
     setSelectedTodayPrayer(prayerName);
@@ -4672,7 +4692,8 @@ export default function DashboardPage() {
                                           return (
                                             <div
                                               key={student.rollNo}
-                                              className={`rounded-2xl border p-4 shadow-sm transition-all hover:shadow-md ${perf.bg} ${perf.border}`}
+                                              onClick={() => openStudentDetailModal(student)}
+                                              className={`rounded-2xl border p-4 shadow-sm transition-all hover:shadow-md cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${perf.bg} ${perf.border}`}
                                             >
                                               <div className="flex items-start justify-between mb-2">
                                                 <div className="min-w-0 flex-1">
@@ -4693,8 +4714,13 @@ export default function DashboardPage() {
                                                 <span className={perf.text}>{perf.label}</span>
                                               </div>
 
-                                              <div className="h-2 rounded-full bg-white/80 overflow-hidden">
+                                              <div className="h-2 rounded-full bg-white/80 overflow-hidden mb-2">
                                                 <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${pct}%` }} />
+                                              </div>
+
+                                              <div className="pt-2 border-t border-gray-200/50 text-[10px] font-bold text-teal-700 flex justify-between items-center">
+                                                <span>View per-prayer report</span>
+                                                <span>📊 ➔</span>
                                               </div>
                                             </div>
                                           );
@@ -5385,6 +5411,133 @@ export default function DashboardPage() {
                     )}
                   </>
                 )}
+
+                {/* DRILLDOWN 3: INDIVIDUAL STUDENT DETAILED REPORT POPUP MODAL */}
+                {selectedStudentDetailModal && (() => {
+                  const st = selectedStudentDetailModal;
+                  const perf = getNamazPerfStyle(st.percent);
+                  
+                  const prayerConfigs = [
+                    { name: "Fajr", emoji: "🌅", data: st.prayers?.Fajr || { present: 0, total: 0, percent: 0 } },
+                    { name: "Dhuhr", emoji: "☀️", data: st.prayers?.Dhuhr || { present: 0, total: 0, percent: 0 } },
+                    { name: "Asr", emoji: "🌇", data: st.prayers?.Asr || { present: 0, total: 0, percent: 0 } },
+                    { name: "Maghrib", emoji: "🌆", data: st.prayers?.Maghrib || { present: 0, total: 0, percent: 0 } },
+                    { name: "Isha", emoji: "🌙", data: st.prayers?.Isha || { present: 0, total: 0, percent: 0 } },
+                  ];
+
+                  return (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[70] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+                      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="p-5 border-b border-gray-100 bg-gray-50/60 flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl">📜</span>
+                              <div>
+                                <span className="text-[10px] font-black text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                  Roll #{st.rollNo} • Class {selectedNamazClass}
+                                </span>
+                                <h3 className="text-xl font-black text-gray-900 mt-0.5">
+                                  {st.name}
+                                </h3>
+                              </div>
+                            </div>
+                            <p className="text-xs font-bold text-teal-700 pt-1">
+                              📅 Date Range: {namazFromDate} to {namazToDate}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={closeStudentDetailModal}
+                            className="w-9 h-9 rounded-2xl bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500 text-sm font-black transition-all shrink-0 shadow-sm"
+                            title="Close Detailed Report"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 overflow-y-auto space-y-5">
+                          {/* Overall Attendance Summary Banner */}
+                          <div className={`rounded-2xl border p-4 shadow-sm flex items-center justify-between ${perf.bg} ${perf.border}`}>
+                            <div>
+                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                                Overall Attendance Rate
+                              </p>
+                              <div className="flex items-baseline gap-2 mt-0.5">
+                                <span className={`text-3xl font-black ${perf.text}`}>{st.percent}%</span>
+                                <span className="text-xs font-bold text-gray-500">
+                                  ({st.present} of {st.total} sessions)
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`text-xs font-black px-3 py-1 rounded-xl border ${perf.badge}`}>
+                              {perf.icon} {perf.label}
+                            </span>
+                          </div>
+
+                          {/* 5 Individual Prayer Percentage Breakdown */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                Per-Prayer Attendance Breakdown
+                              </h4>
+                              <span className="text-[10px] font-bold text-gray-400">
+                                Period Performance
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {prayerConfigs.map((p) => {
+                                const pPct = p.data.percent;
+                                const pPerf = getNamazPerfStyle(pPct);
+
+                                return (
+                                  <div
+                                    key={p.name}
+                                    className={`rounded-2xl border p-3.5 shadow-sm space-y-2 ${pPerf.bg} ${pPerf.border}`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xl">{p.emoji}</span>
+                                        <span className="font-black text-gray-900 text-sm">{p.name}</span>
+                                      </div>
+                                      <span className={`text-xs font-black px-2.5 py-0.5 rounded-lg border ${pPerf.badge}`}>
+                                        {pPct}%
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
+                                      <span>Present: {p.data.present} / {p.data.total}</span>
+                                      <span className={pPerf.text}>{pPerf.label}</span>
+                                    </div>
+
+                                    <div className="h-2 rounded-full bg-white/80 overflow-hidden">
+                                      <div
+                                        className={`h-full ${pPerf.bar} rounded-full transition-all duration-300`}
+                                        style={{ width: `${pPct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                          <button
+                            onClick={closeStudentDetailModal}
+                            className="px-6 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider transition-all"
+                          >
+                            Close Detailed Report
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

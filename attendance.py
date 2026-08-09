@@ -909,22 +909,52 @@ def build_namaz_analytics(c, data):
         }
 
     student_totals = {}
-    for roll, status, _stype, _cls, _date, name in attendance_rows:
-        item = student_totals.setdefault(roll, {"rollNo": roll, "name": name or roll, "present": 0, "total": 0})
+    for roll, status, stype, _cls, _date, name in attendance_rows:
+        item = student_totals.setdefault(roll, {
+            "rollNo": roll, 
+            "name": name or roll, 
+            "present": 0, 
+            "total": 0,
+            "prayers": {
+                "Fajr": {"present": 0, "total": 0, "percent": 0},
+                "Dhuhr": {"present": 0, "total": 0, "percent": 0},
+                "Asr": {"present": 0, "total": 0, "percent": 0},
+                "Maghrib": {"present": 0, "total": 0, "percent": 0},
+                "Isha": {"present": 0, "total": 0, "percent": 0}
+            }
+        })
         item["total"] += 1
         if status == "present":
             item["present"] += 1
+        if stype in item["prayers"]:
+            item["prayers"][stype]["total"] += 1
+            if status == "present":
+                item["prayers"][stype]["present"] += 1
 
     if filters["className"]:
         c.execute("SELECT roll_no, name FROM students WHERE class=? ORDER BY roll_no", (filters["className"],))
         for r_no, s_name in c.fetchall():
             roll_str = str(r_no)
             if roll_str not in student_totals:
-                student_totals[roll_str] = {"rollNo": roll_str, "name": s_name or roll_str, "present": 0, "total": 0}
+                student_totals[roll_str] = {
+                    "rollNo": roll_str, 
+                    "name": s_name or roll_str, 
+                    "present": 0, 
+                    "total": 0,
+                    "prayers": {
+                        "Fajr": {"present": 0, "total": 0, "percent": 0},
+                        "Dhuhr": {"present": 0, "total": 0, "percent": 0},
+                        "Asr": {"present": 0, "total": 0, "percent": 0},
+                        "Maghrib": {"present": 0, "total": 0, "percent": 0},
+                        "Isha": {"present": 0, "total": 0, "percent": 0}
+                    }
+                }
 
     student_rows = []
     for item in student_totals.values():
         item["percent"] = _pct(item["present"], item["total"])
+        for p_name, p_data in item["prayers"].items():
+            p_data["percent"] = _pct(p_data["present"], p_data["total"])
         student_rows.append(item)
 
     class_analytics = None
