@@ -4030,56 +4030,33 @@ export default function DashboardPage() {
 
                 {reportType === "namaz" && (
                   <div className="space-y-6">
-                    {/* Header Banner & Date Selector */}
-                    <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-xl shadow-md shadow-teal-200 shrink-0">
+                    {/* Clean Top Header Card */}
+                    <div className="bg-white p-4 sm:p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-lg shadow-md shadow-teal-200 shrink-0">
                             🕌
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-black text-gray-900 text-lg sm:text-xl leading-tight">Namaz Attendance</h3>
-                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full">Daily Dashboard</span>
-                            </div>
-                            <p className="text-xs font-bold text-gray-400 mt-0.5">
-                              Real-time prayer records & daily class breakdown
-                            </p>
+                            <h3 className="font-black text-gray-900 text-lg leading-tight">Namaz Attendance</h3>
                           </div>
                         </div>
 
-                        {/* Top Action & Refresh Controls */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={fetchNamazAnalytics}
-                            disabled={loadingNamaz}
-                            className="rounded-xl bg-teal-50 border border-teal-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
-                            title="Refresh attendance records"
-                          >
-                            <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
-                            <span className="hidden sm:inline">Refresh</span>
-                          </button>
-                          <button
-                            onClick={exportNamazExcel}
-                            disabled={!namazAnalytics}
-                            className="rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Excel
-                          </button>
-                          <button
-                            onClick={exportNamazPdf}
-                            disabled={!namazAnalytics}
-                            className="rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            PDF
-                          </button>
-                        </div>
+                        {/* Top Refresh Control */}
+                        <button
+                          onClick={fetchNamazAnalytics}
+                          disabled={loadingNamaz}
+                          className="rounded-xl bg-teal-50 border border-teal-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                          title="Refresh attendance records"
+                        >
+                          <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
+                          <span className="hidden sm:inline">Refresh</span>
+                        </button>
                       </div>
 
                       {/* Daily Date Navigation Row */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-gray-100/80">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-gray-400 uppercase tracking-wider shrink-0">Viewing Date:</span>
+                        <div className="flex items-center gap-2 flex-wrap">
                           <div className="flex items-center bg-gray-50 border border-gray-200/80 rounded-2xl p-1 shadow-inner">
                             <button
                               onClick={() => {
@@ -4100,10 +4077,11 @@ export default function DashboardPage() {
 
                             <input
                               type="date"
+                              max={getIstDateString()}
                               value={namazDailyDate}
                               onChange={(e) => {
                                 const dateStr = e.target.value;
-                                if (!dateStr) return;
+                                if (!dateStr || dateStr > getIstDateString()) return;
                                 setNamazDailyDate(dateStr);
                                 if (!showAdvancedNamaz) {
                                   setNamazFromDate(dateStr);
@@ -4113,38 +4091,60 @@ export default function DashboardPage() {
                               className="bg-transparent border-0 px-2 py-1 text-xs font-black text-gray-800 outline-none cursor-pointer"
                             />
 
-                            <button
-                              onClick={() => {
-                                const d = new Date(namazDailyDate);
-                                d.setDate(d.getDate() + 1);
-                                const dateStr = d.toISOString().split("T")[0];
-                                setNamazDailyDate(dateStr);
-                                if (!showAdvancedNamaz) {
-                                  setNamazFromDate(dateStr);
-                                  setNamazToDate(dateStr);
-                                }
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-sm transition-all"
-                              title="Next Day"
-                            >
-                              ▶
-                            </button>
+                            {namazDailyDate < getIstDateString() && (
+                              <button
+                                onClick={() => {
+                                  const d = new Date(namazDailyDate);
+                                  d.setDate(d.getDate() + 1);
+                                  const dateStr = d.toISOString().split("T")[0];
+                                  setNamazDailyDate(dateStr);
+                                  if (!showAdvancedNamaz) {
+                                    setNamazFromDate(dateStr);
+                                    setNamazToDate(dateStr);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-sm transition-all"
+                                title="Next Day"
+                              >
+                                ▶
+                              </button>
+                            )}
                           </div>
 
-                          {namazDailyDate !== getIstDateString() && (
-                            <button
-                              onClick={() => {
-                                const todayStr = getIstDateString();
-                                setNamazDailyDate(todayStr);
-                                if (!showAdvancedNamaz) {
-                                  setNamazFromDate(todayStr);
-                                  setNamazToDate(todayStr);
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 text-xs font-black hover:bg-teal-100 transition-all"
-                            >
+                          <span className="text-xs font-black text-gray-700 bg-gray-100 px-3 py-1.5 rounded-xl">
+                            {(() => {
+                              if (!namazDailyDate) return "";
+                              try {
+                                const parts = namazDailyDate.split("-");
+                                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                                return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).format(d);
+                              } catch (e) {
+                                return namazDailyDate;
+                              }
+                            })()}
+                          </span>
+
+                          {namazDailyDate === getIstDateString() ? (
+                            <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
                               Today
-                            </button>
+                            </span>
+                          ) : (
+                            <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl uppercase tracking-wider flex items-center gap-2">
+                              Past
+                              <button
+                                onClick={() => {
+                                  const todayStr = getIstDateString();
+                                  setNamazDailyDate(todayStr);
+                                  if (!showAdvancedNamaz) {
+                                    setNamazFromDate(todayStr);
+                                    setNamazToDate(todayStr);
+                                  }
+                                }}
+                                className="text-[10px] text-teal-700 underline font-bold"
+                              >
+                                (Go to Today)
+                              </button>
+                            </span>
                           )}
                         </div>
 
@@ -4155,7 +4155,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-2 text-xs font-bold">
                               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                               <span className="text-gray-500">
-                                {dailySessions.length} prayer {dailySessions.length === 1 ? "session" : "sessions"} recorded for {namazDailyDate === getIstDateString() ? "Today" : namazDailyDate}
+                                {dailySessions.length} recorded {dailySessions.length === 1 ? "session" : "sessions"}
                               </span>
                             </div>
                           );
@@ -4186,10 +4186,10 @@ export default function DashboardPage() {
                               <div>
                                 <div className="flex items-center justify-between mb-3">
                                   <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                    Prayer Sessions ({namazDailyDate === getIstDateString() ? "Today" : namazDailyDate})
+                                    Prayer Sessions ({namazDailyDate === getIstDateString() ? "Today" : "Past"})
                                   </h4>
                                   <span className="text-[10px] font-bold text-gray-400">
-                                    Click any active card to view recorded classes
+                                    Click any active card to view data in full screen
                                   </span>
                                 </div>
 
@@ -4258,7 +4258,7 @@ export default function DashboardPage() {
                                               <span className="text-red-500 font-bold">A: {totalAbsent}</span>
                                             </div>
                                             <span className="text-teal-600 font-black flex items-center gap-0.5">
-                                              View classes ➔
+                                              View Data ➔
                                             </span>
                                           </div>
                                         </button>
@@ -4287,13 +4287,10 @@ export default function DashboardPage() {
                                           <p className="text-xs font-black text-gray-400 uppercase tracking-wider">
                                             Data not yet recorded
                                           </p>
-                                          <p className="text-[9px] font-medium text-gray-400 mt-0.5">
-                                            No session submitted for today
-                                          </p>
                                         </div>
 
                                         <div className="pt-2 border-t border-gray-200/60 text-[9px] font-bold text-gray-400 text-center">
-                                          Waiting for teacher submission
+                                          Waiting for submission
                                         </div>
                                       </div>
                                     );
@@ -4301,120 +4298,170 @@ export default function DashboardPage() {
                                 </div>
                               </div>
 
-                              {/* DRILLDOWN 1: CLASS CARDS VIEW FOR SELECTED PRAYER */}
+                              {/* DRILLDOWN 1: FULLSCREEN OVERLAY MODAL FOR SELECTED PRAYER */}
                               {selectedTodayPrayer && (() => {
                                 const pSessions = dailySessions.filter(s => s.sessionName === selectedTodayPrayer);
                                 const selectedConfig = prayerConfigs.find(p => p.name === selectedTodayPrayer);
 
+                                const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
+                                const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present").length : 0), 0);
+                                const totalAbsent = Math.max(0, totalStudents - totalPresent);
+                                const overallPct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
+
+                                const formattedDateStr = (() => {
+                                  if (!namazDailyDate) return "";
+                                  try {
+                                    const parts = namazDailyDate.split("-");
+                                    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                                    return new Intl.DateTimeFormat("en-US", { weekday: "long", day: "2-digit", month: "short", year: "numeric" }).format(d);
+                                  } catch (e) {
+                                    return namazDailyDate;
+                                  }
+                                })();
+
                                 return (
-                                  <div className="bg-white rounded-3xl border border-teal-100 p-5 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-2xl">{selectedConfig?.emoji || "🕌"}</span>
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <h4 className="text-base font-black text-gray-900">
-                                              {selectedTodayPrayer} - Recorded Classes
-                                            </h4>
-                                            <span className="text-xs font-black text-teal-700 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
-                                              {pSessions.length} {pSessions.length === 1 ? "Class" : "Classes"}
+                                  <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 overflow-y-auto flex flex-col p-3 sm:p-6 animate-in fade-in duration-200">
+                                    <div className="bg-white w-full max-w-5xl mx-auto rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col my-auto max-h-[92vh]">
+                                      {/* Fullscreen Header */}
+                                      <div className="p-5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between shrink-0">
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-3xl">{selectedConfig?.emoji || "🕌"}</span>
+                                          <div>
+                                            <div className="flex items-center gap-2">
+                                              <h3 className="text-lg sm:text-xl font-black text-gray-900">
+                                                {selectedTodayPrayer} - Class Attendance Data
+                                              </h3>
+                                              <span className="text-xs font-black text-teal-700 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
+                                                {pSessions.length} {pSessions.length === 1 ? "Class" : "Classes"}
+                                              </span>
+                                            </div>
+                                            <p className="text-xs font-bold text-gray-400 mt-0.5">
+                                              {formattedDateStr} ({namazDailyDate === getIstDateString() ? "Today" : "Past"})
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                          <div className="hidden md:flex items-center gap-2 text-xs font-black">
+                                            <span className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl">
+                                              Total: {totalStudents}
+                                            </span>
+                                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-xl">
+                                              Present: {totalPresent} ({overallPct}%)
+                                            </span>
+                                            <span className="bg-red-50 text-red-700 border border-red-100 px-3 py-1.5 rounded-xl">
+                                              Absent: {totalAbsent}
                                             </span>
                                           </div>
-                                          <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                            Click any class card to inspect complete student attendance roster
-                                          </p>
+
+                                          <button
+                                            onClick={() => setSelectedTodayPrayer(null)}
+                                            className="w-10 h-10 rounded-2xl bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 text-base font-black transition-all shadow-sm shrink-0"
+                                            title="Close Fullscreen View"
+                                          >
+                                            ✕
+                                          </button>
                                         </div>
                                       </div>
-                                      <button
-                                        onClick={() => setSelectedTodayPrayer(null)}
-                                        className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold transition-all"
-                                        title="Close class view"
-                                      >
-                                        ✕
-                                      </button>
+
+                                      {/* Fullscreen Body */}
+                                      <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                          <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                            Recorded Classes for {selectedTodayPrayer}
+                                          </h4>
+                                          <span className="text-[10px] font-bold text-gray-400">
+                                            Click any class card to view student attendance data
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                          {pSessions.map((session) => {
+                                            const sList = session.students || [];
+                                            const presentCount = sList.filter(st => st.status === "present").length;
+                                            const totalCount = sList.length;
+                                            const absentCount = Math.max(0, totalCount - presentCount);
+                                            const classPct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
+                                            const timeStr = (() => {
+                                              const src = session.createdAt || session.date;
+                                              if (!src) return "";
+                                              const match = String(src).match(/(\d{1,2}):(\d{2})/);
+                                              if (match) {
+                                                const h = Number(match[1]);
+                                                const dispH = h % 12 || 12;
+                                                const period = h >= 12 ? "PM" : "AM";
+                                                return `${String(dispH).padStart(2, "0")}:${match[2]} ${period}`;
+                                              }
+                                              return "";
+                                            })();
+
+                                            return (
+                                              <div
+                                                key={session.sessionId}
+                                                onClick={() => {
+                                                  setSelectedClassModalSession(session);
+                                                  setClassRosterSearch("");
+                                                  setClassRosterFilter("all");
+                                                }}
+                                                className="bg-gray-50/80 hover:bg-white rounded-2xl border border-gray-200 hover:border-teal-400 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-3"
+                                              >
+                                                <div className="flex items-center justify-between">
+                                                  <div>
+                                                    <h5 className="font-black text-gray-900 text-xl group-hover:text-teal-600 transition-colors">
+                                                      Class {session.className}
+                                                    </h5>
+                                                    {timeStr && (
+                                                      <span className="text-xs font-bold text-gray-400">
+                                                        🕒 {timeStr}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl">
+                                                    {classPct}% Present
+                                                  </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2 bg-white p-3 rounded-xl border border-gray-100 text-center">
+                                                  <div>
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Total</p>
+                                                    <p className="text-base font-black text-gray-800">{totalCount}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Present</p>
+                                                    <p className="text-base font-black text-emerald-600">{presentCount}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[9px] font-black text-red-500 uppercase tracking-wider">Absent</p>
+                                                    <p className="text-base font-black text-red-500">{absentCount}</p>
+                                                  </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-xs font-black text-teal-600 pt-1 group-hover:translate-x-1 transition-transform">
+                                                  <span>View Student Data</span>
+                                                  <span>➔</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+
+                                      {/* Fullscreen Footer */}
+                                      <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                                        <button
+                                          onClick={() => setSelectedTodayPrayer(null)}
+                                          className="px-6 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider transition-all"
+                                        >
+                                          Close
+                                        </button>
+                                      </div>
                                     </div>
-
-                                    {pSessions.length === 0 ? (
-                                      <div className="p-8 text-center text-gray-400 text-xs font-bold">
-                                        No class records found for {selectedTodayPrayer} on this date.
-                                      </div>
-                                    ) : (
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                                        {pSessions.map((session) => {
-                                          const sList = session.students || [];
-                                          const presentCount = sList.filter(st => st.status === "present").length;
-                                          const totalCount = sList.length;
-                                          const absentCount = Math.max(0, totalCount - presentCount);
-                                          const classPct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
-
-                                          const timeStr = (() => {
-                                            const src = session.createdAt || session.date;
-                                            if (!src) return "";
-                                            const match = String(src).match(/(\d{1,2}):(\d{2})/);
-                                            if (match) {
-                                              const h = Number(match[1]);
-                                              const dispH = h % 12 || 12;
-                                              const period = h >= 12 ? "PM" : "AM";
-                                              return `${String(dispH).padStart(2, "0")}:${match[2]} ${period}`;
-                                            }
-                                            return "";
-                                          })();
-
-                                          return (
-                                            <div
-                                              key={session.sessionId}
-                                              onClick={() => {
-                                                setSelectedClassModalSession(session);
-                                                setClassRosterSearch("");
-                                                setClassRosterFilter("all");
-                                              }}
-                                              className="bg-gray-50/70 hover:bg-white rounded-2xl border border-gray-100 hover:border-teal-300 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-3"
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <div>
-                                                  <h5 className="font-black text-gray-900 text-lg group-hover:text-teal-600 transition-colors">
-                                                    {session.className}
-                                                  </h5>
-                                                  {timeStr && (
-                                                    <span className="text-[10px] font-bold text-gray-400">
-                                                      🕒 {timeStr}
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-xl">
-                                                  {classPct}% Present
-                                                </span>
-                                              </div>
-
-                                              <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-gray-100 text-center">
-                                                <div>
-                                                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Total</p>
-                                                  <p className="text-sm font-black text-gray-800">{totalCount}</p>
-                                                </div>
-                                                <div>
-                                                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Present</p>
-                                                  <p className="text-sm font-black text-emerald-600">{presentCount}</p>
-                                                </div>
-                                                <div>
-                                                  <p className="text-[9px] font-black text-red-500 uppercase tracking-wider">Absent</p>
-                                                  <p className="text-sm font-black text-red-500">{absentCount}</p>
-                                                </div>
-                                              </div>
-
-                                              <div className="flex items-center justify-between text-xs font-black text-teal-600 pt-1 group-hover:translate-x-1 transition-transform">
-                                                <span>View Roster</span>
-                                                <span>➔</span>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
                                   </div>
                                 );
                               })()}
 
-                              {/* DRILLDOWN 2: CLASS STUDENT ROSTER MODAL */}
+                              {/* DRILLDOWN 2: CLASS STUDENT DATA MODAL */}
                               {selectedClassModalSession && (() => {
                                 const session = selectedClassModalSession;
                                 const sList = session.students || [];
@@ -4451,7 +4498,7 @@ export default function DashboardPage() {
                                 });
 
                                 return (
-                                  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+                                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
                                     <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
                                       {/* Modal Header */}
                                       <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex items-start justify-between">
@@ -4459,11 +4506,11 @@ export default function DashboardPage() {
                                           <div className="flex items-center gap-2">
                                             <span className="text-lg">🕌</span>
                                             <h3 className="text-lg font-black text-gray-900">
-                                              Class {session.className} - {session.sessionName} Attendance
+                                              Class {session.className} - {session.sessionName} Student Data
                                             </h3>
                                           </div>
                                           <p className="text-xs font-bold text-gray-400">
-                                            Date: {session.date} | Recorded Time: {session.createdAt || session.date}
+                                            Date: {session.date} | Time Recorded: {session.createdAt || session.date}
                                           </p>
 
                                           {/* Summary Stats Badges */}
@@ -4537,7 +4584,7 @@ export default function DashboardPage() {
                                         </div>
                                       </div>
 
-                                      {/* Student Roster List */}
+                                      {/* Student List */}
                                       <div className="p-4 overflow-y-auto flex-1 space-y-2">
                                         {sortedStudents.length === 0 ? (
                                           <div className="p-10 text-center text-gray-400 text-xs font-bold">
@@ -4654,6 +4701,22 @@ export default function DashboardPage() {
                                     <p className="text-[10px] font-bold text-gray-400">
                                       Select date range and parameters to generate historical analytics
                                     </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={exportNamazExcel}
+                                      disabled={!namazAnalytics}
+                                      className="rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      Export Excel
+                                    </button>
+                                    <button
+                                      onClick={exportNamazPdf}
+                                      disabled={!namazAnalytics}
+                                      className="rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      Export PDF
+                                    </button>
                                   </div>
                                 </div>
 
@@ -4893,7 +4956,7 @@ export default function DashboardPage() {
                                     ))}
                                   </div>
 
-                                  {/* Student Performance Roster */}
+                                  {/* Student Performance Grid */}
                                   {selectedNamazClass && namazAnalytics?.students && namazAnalytics.students.length > 0 && (
                                     <div>
                                       <div className="flex items-center justify-between mb-3">
@@ -4984,7 +5047,7 @@ export default function DashboardPage() {
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 className="font-black text-gray-905 text-lg">Events History</h3>
+                        <h3 className="font-black text-gray-900 text-lg">Events History</h3>
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">
                           Historical record of special program and event attendances
                         </p>
