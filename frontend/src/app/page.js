@@ -703,6 +703,7 @@ export default function DashboardPage() {
   const [classRosterSearch, setClassRosterSearch] = useState("");
   const [classRosterFilter, setClassRosterFilter] = useState("all");
   const [showAdvancedNamaz, setShowAdvancedNamaz] = useState(false);
+  const [showAdvancedNamazModal, setShowAdvancedNamazModal] = useState(false);
   const [namazAdvancedTab, setNamazAdvancedTab] = useState("monthly");
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
   const [eventAttendance, setEventAttendance] = useState([]);
@@ -4717,617 +4718,578 @@ export default function DashboardPage() {
                           );
                         })()}
 
-                        {/* BOTTOM ADVANCED SECTION ACCORDION BUTTON */}
-                        <div className="pt-4 border-t border-gray-200/80 space-y-5">
+                        {/* BOTTOM ADVANCED SECTION BUTTON */}
+                        <div className="pt-4 border-t border-gray-200/80">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
-                              setShowAdvancedNamaz(!showAdvancedNamaz);
+                              setShowAdvancedNamazModal(true);
+                              fetchNamazAnalytics();
                             }}
-                            className="w-full bg-white hover:bg-teal-50/50 p-5 rounded-[2rem] border border-gray-200/90 shadow-sm flex items-center justify-between transition-all group"
+                            className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 p-5 rounded-[2rem] text-white shadow-lg shadow-teal-200 flex items-center justify-between transition-all group active:scale-[0.98]"
                           >
                             <div className="flex items-center gap-3.5">
-                              <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 text-lg group-hover:scale-105 transition-transform">
-                                ⚙️
+                              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl group-hover:scale-110 transition-transform">
+                                📊
                               </div>
                               <div className="text-left">
-                                <h4 className="text-sm font-black text-gray-900 group-hover:text-teal-700 transition-colors">
-                                  Advanced Analytics & Custom Filters
+                                <h4 className="text-base font-black text-white">
+                                  Open Advanced Analytics & Monthly Reports
                                 </h4>
-                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                  Monthly reports, class & student trends, date filtering, and export options
+                                <p className="text-xs font-bold text-teal-100 mt-0.5">
+                                  Campus summaries, class rankings, individual student percentage scorecards, and exports
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-teal-700 bg-teal-50 px-3 py-1 rounded-xl border border-teal-100">
-                                {showAdvancedNamaz ? "Hide Advanced" : "Show Advanced"}
-                              </span>
-                              <span className="text-gray-400 text-sm font-black transition-transform">
-                                {showAdvancedNamaz ? "▲" : "▼"}
-                              </span>
+                            <div className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all">
+                              <span>Open Analytics ➔</span>
                             </div>
                           </button>
+                        </div>
 
-                          {/* EXPANDED ADVANCED ANALYTICS DRAWER */}
-                          {showAdvancedNamaz && (
-                            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                              {/* Advanced Header & Sub-Tabs */}
-                              <div className="bg-white p-4 sm:p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        {/* FULLSCREEN DEDICATED SCREEN OVERLAY FOR ADVANCED ANALYTICS */}
+                        {showAdvancedNamazModal && (
+                          <div className="fixed inset-0 z-50 bg-gray-900/70 backdrop-blur-md overflow-y-auto flex flex-col p-3 sm:p-6 animate-in fade-in duration-200">
+                            <div className="bg-white w-full max-w-7xl mx-auto rounded-[2.5rem] shadow-2xl border border-gray-100 flex flex-col overflow-hidden my-auto min-h-[85vh]">
+                              
+                              {/* Top Navigation & Action Header */}
+                              <div className="bg-gradient-to-r from-teal-800 to-emerald-900 p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowAdvancedNamazModal(false)}
+                                    className="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-black transition-all"
+                                    title="Close / Back to Daily View"
+                                  >
+                                    ←
+                                  </button>
                                   <div>
-                                    <h4 className="font-black text-gray-900 text-base flex items-center gap-2">
-                                      <span>⚙️</span> Advanced Analytics & Monthly Reports
-                                    </h4>
-                                    <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                      Comprehensive monthly summary, class rankings, student scorecards, and data exports
+                                    <h3 className="text-lg font-black text-white flex items-center gap-2">
+                                      <span>🕌</span> Advanced Namaz Analytics & Monthly Reports
+                                    </h3>
+                                    <p className="text-xs text-teal-200 font-bold mt-0.5">
+                                      Campus overview, class rankings, student percentage scorecards, and export suite
                                     </p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        exportNamazExcel();
-                                      }}
-                                      disabled={!namazAnalytics}
-                                      className="rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                      Export Excel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        exportNamazPdf();
-                                      }}
-                                      disabled={!namazAnalytics}
-                                      className="rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                      Export PDF
-                                    </button>
                                   </div>
                                 </div>
 
-                                {/* Tab Navigation Buttons */}
-                                <div className="flex items-center gap-2 overflow-x-auto pb-1 border-t border-gray-100 pt-3">
-                                  {[
-                                    { id: "monthly", label: "Monthly Summary", emoji: "📅" },
-                                    { id: "class", label: "Class Analytics", emoji: "🏫" },
-                                    { id: "student", label: "Student Search", emoji: "👤" },
-                                    { id: "logs", label: "Logs & Export", emoji: "📜" },
-                                  ].map((tab) => (
-                                    <button
-                                      key={tab.id}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        setNamazAdvancedTab(tab.id);
-                                      }}
-                                      className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 ${
-                                        namazAdvancedTab === tab.id
-                                          ? "bg-teal-600 text-white shadow-md shadow-teal-100"
-                                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                      }`}
-                                    >
-                                      <span>{tab.emoji}</span> {tab.label}
-                                    </button>
-                                  ))}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={exportNamazExcel}
+                                    disabled={!namazAnalytics}
+                                    className="rounded-xl bg-emerald-500/30 hover:bg-emerald-500/50 border border-emerald-400/40 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition-all disabled:opacity-40"
+                                  >
+                                    Export Excel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={exportNamazPdf}
+                                    disabled={!namazAnalytics}
+                                    className="rounded-xl bg-white text-gray-900 hover:bg-gray-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40"
+                                  >
+                                    Export PDF
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowAdvancedNamazModal(false)}
+                                    className="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-black transition-all ml-2"
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
                               </div>
 
-                              {/* TAB 1: MONTHLY SUMMARY */}
-                              {namazAdvancedTab === "monthly" && (
-                                <div className="space-y-5 animate-in fade-in duration-200">
-                                  {/* Filter & Month Selector Dropdown */}
-                                  <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                                      <div>
-                                        <h5 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                          Date & Filter Controls
-                                        </h5>
-                                        <p className="text-[10px] font-bold text-gray-400">
-                                          Defaulted to current month. Select any month or custom range below.
-                                        </p>
-                                      </div>
-                                      <div className="w-full sm:w-64">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
-                                          Select Month
-                                        </label>
-                                        <select
-                                          value={namazSelectedMonth}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            setNamazSelectedMonth(val);
-                                            if (val !== "custom") {
-                                              const [yStr, mStr] = val.split("-");
-                                              const y = parseInt(yStr, 10);
-                                              const m = parseInt(mStr, 10);
-                                              const firstDay = `${y}-${String(m).padStart(2, "0")}-01`;
-                                              const lastDayObj = new Date(y, m, 0);
-                                              const lastDay = `${y}-${String(m).padStart(2, "0")}-${String(lastDayObj.getDate()).padStart(2, "0")}`;
-                                              setNamazFromDate(firstDay);
-                                              setNamazToDate(lastDay);
-                                            }
-                                          }}
-                                          className="w-full rounded-xl border border-gray-200 bg-teal-50/50 text-teal-800 font-bold px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-teal-200"
-                                        >
+                              {/* Filter Controls Bar */}
+                              <div className="bg-gray-50 p-4 border-b border-gray-200/80 shrink-0">
+                                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-end">
+                                  
+                                  {/* Month Selector */}
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Select Month</label>
+                                    <select
+                                      value={namazSelectedMonth}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setNamazSelectedMonth(val);
+                                        if (val !== "custom") {
+                                          const [yStr, mStr] = val.split("-");
+                                          const y = parseInt(yStr, 10);
+                                          const m = parseInt(mStr, 10);
+                                          const firstDay = `${y}-${String(m).padStart(2, "0")}-01`;
+                                          const lastDayObj = new Date(y, m, 0);
+                                          const lastDay = `${y}-${String(m).padStart(2, "0")}-${String(lastDayObj.getDate()).padStart(2, "0")}`;
+                                          setNamazFromDate(firstDay);
+                                          setNamazToDate(lastDay);
+                                        }
+                                      }}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200 shadow-sm"
+                                    >
+                                      {(() => {
+                                        const options = [];
+                                        const now = new Date();
+                                        for (let i = 0; i < 12; i++) {
+                                          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                                          const y = d.getFullYear();
+                                          const m = String(d.getMonth() + 1).padStart(2, "0");
+                                          const val = `${y}-${m}`;
+                                          const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                                          options.push(
+                                            <option key={val} value={val}>
+                                              {i === 0 ? `📅 ${label} (Current)` : `📅 ${label}`}
+                                            </option>
+                                          );
+                                        }
+                                        options.push(<option key="custom" value="custom">⚙️ Custom Date Range</option>);
+                                        return options;
+                                      })()}
+                                    </select>
+                                  </div>
+
+                                  {/* Class Dropdown */}
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Select Class</label>
+                                    <select
+                                      value={selectedNamazClass}
+                                      onChange={(e) => {
+                                        setSelectedNamazClass(e.target.value);
+                                        fetchNamazAnalytics();
+                                      }}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200 shadow-sm"
+                                    >
+                                      <option value="">🏫 All Campus Classes</option>
+                                      {classes.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          Class {c.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Prayer Session Dropdown */}
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Select Prayer</label>
+                                    <select
+                                      value={selectedNamazSession}
+                                      onChange={(e) => {
+                                        setSelectedNamazSession(e.target.value);
+                                        fetchNamazAnalytics();
+                                      }}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200 shadow-sm"
+                                    >
+                                      <option value="">🕌 All 5 Prayers</option>
+                                      {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Action Button */}
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        fetchNamazAnalytics();
+                                      }}
+                                      className="w-full rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white hover:from-teal-700 hover:to-emerald-700 transition-all shadow-md shadow-teal-100"
+                                    >
+                                      Refresh Data 🔄
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Custom Date Pickers Row if Custom Selected */}
+                                {namazSelectedMonth === "custom" && (
+                                  <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-200">
+                                    <div>
+                                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">From Date</label>
+                                      <input
+                                        type="date"
+                                        value={namazFromDate}
+                                        onChange={(e) => setNamazFromDate(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">To Date</label>
+                                      <input
+                                        type="date"
+                                        value={namazToDate}
+                                        onChange={(e) => setNamazToDate(e.target.value)}
+                                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Main Body Content Area */}
+                              <div className="p-5 overflow-y-auto flex-1 space-y-6">
+                                {loadingNamaz ? (
+                                  <div className="p-16 text-center space-y-3">
+                                    <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                                    <p className="text-xs font-bold text-gray-500">Loading historical Namaz analytics...</p>
+                                  </div>
+                                ) : !namazAnalytics ? (
+                                  <div className="p-16 text-center text-gray-400 text-xs font-bold">
+                                    No analytics loaded. Click Refresh Data to fetch reports.
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* VIEW 1: ALL CLASSES SELECTED (CAMPUS SUMMARY) */}
+                                    {selectedNamazClass === "" ? (
+                                      <div className="space-y-6">
+                                        {/* 4-Tier Student Performance Breakdown Cards */}
+                                        <div>
+                                          <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider mb-3">
+                                            Campus-Wide Student Health Breakdown
+                                          </h4>
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                                            {/* Tier 1: >=90% Green */}
+                                            <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 shadow-sm">
+                                              <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xl">🟢</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                  ≥ 90%
+                                                </span>
+                                              </div>
+                                              <p className="text-3xl font-black text-emerald-800">
+                                                {namazAnalytics.cards?.studentsAbove90 ?? 0}
+                                              </p>
+                                              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mt-1">
+                                                Excellent Performers
+                                              </p>
+                                            </div>
+
+                                            {/* Tier 2: 80-89% Blue */}
+                                            <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 shadow-sm">
+                                              <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xl">🔵</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full">
+                                                  80% - 89%
+                                                </span>
+                                              </div>
+                                              <p className="text-3xl font-black text-blue-800">
+                                                {namazAnalytics.cards?.students80To89 ?? 0}
+                                              </p>
+                                              <p className="text-[10px] font-black text-blue-700 uppercase tracking-wider mt-1">
+                                                Good Performers
+                                              </p>
+                                            </div>
+
+                                            {/* Tier 3: 70-79% Orange */}
+                                            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 shadow-sm">
+                                              <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xl">🟠</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                                                  70% - 79%
+                                                </span>
+                                              </div>
+                                              <p className="text-3xl font-black text-amber-800">
+                                                {namazAnalytics.cards?.students70To79 ?? 0}
+                                              </p>
+                                              <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mt-1">
+                                                Attention Needed
+                                              </p>
+                                            </div>
+
+                                            {/* Tier 4: <70% Red */}
+                                            <div className="bg-red-50/80 border border-red-200 rounded-2xl p-4 shadow-sm">
+                                              <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xl">🔴</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-red-800 bg-red-100 px-2 py-0.5 rounded-full">
+                                                  &lt; 70%
+                                                </span>
+                                              </div>
+                                              <p className="text-3xl font-black text-red-800">
+                                                {namazAnalytics.cards?.studentsBelow70 ?? 0}
+                                              </p>
+                                              <p className="text-[10px] font-black text-red-700 uppercase tracking-wider mt-1">
+                                                Critical Alert
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Campus Overall Attendance Gauge */}
+                                        {(() => {
+                                          const overallPct = namazAnalytics.cards?.overallAttendance ?? 0;
+                                          const perf = getNamazPerfStyle(overallPct);
+
+                                          return (
+                                            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm space-y-4">
+                                              <div className="flex items-center justify-between">
+                                                <div>
+                                                  <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                                    Campus Overall Attendance Rate
+                                                  </h4>
+                                                  <p className="text-[10px] font-bold text-gray-400 mt-0.5">
+                                                    Calculated over {namazAnalytics.cards?.totalSessions ?? 0} sessions recorded in period
+                                                  </p>
+                                                </div>
+                                                <span className={`text-xs font-black px-3 py-1 rounded-xl border ${perf.badge}`}>
+                                                  {perf.icon} {perf.label} ({overallPct}%)
+                                                </span>
+                                              </div>
+
+                                              <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs font-black">
+                                                  <span className="text-gray-600">Total Period Campus Attendance</span>
+                                                  <span className={perf.text}>{overallPct}%</span>
+                                                </div>
+                                                <div className="h-3 rounded-full bg-gray-100 overflow-hidden p-0.5">
+                                                  <div
+                                                    className={`h-full ${perf.bar} rounded-full transition-all duration-500`}
+                                                    style={{ width: `${overallPct}%` }}
+                                                  />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* 5 Prayers Breakdown */}
+                                        <div>
+                                          <h4 className="text-xs font-black text-gray-900 mb-3 uppercase tracking-wider">
+                                            5 Prayer Campus Breakdown
+                                          </h4>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                                            {[
+                                              { name: "Fajr", emoji: "🌅", percent: namazAnalytics.cards?.fajrPercent ?? 0 },
+                                              { name: "Dhuhr", emoji: "☀️", percent: namazAnalytics.cards?.dhuhrPercent ?? 0 },
+                                              { name: "Asr", emoji: "🌇", percent: namazAnalytics.cards?.asrPercent ?? 0 },
+                                              { name: "Maghrib", emoji: "🌆", percent: namazAnalytics.cards?.maghribPercent ?? 0 },
+                                              { name: "Isha", emoji: "🌙", percent: namazAnalytics.cards?.ishaPercent ?? 0 },
+                                            ].map((p) => {
+                                              const perf = getNamazPerfStyle(p.percent);
+                                              return (
+                                                <div key={p.name} className={`rounded-2xl border p-4 shadow-sm ${perf.bg} ${perf.border}`}>
+                                                  <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-black text-gray-900 flex items-center gap-1">
+                                                      <span>{p.emoji}</span> {p.name}
+                                                    </span>
+                                                    <span className="text-[9px] font-black">{perf.icon}</span>
+                                                  </div>
+                                                  <p className={`text-2xl font-black ${perf.text}`}>{p.percent}%</p>
+                                                  <div className="mt-2 h-1.5 rounded-full bg-white/80 overflow-hidden">
+                                                    <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${p.percent}%` }} />
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+
+                                        {/* Class Performance Rankings */}
+                                        <div>
+                                          <div className="flex items-center justify-between mb-3">
+                                            <div>
+                                              <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                                All Class Performance Rankings
+                                              </h4>
+                                              <p className="text-[10px] font-bold text-gray-400">
+                                                Click any class card below to view all its enrolled students' cards
+                                              </p>
+                                            </div>
+                                          </div>
+
                                           {(() => {
-                                            const options = [];
-                                            const now = new Date();
-                                            for (let i = 0; i < 12; i++) {
-                                              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                                              const y = d.getFullYear();
-                                              const m = String(d.getMonth() + 1).padStart(2, "0");
-                                              const val = `${y}-${m}`;
-                                              const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-                                              options.push(
-                                                <option key={val} value={val}>
-                                                  {i === 0 ? `📅 ${label} (Current)` : `📅 ${label}`}
-                                                </option>
+                                            const summaries = namazAnalytics?.classSummaries || [];
+                                            if (summaries.length === 0) {
+                                              return (
+                                                <div className="p-8 text-center text-gray-400 text-xs font-bold bg-gray-50 rounded-2xl">
+                                                  No class attendance data available for the selected period.
+                                                </div>
                                               );
                                             }
-                                            options.push(<option key="custom" value="custom">⚙️ Custom Date Range</option>);
-                                            return options;
-                                          })()}
-                                        </select>
-                                      </div>
-                                    </div>
 
-                                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
-                                      {namazSelectedMonth === "custom" && (
-                                        <>
-                                          <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From Date</label>
-                                            <input
-                                              type="date"
-                                              value={namazFromDate}
-                                              onChange={(e) => setNamazFromDate(e.target.value)}
-                                              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                            />
-                                          </div>
-                                          <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">To Date</label>
-                                            <input
-                                              type="date"
-                                              value={namazToDate}
-                                              onChange={(e) => setNamazToDate(e.target.value)}
-                                              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                            />
-                                          </div>
-                                        </>
-                                      )}
-                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Class</label>
-                                        <select
-                                          value={selectedNamazClass}
-                                          onChange={(e) => setSelectedNamazClass(e.target.value)}
-                                          className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                        >
-                                          <option value="">All Classes</option>
-                                          {classes.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                              {c.name}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Prayer Session</label>
-                                        <select
-                                          value={selectedNamazSession}
-                                          onChange={(e) => setSelectedNamazSession(e.target.value)}
-                                          className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                        >
-                                          <option value="">All Prayers</option>
-                                          {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((s) => (
-                                            <option key={s} value={s}>{s}</option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                      <div className="space-y-1 col-span-2 sm:col-span-1">
-                                        <label className="text-[9px] font-black text-transparent uppercase tracking-widest select-none">Action</label>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            fetchNamazAnalytics();
-                                          }}
-                                          className="w-full rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-widest text-white hover:from-teal-600 hover:to-emerald-600 transition-all shadow-md shadow-teal-100 active:scale-[0.97]"
-                                        >
-                                          Apply Filters
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* 4-TIER ATTENDANCE PERFORMANCE OVERVIEW CARDS */}
-                                  {namazAnalytics && (
-                                    <>
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-                                        {/* Tier 1: >=90% Green */}
-                                        <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xl">🟢</span>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                              ≥ 90%
-                                            </span>
-                                          </div>
-                                          <p className="text-3xl font-black text-emerald-800">
-                                            {namazAnalytics.cards?.studentsAbove90 ?? 0}
-                                          </p>
-                                          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mt-1">
-                                            Excellent Performance
-                                          </p>
-                                        </div>
-
-                                        {/* Tier 2: 80-89% Blue */}
-                                        <div className="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xl">🔵</span>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full">
-                                              80% - 89%
-                                            </span>
-                                          </div>
-                                          <p className="text-3xl font-black text-blue-800">
-                                            {namazAnalytics.cards?.students80To89 ?? 0}
-                                          </p>
-                                          <p className="text-[10px] font-black text-blue-700 uppercase tracking-wider mt-1">
-                                            Good Performance
-                                          </p>
-                                        </div>
-
-                                        {/* Tier 3: 70-79% Orange */}
-                                        <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xl">🟠</span>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                                              70% - 79%
-                                            </span>
-                                          </div>
-                                          <p className="text-3xl font-black text-amber-800">
-                                            {namazAnalytics.cards?.students70To79 ?? 0}
-                                          </p>
-                                          <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mt-1">
-                                            Attention Needed
-                                          </p>
-                                        </div>
-
-                                        {/* Tier 4: <70% Red */}
-                                        <div className="bg-red-50/80 border border-red-200/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xl">🔴</span>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-red-800 bg-red-100 px-2 py-0.5 rounded-full">
-                                              &lt; 70%
-                                            </span>
-                                          </div>
-                                          <p className="text-3xl font-black text-red-800">
-                                            {namazAnalytics.cards?.studentsBelow70 ?? 0}
-                                          </p>
-                                          <p className="text-[10px] font-black text-red-700 uppercase tracking-wider mt-1">
-                                            Critical Alert
-                                          </p>
-                                        </div>
-                                      </div>
-
-                                      {/* Monthly Overall Summary Gauge Card */}
-                                      {(() => {
-                                        const overallPct = namazAnalytics.cards?.overallAttendance ?? 0;
-                                        const perf = getNamazPerfStyle(overallPct);
-
-                                        return (
-                                          <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm space-y-4">
-                                            <div className="flex items-center justify-between">
-                                              <div>
-                                                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                                  Monthly Overall Attendance Gauge
-                                                </h4>
-                                                <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                                  Calculated over {namazAnalytics.cards?.totalSessions ?? 0} sessions recorded in period
-                                                </p>
-                                              </div>
-                                              <span className={`text-xs font-black px-3 py-1 rounded-xl border ${perf.badge}`}>
-                                                {perf.icon} {perf.label} ({overallPct}%)
-                                              </span>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                              <div className="flex items-center justify-between text-xs font-black">
-                                                <span className="text-gray-600">Total Period Attendance</span>
-                                                <span className={perf.text}>{overallPct}%</span>
-                                              </div>
-                                              <div className="h-3 rounded-full bg-gray-100 overflow-hidden p-0.5">
-                                                <div
-                                                  className={`h-full ${perf.bar} rounded-full transition-all duration-500`}
-                                                  style={{ width: `${overallPct}%` }}
-                                                />
-                                              </div>
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
-
-                                      {/* Monthly Prayer Breakdown */}
-                                      <div>
-                                        <h4 className="text-xs font-black text-gray-900 mb-3 uppercase tracking-wider">
-                                          Monthly Prayer Breakdown
-                                        </h4>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                                          {[
-                                            { name: "Fajr", emoji: "🌅", percent: namazAnalytics.cards?.fajrPercent ?? 0 },
-                                            { name: "Dhuhr", emoji: "☀️", percent: namazAnalytics.cards?.dhuhrPercent ?? 0 },
-                                            { name: "Asr", emoji: "🌇", percent: namazAnalytics.cards?.asrPercent ?? 0 },
-                                            { name: "Maghrib", emoji: "🌆", percent: namazAnalytics.cards?.maghribPercent ?? 0 },
-                                            { name: "Isha", emoji: "🌙", percent: namazAnalytics.cards?.ishaPercent ?? 0 },
-                                          ].map((p) => {
-                                            const perf = getNamazPerfStyle(p.percent);
                                             return (
-                                              <div key={p.name} className={`rounded-2xl border p-4 shadow-sm ${perf.bg} ${perf.border}`}>
-                                                <div className="flex items-center justify-between mb-2">
-                                                  <span className="text-xs font-black text-gray-900 flex items-center gap-1">
-                                                    <span>{p.emoji}</span> {p.name}
-                                                  </span>
-                                                  <span className="text-[9px] font-black">{perf.icon}</span>
-                                                </div>
-                                                <p className={`text-2xl font-black ${perf.text}`}>{p.percent}%</p>
-                                                <div className="mt-2 h-1.5 rounded-full bg-white/80 overflow-hidden">
-                                                  <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${p.percent}%` }} />
-                                                </div>
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                                                {summaries.map((cSummary, idx) => {
+                                                  const perf = getNamazPerfStyle(cSummary.percent);
+
+                                                  return (
+                                                    <div
+                                                      key={cSummary.className}
+                                                      onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setSelectedNamazClass(cSummary.className);
+                                                        fetchNamazAnalytics();
+                                                      }}
+                                                      className="rounded-2xl p-4 border border-gray-200 bg-white hover:border-teal-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-36 group"
+                                                    >
+                                                      <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                          <span className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-600">
+                                                            #{idx + 1}
+                                                          </span>
+                                                          <h5 className="font-black text-gray-900 text-base group-hover:text-teal-600 transition-colors">
+                                                            Class {cSummary.className}
+                                                          </h5>
+                                                        </div>
+                                                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${perf.badge}`}>
+                                                          {perf.icon} {cSummary.percent}%
+                                                        </span>
+                                                      </div>
+
+                                                      <div className="my-2">
+                                                        <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
+                                                          <span>Present: {cSummary.present}</span>
+                                                          <span>Total: {cSummary.total}</span>
+                                                        </div>
+                                                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                                                          <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${cSummary.percent}%` }} />
+                                                        </div>
+                                                      </div>
+
+                                                      <div className="text-[10px] font-bold text-teal-600 flex justify-between items-center pt-1 border-t border-gray-100">
+                                                        <span>{perf.label}</span>
+                                                        <span>View Students ➔</span>
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })}
                                               </div>
                                             );
-                                          })}
+                                          })()}
                                         </div>
                                       </div>
-                                    </>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* TAB 2: CLASS ANALYTICS */}
-                              {namazAdvancedTab === "class" && (
-                                <div className="space-y-5 animate-in fade-in duration-200">
-                                  <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <h4 className="text-sm font-black text-gray-900">
-                                          Class Performance Rankings
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                          Monthly attendance ranking across all classes with 4-tier health indicators
-                                        </p>
-                                      </div>
-                                      <select
-                                        value={selectedNamazClass}
-                                        onChange={(e) => {
-                                          setSelectedNamazClass(e.target.value);
-                                          fetchNamazAnalytics();
-                                        }}
-                                        className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold outline-none"
-                                      >
-                                        <option value="">All Classes Ranked</option>
-                                        {classes.map((c) => (
-                                          <option key={c.id} value={c.id}>{c.name}</option>
-                                        ))}
-                                      </select>
-                                    </div>
-
-                                    {/* Class Summaries Grid */}
-                                    {(() => {
-                                      const summaries = namazAnalytics?.classSummaries || [];
-                                      if (summaries.length === 0) {
-                                        return (
-                                          <div className="p-8 text-center text-gray-400 text-xs font-bold">
-                                            No class attendance data available for the selected period.
-                                          </div>
-                                        );
-                                      }
-
-                                      return (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                                          {summaries.map((cSummary, idx) => {
-                                            const perf = getNamazPerfStyle(cSummary.percent);
-                                            const isSelected = selectedNamazClass === cSummary.className;
-
-                                            return (
-                                              <div
-                                                key={cSummary.className}
+                                    ) : (
+                                      /* VIEW 2: SPECIFIC CLASS SELECTED (CLASS STUDENT CARDS) */
+                                      <div className="space-y-6">
+                                        {/* Class Metric Banner Header */}
+                                        <div className="bg-gradient-to-br from-teal-50 to-emerald-50/60 p-5 rounded-3xl border border-teal-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                          <div>
+                                            <div className="flex items-center gap-3">
+                                              <button
+                                                type="button"
                                                 onClick={(e) => {
                                                   e.preventDefault();
-                                                  setSelectedNamazClass(cSummary.className);
+                                                  setSelectedNamazClass("");
                                                   fetchNamazAnalytics();
                                                 }}
-                                                className={`rounded-2xl p-4 border transition-all cursor-pointer flex flex-col justify-between h-36 ${
-                                                  isSelected
-                                                    ? "ring-2 ring-teal-500 border-teal-500 bg-teal-50/40 shadow-md"
-                                                    : `bg-white border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md`
-                                                }`}
+                                                className="px-3 py-1 rounded-xl bg-white text-teal-800 border border-teal-200 text-xs font-black hover:bg-teal-100 transition-all shadow-sm"
                                               >
-                                                <div className="flex items-center justify-between">
-                                                  <div className="flex items-center gap-2">
-                                                    <span className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-600">
-                                                      #{idx + 1}
-                                                    </span>
-                                                    <h5 className="font-black text-gray-900 text-base">Class {cSummary.className}</h5>
-                                                  </div>
-                                                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${perf.badge}`}>
-                                                    {perf.icon} {cSummary.percent}%
-                                                  </span>
-                                                </div>
-
-                                                <div className="my-2">
-                                                  <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
-                                                    <span>Present: {cSummary.present}</span>
-                                                    <span>Total: {cSummary.total}</span>
-                                                  </div>
-                                                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                                                    <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${cSummary.percent}%` }} />
-                                                  </div>
-                                                </div>
-
-                                                <div className="text-[10px] font-bold text-teal-600 flex justify-between items-center pt-1 border-t border-gray-100">
-                                                  <span>{perf.label}</span>
-                                                  <span>Filter class ➔</span>
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* TAB 3: STUDENT SEARCH & SCORECARDS */}
-                              {namazAdvancedTab === "student" && (
-                                <div className="space-y-5 animate-in fade-in duration-200">
-                                  <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                                      <div>
-                                        <h4 className="text-sm font-black text-gray-900">
-                                          Student Attendance Directory & Search
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                          {selectedNamazClass
-                                            ? `Showing all students in Class ${selectedNamazClass}${selectedNamazSession ? ` for ${selectedNamazSession} prayer` : " for all prayers"}`
-                                            : "Color-coded performance badges for each student (🟢 ≥90%, 🔵 80-89%, 🟠 70-79%, 🔴 <70%)"}
-                                        </p>
-                                      </div>
-
-                                      <div className="relative w-full sm:w-72">
-                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
-                                        <input
-                                          type="text"
-                                          value={namazStudentSearchQuery}
-                                          onChange={(e) => setNamazStudentSearchQuery(e.target.value)}
-                                          placeholder="Search Roll No or Name..."
-                                          className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    {/* Student Performance Grid */}
-                                    {(() => {
-                                      const rawStudents = namazAnalytics?.students || [];
-                                      const q = namazStudentSearchQuery.toLowerCase().trim();
-                                      const filtered = rawStudents.filter(
-                                        (st) =>
-                                          !q ||
-                                          String(st.rollNo).toLowerCase().includes(q) ||
-                                          String(st.name).toLowerCase().includes(q)
-                                      );
-
-                                      if (filtered.length === 0) {
-                                        return (
-                                          <div className="p-10 text-center text-gray-400 text-xs font-bold">
-                                            No students found matching current search or class criteria.
+                                                ← Back to All Classes
+                                              </button>
+                                              <h3 className="text-xl font-black text-teal-900">
+                                                Class {selectedNamazClass} Student Directory
+                                              </h3>
+                                            </div>
+                                            <p className="text-xs font-bold text-teal-700 mt-1">
+                                              Showing attendance percentage scorecards for all enrolled students in Class {selectedNamazClass}
+                                              {selectedNamazSession ? ` for ${selectedNamazSession} prayer` : " for all prayers"}
+                                            </p>
                                           </div>
-                                        );
-                                      }
 
-                                      return (
-                                        <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                          {filtered.map((student) => {
-                                            const pct = student.percent;
-                                            const perf = getNamazPerfStyle(pct);
+                                          {namazAnalytics.classAnalytics && (
+                                            <div className="flex items-center gap-3 shrink-0">
+                                              <div className="bg-white px-4 py-2 rounded-2xl border border-teal-100 text-center shadow-sm">
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Class Average</p>
+                                                <p className="text-xl font-black text-teal-700">{namazAnalytics.classAnalytics.classAverage}%</p>
+                                              </div>
+                                              <div className="bg-white px-4 py-2 rounded-2xl border border-teal-100 text-center shadow-sm">
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sessions</p>
+                                                <p className="text-xl font-black text-gray-800">{namazAnalytics.classAnalytics.totalSessions}</p>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Student Scorecards Section */}
+                                        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                            <div>
+                                              <h4 className="text-sm font-black text-gray-900">
+                                                All Enrolled Student Cards (Class {selectedNamazClass})
+                                              </h4>
+                                              <p className="text-[10px] font-bold text-gray-400">
+                                                Sorted by Roll Number with 4-tier health indicators (🟢 ≥90%, 🔵 80-89%, 🟠 70-79%, 🔴 &lt;70%)
+                                              </p>
+                                            </div>
+
+                                            <div className="relative w-full sm:w-72">
+                                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                                              <input
+                                                type="text"
+                                                value={namazStudentSearchQuery}
+                                                onChange={(e) => setNamazStudentSearchQuery(e.target.value)}
+                                                placeholder="Search Roll No or Student Name..."
+                                                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Student Cards Grid */}
+                                          {(() => {
+                                            const rawStudents = namazAnalytics?.students || [];
+                                            const q = namazStudentSearchQuery.toLowerCase().trim();
+                                            const filtered = rawStudents.filter(
+                                              (st) =>
+                                                !q ||
+                                                String(st.rollNo).toLowerCase().includes(q) ||
+                                                String(st.name).toLowerCase().includes(q)
+                                            );
+
+                                            if (filtered.length === 0) {
+                                              return (
+                                                <div className="p-12 text-center text-gray-400 text-xs font-bold bg-gray-50 rounded-2xl">
+                                                  No students found in Class {selectedNamazClass} matching search query.
+                                                </div>
+                                              );
+                                            }
 
                                             return (
-                                              <div
-                                                key={student.rollNo}
-                                                className={`rounded-2xl border p-4 shadow-sm transition-all hover:shadow-md ${perf.bg} ${perf.border}`}
-                                              >
-                                                <div className="flex items-start justify-between mb-2">
-                                                  <div className="min-w-0 flex-1">
-                                                    <span className="text-[10px] font-black text-gray-500 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1">
-                                                      Roll #{student.rollNo}
-                                                    </span>
-                                                    <p className="font-black text-gray-900 text-sm truncate" title={student.name}>
-                                                      {student.name}
-                                                    </p>
-                                                  </div>
-                                                  <span className={`text-xs font-black px-2.5 py-1 rounded-xl border ${perf.badge}`}>
-                                                    {perf.icon} {pct}%
-                                                  </span>
-                                                </div>
+                                              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                                {filtered.map((student) => {
+                                                  const pct = student.percent;
+                                                  const perf = getNamazPerfStyle(pct);
 
-                                                <div className="my-2 text-[10px] font-bold text-gray-500 flex justify-between">
-                                                  <span>{student.present} of {student.total} sessions present</span>
-                                                  <span className={perf.text}>{perf.label}</span>
-                                                </div>
+                                                  return (
+                                                    <div
+                                                      key={student.rollNo}
+                                                      className={`rounded-2xl border p-4 shadow-sm transition-all hover:shadow-md ${perf.bg} ${perf.border}`}
+                                                    >
+                                                      <div className="flex items-start justify-between mb-2">
+                                                        <div className="min-w-0 flex-1">
+                                                          <span className="text-[10px] font-black text-gray-600 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1">
+                                                            Roll #{student.rollNo}
+                                                          </span>
+                                                          <p className="font-black text-gray-900 text-sm truncate" title={student.name}>
+                                                            {student.name}
+                                                          </p>
+                                                        </div>
+                                                        <span className={`text-xs font-black px-2.5 py-1 rounded-xl border ${perf.badge}`}>
+                                                          {perf.icon} {pct}%
+                                                        </span>
+                                                      </div>
 
-                                                <div className="h-2 rounded-full bg-white/80 overflow-hidden">
-                                                  <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${pct}%` }} />
-                                                </div>
+                                                      <div className="my-2 text-[10px] font-bold text-gray-500 flex justify-between">
+                                                        <span>{student.present} of {student.total} sessions</span>
+                                                        <span className={perf.text}>{perf.label}</span>
+                                                      </div>
+
+                                                      <div className="h-2 rounded-full bg-white/80 overflow-hidden">
+                                                        <div className={`h-full ${perf.bar} rounded-full`} style={{ width: `${pct}%` }} />
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })}
                                               </div>
                                             );
-                                          })}
+                                          })()}
                                         </div>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* TAB 4: LOGS & EXPORT */}
-                              {namazAdvancedTab === "logs" && (
-                                <div className="space-y-5 animate-in fade-in duration-200">
-                                  <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <h4 className="text-sm font-black text-gray-900">
-                                          Historical Session Logs & Export Center
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                          Complete historical timeline of prayer sessions submitted
-                                        </p>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          onClick={exportNamazExcel}
-                                          disabled={!namazAnalytics}
-                                          className="rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-100 transition-all"
-                                        >
-                                          Excel Export
-                                        </button>
-                                        <button
-                                          onClick={exportNamazPdf}
-                                          disabled={!namazAnalytics}
-                                          className="rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-gray-800 transition-all"
-                                        >
-                                          PDF Report
-                                        </button>
-                                      </div>
-                                    </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
 
-                                    {/* Timeline Log Table */}
-                                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                                      {(() => {
-                                        const sessions = namazAnalytics?.sessions || [];
-                                        if (sessions.length === 0) {
-                                          return <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center py-8">No session logs found for selected period</p>;
-                                        }
-
-                                        return (
-                                          <div className="divide-y divide-gray-100">
-                                            {sessions.map((s) => (
-                                              <NamazSessionRow
-                                                key={s.sessionId}
-                                                s={s}
-                                                isExpanded={expandedRecentSessionId === s.sessionId}
-                                                onToggle={() => setExpandedRecentSessionId(expandedRecentSessionId === s.sessionId ? null : s.sessionId)}
-                                              />
-                                            ))}
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
