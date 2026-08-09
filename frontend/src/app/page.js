@@ -685,7 +685,14 @@ export default function DashboardPage() {
   const [teachers, setTeachers] = useState([]);
   const [namazAnalytics, setNamazAnalytics] = useState(null);
   const [loadingNamaz, setLoadingNamaz] = useState(false);
-  const [namazFromDate, setNamazFromDate] = useState(getIstDateString());
+  const [namazSelectedMonth, setNamazSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [namazFromDate, setNamazFromDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  });
   const [namazToDate, setNamazToDate] = useState(getIstDateString());
   const [selectedNamazClass, setSelectedNamazClass] = useState("");
   const [selectedNamazStudent, setSelectedNamazStudent] = useState("");
@@ -4713,7 +4720,11 @@ export default function DashboardPage() {
                         {/* BOTTOM ADVANCED SECTION ACCORDION BUTTON */}
                         <div className="pt-4 border-t border-gray-200/80 space-y-5">
                           <button
-                            onClick={() => setShowAdvancedNamaz(!showAdvancedNamaz)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowAdvancedNamaz(!showAdvancedNamaz);
+                            }}
                             className="w-full bg-white hover:bg-teal-50/50 p-5 rounded-[2rem] border border-gray-200/90 shadow-sm flex items-center justify-between transition-all group"
                           >
                             <div className="flex items-center gap-3.5">
@@ -4755,14 +4766,22 @@ export default function DashboardPage() {
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <button
-                                      onClick={exportNamazExcel}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        exportNamazExcel();
+                                      }}
                                       disabled={!namazAnalytics}
                                       className="rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                       Export Excel
                                     </button>
                                     <button
-                                      onClick={exportNamazPdf}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        exportNamazPdf();
+                                      }}
                                       disabled={!namazAnalytics}
                                       className="rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
@@ -4781,7 +4800,11 @@ export default function DashboardPage() {
                                   ].map((tab) => (
                                     <button
                                       key={tab.id}
-                                      onClick={() => setNamazAdvancedTab(tab.id)}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setNamazAdvancedTab(tab.id);
+                                      }}
                                       className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 ${
                                         namazAdvancedTab === tab.id
                                           ? "bg-teal-600 text-white shadow-md shadow-teal-100"
@@ -4797,67 +4820,84 @@ export default function DashboardPage() {
                               {/* TAB 1: MONTHLY SUMMARY */}
                               {namazAdvancedTab === "monthly" && (
                                 <div className="space-y-5 animate-in fade-in duration-200">
-                                  {/* Filter & Quick Month Presets Bar */}
+                                  {/* Filter & Month Selector Dropdown */}
                                   <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                      <h5 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                        Date Range Controls
-                                      </h5>
-                                      {/* Quick Presets */}
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <button
-                                          onClick={() => {
-                                            const today = new Date();
-                                            const y = today.getFullYear();
-                                            const m = String(today.getMonth() + 1).padStart(2, "0");
-                                            const first = `${y}-${m}-01`;
-                                            const lastObj = new Date(y, today.getMonth() + 1, 0);
-                                            const last = `${y}-${m}-${String(lastObj.getDate()).padStart(2, "0")}`;
-                                            setNamazFromDate(first);
-                                            setNamazToDate(last);
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                                      <div>
+                                        <h5 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                          Date & Filter Controls
+                                        </h5>
+                                        <p className="text-[10px] font-bold text-gray-400">
+                                          Defaulted to current month. Select any month or custom range below.
+                                        </p>
+                                      </div>
+                                      <div className="w-full sm:w-64">
+                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+                                          Select Month
+                                        </label>
+                                        <select
+                                          value={namazSelectedMonth}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setNamazSelectedMonth(val);
+                                            if (val !== "custom") {
+                                              const [yStr, mStr] = val.split("-");
+                                              const y = parseInt(yStr, 10);
+                                              const m = parseInt(mStr, 10);
+                                              const firstDay = `${y}-${String(m).padStart(2, "0")}-01`;
+                                              const lastDayObj = new Date(y, m, 0);
+                                              const lastDay = `${y}-${String(m).padStart(2, "0")}-${String(lastDayObj.getDate()).padStart(2, "0")}`;
+                                              setNamazFromDate(firstDay);
+                                              setNamazToDate(lastDay);
+                                            }
                                           }}
-                                          className="px-3 py-1 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 text-[10px] font-black hover:bg-teal-100 transition-all"
+                                          className="w-full rounded-xl border border-gray-200 bg-teal-50/50 text-teal-800 font-bold px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-teal-200"
                                         >
-                                          This Month
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            const today = new Date();
-                                            const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                                            const y = d.getFullYear();
-                                            const m = String(d.getMonth() + 1).padStart(2, "0");
-                                            const first = `${y}-${m}-01`;
-                                            const lastObj = new Date(y, d.getMonth() + 1, 0);
-                                            const last = `${y}-${m}-${String(lastObj.getDate()).padStart(2, "0")}`;
-                                            setNamazFromDate(first);
-                                            setNamazToDate(last);
-                                          }}
-                                          className="px-3 py-1 rounded-xl bg-gray-100 text-gray-600 text-[10px] font-black hover:bg-gray-200 transition-all"
-                                        >
-                                          Last Month
-                                        </button>
+                                          {(() => {
+                                            const options = [];
+                                            const now = new Date();
+                                            for (let i = 0; i < 12; i++) {
+                                              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                                              const y = d.getFullYear();
+                                              const m = String(d.getMonth() + 1).padStart(2, "0");
+                                              const val = `${y}-${m}`;
+                                              const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                                              options.push(
+                                                <option key={val} value={val}>
+                                                  {i === 0 ? `📅 ${label} (Current)` : `📅 ${label}`}
+                                                </option>
+                                              );
+                                            }
+                                            options.push(<option key="custom" value="custom">⚙️ Custom Date Range</option>);
+                                            return options;
+                                          })()}
+                                        </select>
                                       </div>
                                     </div>
 
                                     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
-                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From Date</label>
-                                        <input
-                                          type="date"
-                                          value={namazFromDate}
-                                          onChange={(e) => setNamazFromDate(e.target.value)}
-                                          className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">To Date</label>
-                                        <input
-                                          type="date"
-                                          value={namazToDate}
-                                          onChange={(e) => setNamazToDate(e.target.value)}
-                                          className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                                        />
-                                      </div>
+                                      {namazSelectedMonth === "custom" && (
+                                        <>
+                                          <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From Date</label>
+                                            <input
+                                              type="date"
+                                              value={namazFromDate}
+                                              onChange={(e) => setNamazFromDate(e.target.value)}
+                                              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">To Date</label>
+                                            <input
+                                              type="date"
+                                              value={namazToDate}
+                                              onChange={(e) => setNamazToDate(e.target.value)}
+                                              className="w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                                            />
+                                          </div>
+                                        </>
+                                      )}
                                       <div className="space-y-1">
                                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Class</label>
                                         <select
@@ -4874,7 +4914,7 @@ export default function DashboardPage() {
                                         </select>
                                       </div>
                                       <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Session Type</label>
+                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Prayer Session</label>
                                         <select
                                           value={selectedNamazSession}
                                           onChange={(e) => setSelectedNamazSession(e.target.value)}
@@ -4889,7 +4929,11 @@ export default function DashboardPage() {
                                       <div className="space-y-1 col-span-2 sm:col-span-1">
                                         <label className="text-[9px] font-black text-transparent uppercase tracking-widest select-none">Action</label>
                                         <button
-                                          onClick={fetchNamazAnalytics}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            fetchNamazAnalytics();
+                                          }}
                                           className="w-full rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-4 py-2 text-xs font-black uppercase tracking-widest text-white hover:from-teal-600 hover:to-emerald-600 transition-all shadow-md shadow-teal-100 active:scale-[0.97]"
                                         >
                                           Apply Filters
@@ -5055,7 +5099,10 @@ export default function DashboardPage() {
                                       </div>
                                       <select
                                         value={selectedNamazClass}
-                                        onChange={(e) => setSelectedNamazClass(e.target.value)}
+                                        onChange={(e) => {
+                                          setSelectedNamazClass(e.target.value);
+                                          fetchNamazAnalytics();
+                                        }}
                                         className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold outline-none"
                                       >
                                         <option value="">All Classes Ranked</option>
@@ -5085,7 +5132,8 @@ export default function DashboardPage() {
                                             return (
                                               <div
                                                 key={cSummary.className}
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                  e.preventDefault();
                                                   setSelectedNamazClass(cSummary.className);
                                                   fetchNamazAnalytics();
                                                 }}
@@ -5141,7 +5189,9 @@ export default function DashboardPage() {
                                           Student Attendance Directory & Search
                                         </h4>
                                         <p className="text-[10px] font-bold text-gray-400 mt-0.5">
-                                          Color-coded performance badges for each student (🟢 ≥90%, 🔵 80-89%, 🟠 70-79%, 🔴 &lt;70%)
+                                          {selectedNamazClass
+                                            ? `Showing all students in Class ${selectedNamazClass}${selectedNamazSession ? ` for ${selectedNamazSession} prayer` : " for all prayers"}`
+                                            : "Color-coded performance badges for each student (🟢 ≥90%, 🔵 80-89%, 🟠 70-79%, 🔴 <70%)"}
                                         </p>
                                       </div>
 
@@ -5171,7 +5221,7 @@ export default function DashboardPage() {
                                       if (filtered.length === 0) {
                                         return (
                                           <div className="p-10 text-center text-gray-400 text-xs font-bold">
-                                            No students found matching current search query.
+                                            No students found matching current search or class criteria.
                                           </div>
                                         );
                                       }

@@ -914,6 +914,14 @@ def build_namaz_analytics(c, data):
         item["total"] += 1
         if status == "present":
             item["present"] += 1
+
+    if filters["className"]:
+        c.execute("SELECT roll_no, name FROM students WHERE class=? ORDER BY roll_no", (filters["className"],))
+        for r_no, s_name in c.fetchall():
+            roll_str = str(r_no)
+            if roll_str not in student_totals:
+                student_totals[roll_str] = {"rollNo": roll_str, "name": s_name or roll_str, "present": 0, "total": 0}
+
     student_rows = []
     for item in student_totals.values():
         item["percent"] = _pct(item["present"], item["total"])
