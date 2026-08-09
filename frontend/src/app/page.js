@@ -707,6 +707,91 @@ export default function DashboardPage() {
   const [namazViewMode, setNamazViewMode] = useState("daily");
   const [namazAdvancedTab, setNamazAdvancedTab] = useState("monthly");
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
+
+  // Handle phone native back button & browser back history for Namaz subviews / modals
+  useEffect(() => {
+    const handlePopState = () => {
+      if (selectedClassModalSession) {
+        setSelectedClassModalSession(null);
+        return;
+      }
+      if (selectedTodayPrayer) {
+        setSelectedTodayPrayer(null);
+        return;
+      }
+      if (selectedNamazClass) {
+        setSelectedNamazClass("");
+        return;
+      }
+      if (namazViewMode === "analytics") {
+        setNamazViewMode("daily");
+        return;
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [selectedClassModalSession, selectedTodayPrayer, selectedNamazClass, namazViewMode]);
+
+  const openTodayPrayer = (prayerName) => {
+    setSelectedTodayPrayer(prayerName);
+    if (prayerName) {
+      window.history.pushState({ namazStep: "todayPrayer" }, "");
+    }
+  };
+
+  const closeTodayPrayer = () => {
+    if (window.history.state?.namazStep === "todayPrayer") {
+      window.history.back();
+    } else {
+      setSelectedTodayPrayer(null);
+    }
+  };
+
+  const openClassModalSession = (session) => {
+    setSelectedClassModalSession(session);
+    if (session) {
+      window.history.pushState({ namazStep: "classModalSession" }, "");
+    }
+  };
+
+  const closeClassModalSession = () => {
+    if (window.history.state?.namazStep === "classModalSession") {
+      window.history.back();
+    } else {
+      setSelectedClassModalSession(null);
+    }
+  };
+
+  const openNamazAnalyticsView = () => {
+    setNamazViewMode("analytics");
+    fetchNamazAnalytics();
+    window.history.pushState({ namazStep: "analytics" }, "");
+  };
+
+  const closeNamazAnalyticsView = () => {
+    if (window.history.state?.namazStep === "analytics") {
+      window.history.back();
+    } else {
+      setNamazViewMode("daily");
+    }
+  };
+
+  const openNamazClassAnalytics = (className) => {
+    setSelectedNamazClass(className);
+    fetchNamazAnalytics();
+    if (className) {
+      window.history.pushState({ namazStep: "classAnalytics" }, "");
+    }
+  };
+
+  const closeNamazClassAnalytics = () => {
+    if (window.history.state?.namazStep === "classAnalytics") {
+      window.history.back();
+    } else {
+      setSelectedNamazClass("");
+    }
+  };
   const [eventAttendance, setEventAttendance] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedEventClassFilter, setSelectedEventClassFilter] = useState("");
@@ -4100,7 +4185,7 @@ export default function DashboardPage() {
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault();
-                                setNamazViewMode("daily");
+                                closeNamazAnalyticsView();
                               }}
                               className="px-4 py-2.5 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-black transition-all flex items-center gap-2 shadow-sm active:scale-95"
                             >
@@ -4454,8 +4539,7 @@ export default function DashboardPage() {
                                               key={cSummary.className}
                                               onClick={(e) => {
                                                 e.preventDefault();
-                                                setSelectedNamazClass(cSummary.className);
-                                                fetchNamazAnalytics();
+                                                openNamazClassAnalytics(cSummary.className);
                                               }}
                                               className="rounded-2xl p-4 border border-gray-200 bg-white hover:border-teal-400 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-36 group"
                                             >
@@ -4506,8 +4590,7 @@ export default function DashboardPage() {
                                         type="button"
                                         onClick={(e) => {
                                           e.preventDefault();
-                                          setSelectedNamazClass("");
-                                          fetchNamazAnalytics();
+                                          closeNamazClassAnalytics();
                                         }}
                                         className="px-3 py-1 rounded-xl bg-white text-teal-800 border border-teal-200 text-xs font-black hover:bg-teal-100 transition-all shadow-sm"
                                       >
@@ -4639,16 +4722,31 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* Top Refresh Control */}
-                        <button
-                          onClick={fetchNamazAnalytics}
-                          disabled={loadingNamaz}
-                          className="rounded-xl bg-teal-50 border border-teal-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
-                          title="Refresh attendance records"
-                        >
-                          <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
-                          <span className="hidden sm:inline">Refresh</span>
-                        </button>
+                        {/* Top Controls: Advanced Analytics Button & Refresh Control */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openNamazAnalyticsView();
+                            }}
+                            className="rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-3.5 py-2 text-xs font-black uppercase tracking-wider hover:from-teal-700 hover:to-emerald-700 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                          >
+                            <span>📊</span>
+                            <span className="hidden sm:inline">Advanced Analytics</span>
+                            <span className="sm:hidden">Analytics</span>
+                          </button>
+
+                          <button
+                            onClick={fetchNamazAnalytics}
+                            disabled={loadingNamaz}
+                            className="rounded-xl bg-teal-50 border border-teal-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                            title="Refresh attendance records"
+                          >
+                            <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
+                            <span className="hidden sm:inline">Refresh</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Daily Date Navigation Row */}
@@ -4806,7 +4904,7 @@ export default function DashboardPage() {
                                         <button
                                           key={p.name}
                                           type="button"
-                                          onClick={() => setSelectedTodayPrayer(isSelected ? null : p.name)}
+                                          onClick={() => isSelected ? closeTodayPrayer() : openTodayPrayer(p.name)}
                                           className={`relative text-left rounded-2xl bg-white p-4 border transition-all cursor-pointer flex flex-col justify-between h-44 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
                                             isSelected
                                               ? `border-teal-500 ring-2 ring-teal-500 shadow-md ${p.lightBg}`
@@ -4952,7 +5050,7 @@ export default function DashboardPage() {
                                           </div>
 
                                           <button
-                                            onClick={() => setSelectedTodayPrayer(null)}
+                                            onClick={() => closeTodayPrayer()}
                                             className="w-10 h-10 rounded-2xl bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 text-base font-black transition-all shadow-sm shrink-0"
                                             title="Close Fullscreen View"
                                           >
@@ -4997,7 +5095,7 @@ export default function DashboardPage() {
                                               <div
                                                 key={session.sessionId}
                                                 onClick={() => {
-                                                  setSelectedClassModalSession(session);
+                                                  openClassModalSession(session);
                                                   setClassRosterSearch("");
                                                   setClassRosterFilter("all");
                                                 }}
@@ -5047,7 +5145,7 @@ export default function DashboardPage() {
                                       {/* Fullscreen Footer */}
                                       <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
                                         <button
-                                          onClick={() => setSelectedTodayPrayer(null)}
+                                          onClick={() => closeTodayPrayer()}
                                           className="px-6 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider transition-all"
                                         >
                                           Close
@@ -5125,7 +5223,7 @@ export default function DashboardPage() {
                                         </div>
 
                                         <button
-                                          onClick={() => setSelectedClassModalSession(null)}
+                                          onClick={() => closeClassModalSession()}
                                           className="w-9 h-9 rounded-2xl bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500 text-sm font-black transition-all shrink-0"
                                         >
                                           ✕
@@ -5241,7 +5339,7 @@ export default function DashboardPage() {
                                       {/* Modal Footer */}
                                       <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
                                         <button
-                                          onClick={() => setSelectedClassModalSession(null)}
+                                          onClick={() => closeClassModalSession()}
                                           className="px-5 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider transition-all"
                                         >
                                           Done / Close
@@ -5254,6 +5352,35 @@ export default function DashboardPage() {
                             </div>
                           );
                         })()}
+
+                        {/* BOTTOM ADVANCED SECTION BANNER BUTTON */}
+                        <div className="pt-4 border-t border-gray-200/80">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openNamazAnalyticsView();
+                            }}
+                            className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 p-5 rounded-[2rem] text-white shadow-lg shadow-teal-200 flex items-center justify-between transition-all group active:scale-[0.98]"
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl group-hover:scale-110 transition-transform">
+                                📊
+                              </div>
+                              <div className="text-left">
+                                <h4 className="text-base font-black text-white">
+                                  Open Advanced Analytics & Monthly Reports
+                                </h4>
+                                <p className="text-xs font-bold text-teal-100 mt-0.5">
+                                  Campus summaries, class rankings, individual student percentage scorecards, and exports
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all">
+                              <span>Open Analytics ➔</span>
+                            </div>
+                          </button>
+                        </div>
                       </>
                     )}
                   </>
