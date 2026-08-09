@@ -64,6 +64,55 @@ const isNonTeacherAdmin = (t) => {
   return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
 };
 
+const getNamazPerfStyle = (pct) => {
+  const numPct = Number(pct) || 0;
+  if (numPct >= 90) {
+    return {
+      label: "Excellent",
+      tier: "≥90%",
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      border: "border-emerald-200",
+      badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      bar: "bg-emerald-500",
+      icon: "🟢",
+    };
+  } else if (numPct >= 80) {
+    return {
+      label: "Good",
+      tier: "80-89%",
+      bg: "bg-blue-50",
+      text: "text-blue-700",
+      border: "border-blue-200",
+      badge: "bg-blue-100 text-blue-800 border-blue-200",
+      bar: "bg-blue-500",
+      icon: "🔵",
+    };
+  } else if (numPct >= 70) {
+    return {
+      label: "Attention Needed",
+      tier: "70-79%",
+      bg: "bg-amber-50",
+      text: "text-amber-700",
+      border: "border-amber-200",
+      badge: "bg-amber-100 text-amber-800 border-amber-200",
+      bar: "bg-amber-500",
+      icon: "🟠",
+    };
+  } else {
+    return {
+      label: "Critical Alert",
+      tier: "<70%",
+      bg: "bg-red-50",
+      text: "text-red-700",
+      border: "border-red-200",
+      badge: "bg-red-100 text-red-800 border-red-200",
+      bar: "bg-red-500",
+      icon: "🔴",
+    };
+  }
+};
+
 const formatTime = (createdAtStr) => {
   if (!createdAtStr) return "";
   try {
