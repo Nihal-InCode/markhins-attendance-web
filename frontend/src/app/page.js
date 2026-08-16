@@ -2220,7 +2220,7 @@ export default function DashboardPage() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Namaz Analytics");
     sheet.addRow(["Namaz & Event Analytics"]);
-    sheet.addRow(["From", namazFromDate, "To", namazToDate, "Class", selectedNamazClass || "All", "Student", selectedNamazStudent || "All", "Session", selectedNamazSession || "All"]);
+    sheet.addRow(["From", namazFromDate, "To", namazToDate, "Batch", selectedNamazClass || "All", "Student", selectedNamazStudent || "All", "Session", selectedNamazSession || "All"]);
     sheet.addRow([]);
     sheet.addRow(["Metric", "Value"]);
     Object.entries(namazAnalytics.cards || {}).forEach(([key, value]) => sheet.addRow([key, value]));
@@ -2261,7 +2261,7 @@ export default function DashboardPage() {
         .value{font-size:20px;font-weight:800;margin-top:4px}
       </style></head><body>
       <h1>Namaz & Event Analytics</h1>
-      <p>${namazFromDate} to ${namazToDate} | Class: ${selectedNamazClass || "All"} | Student: ${selectedNamazStudent || "All"} | Session: ${selectedNamazSession || "All"}</p>
+      <p>${namazFromDate} to ${namazToDate} | Batch: ${selectedNamazClass || "All"} | Student: ${selectedNamazStudent || "All"} | Session: ${selectedNamazSession || "All"}</p>
       <div class="cards">
         ${Object.entries(namazAnalytics.cards || {}).map(([key, value]) => `<div class="card"><div class="label">${key}</div><div class="value">${value}</div></div>`).join("")}
       </div>
@@ -4300,9 +4300,9 @@ export default function DashboardPage() {
                               </select>
                             </div>
 
-                            {/* Class Dropdown */}
+                            {/* Batch Dropdown */}
                             <div className="space-y-1">
-                              <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1">Select Class</label>
+                              <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1">Select Batch</label>
                               <select
                                 value={selectedNamazClass}
                                 onChange={(e) => {
@@ -4317,10 +4317,10 @@ export default function DashboardPage() {
                                 }}
                                 className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-teal-200"
                               >
-                                <option value="">🏫 All Class</option>
+                                <option value="">🏫 All Batches</option>
                                 {classes.map((c) => (
                                   <option key={c.id} value={c.id}>
-                                    Class {c.name}
+                                    {c.name}
                                   </option>
                                 ))}
                               </select>
@@ -4547,10 +4547,10 @@ export default function DashboardPage() {
                                   <div className="flex items-center justify-between mb-3">
                                     <div>
                                       <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                        All Class Performance Rankings
+                                        All Batch Performance Rankings
                                       </h4>
                                       <p className="text-[10px] font-bold text-gray-400">
-                                        Click any class card below to view all its enrolled students' cards
+                                        Click any batch card below to view all its enrolled students' cards
                                       </p>
                                     </div>
                                   </div>
@@ -4560,7 +4560,7 @@ export default function DashboardPage() {
                                     if (summaries.length === 0) {
                                       return (
                                         <div className="p-8 text-center text-gray-400 text-xs font-bold bg-gray-50 rounded-2xl">
-                                          No class attendance data available for the selected period.
+                                          No batch attendance data available for the selected period.
                                         </div>
                                       );
                                     }
@@ -4585,7 +4585,7 @@ export default function DashboardPage() {
                                                     #{idx + 1}
                                                   </span>
                                                   <h5 className="font-black text-gray-900 text-base group-hover:text-teal-600 transition-colors">
-                                                    Class {cSummary.className}
+                                                    {cSummary.className}
                                                   </h5>
                                                 </div>
                                                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${perf.badge}`}>
@@ -4630,14 +4630,14 @@ export default function DashboardPage() {
                                         }}
                                         className="px-3 py-1 rounded-xl bg-white text-teal-800 border border-teal-200 text-xs font-black hover:bg-teal-100 transition-all shadow-sm"
                                       >
-                                        ← Back to All Classes
+                                        ← Back to All Batches
                                       </button>
                                       <h3 className="text-xl font-black text-teal-900">
-                                        Class {selectedNamazClass} Student Directory
+                                        {selectedNamazClass} Student Directory
                                       </h3>
                                     </div>
                                     <p className="text-xs font-bold text-teal-700 mt-1">
-                                      Showing attendance percentage scorecards for all enrolled students in Class {selectedNamazClass}
+                                      Showing attendance percentage scorecards for all enrolled students in {selectedNamazClass}
                                       {selectedNamazSession ? ` for ${selectedNamazSession} prayer` : " for all prayers"}
                                     </p>
                                   </div>
@@ -4645,7 +4645,7 @@ export default function DashboardPage() {
                                   {namazAnalytics.classAnalytics && (
                                     <div className="flex items-center gap-3 shrink-0">
                                       <div className="bg-white px-4 py-2 rounded-2xl border border-teal-100 text-center shadow-sm">
-                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Class Average</p>
+                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Batch Average</p>
                                         <p className="text-xl font-black text-teal-700">{namazAnalytics.classAnalytics.classAverage}%</p>
                                       </div>
                                       <div className="bg-white px-4 py-2 rounded-2xl border border-teal-100 text-center shadow-sm">
@@ -4661,7 +4661,7 @@ export default function DashboardPage() {
                                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                                     <div>
                                       <h4 className="text-sm font-black text-gray-900">
-                                        All Enrolled Student Cards (Class {selectedNamazClass})
+                                        All Enrolled Student Cards ({selectedNamazClass})
                                       </h4>
                                       <p className="text-[10px] font-bold text-gray-400">
                                         Sorted by Roll Number with 4-tier health indicators (🟢 ≥90%, 🔵 80-89%, 🟠 70-79%, 🔴 &lt;70%)
@@ -4694,7 +4694,7 @@ export default function DashboardPage() {
                                     if (filtered.length === 0) {
                                       return (
                                         <div className="p-12 text-center text-gray-400 text-xs font-bold bg-gray-50 rounded-2xl">
-                                          No students found in Class {selectedNamazClass} matching search query.
+                                          No students found in {selectedNamazClass} matching search query.
                                         </div>
                                       );
                                     }
@@ -4961,8 +4961,7 @@ export default function DashboardPage() {
                                                 <h5 className="font-black text-gray-900 text-base leading-tight">{p.name}</h5>
                                                 <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-emerald-100 mt-0.5">
                                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                  {pSessions.length} {pSessions.length === 1 ? "Class" : "Classes"}
-                                                </span>
+                                                  {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}                                                </span>
                                               </div>
                                             </div>
                                             {isSelected && (
@@ -5066,10 +5065,10 @@ export default function DashboardPage() {
                                           <div>
                                             <div className="flex items-center gap-2">
                                               <h3 className="text-lg sm:text-xl font-black text-gray-900">
-                                                {selectedTodayPrayer} - Class Attendance Data
+                                                {selectedTodayPrayer} - Batch Attendance Data
                                               </h3>
                                               <span className="text-xs font-black text-teal-700 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
-                                                {pSessions.length} {pSessions.length === 1 ? "Class" : "Classes"}
+                                                {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}
                                               </span>
                                             </div>
                                             <p className="text-xs font-bold text-gray-400 mt-0.5">
@@ -5105,10 +5104,10 @@ export default function DashboardPage() {
                                       <div className="p-5 overflow-y-auto flex-1 space-y-4">
                                         <div className="flex items-center justify-between">
                                           <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                            Recorded Classes for {selectedTodayPrayer}
+                                            Recorded Batches for {selectedTodayPrayer}
                                           </h4>
                                           <span className="text-[10px] font-bold text-gray-400">
-                                            Click any class card to view student attendance data
+                                            Click any batch card to view student attendance data
                                           </span>
                                         </div>
 
@@ -5146,8 +5145,7 @@ export default function DashboardPage() {
                                                 <div className="flex items-center justify-between">
                                                   <div>
                                                     <h5 className="font-black text-gray-900 text-xl group-hover:text-teal-600 transition-colors">
-                                                      Class {session.className}
-                                                    </h5>
+                                                      {session.className}                                                    </h5>
                                                     {timeStr && (
                                                       <span className="text-xs font-bold text-gray-400">
                                                         🕒 {timeStr}
@@ -5243,7 +5241,7 @@ export default function DashboardPage() {
                                           <div className="flex items-center gap-2">
                                             <span className="text-lg">🕌</span>
                                             <h3 className="text-lg font-black text-gray-900">
-                                              Class {session.className} - {session.sessionName} Student Data
+                                               {session.className} - {session.sessionName} Student Data
                                             </h3>
                                           </div>
                                           <p className="text-xs font-bold text-gray-400">
@@ -5414,7 +5412,7 @@ export default function DashboardPage() {
                                   Open Advanced Analytics & Monthly Reports
                                 </h4>
                                 <p className="text-xs font-bold text-teal-100 mt-0.5">
-                                  Campus summaries, class rankings, individual student percentage scorecards, and exports
+                                  Campus summaries, batch rankings, individual student percentage scorecards, and exports
                                 </p>
                               </div>
                             </div>
@@ -5451,7 +5449,7 @@ export default function DashboardPage() {
                               <span className="text-2xl">📜</span>
                               <div>
                                 <span className="text-[10px] font-black text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                                  Roll #{st.rollNo} • Class {selectedNamazClass}
+                                  Roll #{st.rollNo} • {selectedNamazClass}
                                 </span>
                                 <h3 className="text-xl font-black text-gray-900 mt-0.5">
                                   {st.name}
