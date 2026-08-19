@@ -7373,6 +7373,9 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacher_id")
                     c.execute("SELECT id, name, username, phone, class_teacher_of, subject FROM teachers WHERE id=?", (teacher_id,))
                     teacher = c.fetchone()
+                    if not teacher:
+                        c.execute("SELECT id, name, username, phone, class_teacher_of, subject FROM teachers WHERE LOWER(username)=LOWER(?)", (teacher_id,))
+                        teacher = c.fetchone()
                     if teacher:
                         tid, tname, tusername, tphone, tcto, tsubj = teacher
                         # Role detection (mirrors login logic)

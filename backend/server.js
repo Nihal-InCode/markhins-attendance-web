@@ -948,12 +948,16 @@ app.post('/webauthn/login/verify', async (req, res) => {
         });
         console.log('[WebAuthn Login] Teacher result:', JSON.stringify(teacherResult));
 
-        if (!teacherResult.success || !teacherResult.data) {
+        let teacher;
+        if (teacherResult.success && teacherResult.data) {
+            teacher = teacherResult.data;
+        } else if (storedCred.teacher_id === 'system-admin') {
+            // System admin doesn't have a teachers table record
+            teacher = { id: 'system-admin', name: 'System Administrator', username: 'system-admin', role: 'admin', class_teacher_of: null, subject: '' };
+        } else {
             console.error('[WebAuthn Login] Failed to load teacher:', teacherResult);
             return res.status(500).json({ success: false, error: 'Failed to load user profile' });
         }
-
-        const teacher = teacherResult.data;
 
         // Generate session token (single active session)
         const sessionId = require('crypto').randomBytes(16).toString('hex');
