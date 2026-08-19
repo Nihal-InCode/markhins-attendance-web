@@ -10,6 +10,12 @@ const fsSync = require('fs');
 const multer = require('multer');
 
 const os = require('os');
+const {
+    generateRegistrationOptions,
+    verifyRegistrationResponse,
+    generateAuthenticationOptions,
+    verifyAuthenticationResponse,
+} = require('@simplewebauthn/server');
 
 const app = express();
 
@@ -76,6 +82,37 @@ const TEACHER_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const WEB_ACTIVITY_RETENTION = 600;
 const ACTIVE_INTERACTION_WINDOW_MS = 15 * 1000;
 const webActivityLog = [];
+
+// ── WebAuthn Configuration ──
+const WEBAUTHN_RP_NAME = process.env.WEBAUTHN_RP_NAME || 'MARKHINS HUB';
+const WEBAUTHN_RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost';
+const WEBAUTHN_ORIGIN = process.env.WEBAUTHN_ORIGIN || (WEBAUTHN_RP_ID === 'localhost' ? 'http://localhost:3000' : `https://${WEBAUTHN_RP_ID}`);
+const WEBAUTHN_CHALLENGE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+// In-memory challenge store (single-instance safe)
+const challengeStore = new Map();
+
+function storeChallenge(key, challenge) {
+    challengeStore.set(key, { challenge, createdAt: Date.now() });
+}
+
+function getAndDeleteChallenge(key) {
+    const entry = challengeStore.get(key);
+    challengeStore.delete(key);
+    if (!entry) return null;
+    if (Date.now() - entry.createdAt > WEBAUTHN_CHALLENGE_EXPIRY_MS) return null;
+    return entry.challenge;
+}
+
+// Periodically clean expired challenges
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of challengeStore) {
+        if (now - entry.createdAt > WEBAUTHN_CHALLENGE_EXPIRY_MS) {
+            challengeStore.delete(key);
+        }
+    }
+}, 60000);
 
 function ensureTeacherPhotoDir() {
     if (!fsSync.existsSync(TEACHER_PHOTO_DIR)) {
@@ -704,6 +741,269 @@ app.post('/login', async (req, res) => {
 
 app.get('/validate-token', authenticateToken, (req, res) => {
     res.json({ success: true, user: req.user });
+});
+
+// ── Create Auth Token Helper ──
+// Reusable JWT creation matching the existing login format
+function createAuthToken(user) {
+    return jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+}
+
+// ── WebAuthn Endpoints ──
+
+// POST /webauthn/register/options — Get registration options (authenticated)
+app.post('/webauthn/register/options', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const { deviceName } = req.body || {};
+
+        // Get existing credentials to exclude
+        const existingResult = await callPython({
+            action: "get_webauthn_credentials",
+            teacher_id: user.id
+        });
+        const existingCredentials = (existingResult.success ? existingResult.data : []).map(cred => ({
+            id: cred.credential_id,
+            transports: (cred.transports || 'internal').split(','),
+        }));
+
+        const options = await generateRegistrationOptions({
+            rpName: WEBAUTHN_RP_NAME,
+            rpID: WEBAUTHN_RP_ID,
+            userName: String(user.username),
+            userID: new TextEncoder().encode(String(user.id)),
+            userDisplayName: String(user.name || user.username),
+            excludeCredentials: existingCredentials,
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'preferred',
+            },
+        });
+
+        // Store challenge keyed by username (for login) and user id (for registration)
+        storeChallenge(`reg:${user.id}`, options.challenge);
+
+        res.json({ success: true, options, deviceName: deviceName || '' });
+    } catch (error) {
+        console.error('[WebAuthn Register Options Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /webauthn/register/verify — Verify registration (authenticated)
+app.post('/webauthn/register/verify', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const { credential, deviceName } = req.body;
+
+        const expectedChallenge = getAndDeleteChallenge(`reg:${user.id}`);
+        if (!expectedChallenge) {
+            return res.status(400).json({ success: false, error: 'Challenge expired or not found. Please try again.' });
+        }
+
+        const verification = await verifyRegistrationResponse({
+            response: credential,
+            expectedChallenge,
+            expectedOrigin: WEBAUTHN_ORIGIN,
+            expectedRPID: WEBAUTHN_RP_ID,
+        });
+
+        if (!verification.verified || !verification.registrationInfo) {
+            return res.status(400).json({ success: false, error: 'Registration verification failed' });
+        }
+
+        const { credential: regCredential } = verification.registrationInfo;
+
+        // Store credential in database
+        const storeResult = await callPython({
+            action: "register_webauthn_credential",
+            teacher_id: user.id,
+            credential_id: regCredential.id,
+            public_key: JSON.stringify(Array.from(regCredential.publicKey)),
+            counter: regCredential.counter,
+            device_name: deviceName || '',
+            transports: (credential.response?.transports || ['internal']).join(','),
+            created_at: new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
+        });
+
+        if (!storeResult.success) {
+            return res.status(400).json({ success: false, error: storeResult.error || 'Failed to store credential' });
+        }
+
+        res.json({ success: true, message: 'Passkey registered successfully' });
+    } catch (error) {
+        console.error('[WebAuthn Register Verify Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// GET /webauthn/credentials — List user's registered passkeys (authenticated)
+app.get('/webauthn/credentials', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_webauthn_credentials",
+            teacher_id: req.user.id
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[WebAuthn Credentials Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// DELETE /webauthn/credentials/:id — Remove a passkey (authenticated, own only)
+app.delete('/webauthn/credentials/:id', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "delete_webauthn_credential",
+            credential_id: req.params.id,
+            teacher_id: req.user.id
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[WebAuthn Delete Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /webauthn/login/options — Get authentication options (unauthenticated)
+app.post('/webauthn/login/options', async (req, res) => {
+    try {
+        const { username } = req.body || {};
+
+        let allowCredentials = [];
+        if (username) {
+            const credResult = await callPython({
+                action: "get_webauthn_credentials_by_username",
+                username
+            });
+            if (credResult.success && credResult.data && credResult.data.length > 0) {
+                allowCredentials = credResult.data.map(cred => ({
+                    id: cred.id,
+                    transports: cred.transports || ['internal'],
+                }));
+            }
+        }
+
+        const options = await generateAuthenticationOptions({
+            rpID: WEBAUTHN_RP_ID,
+            allowCredentials,
+            userVerification: 'preferred',
+        });
+
+        // Store challenge keyed by a session token for this login attempt
+        const loginSessionId = require('crypto').randomBytes(16).toString('hex');
+        storeChallenge(`login:${loginSessionId}`, options.challenge);
+
+        res.json({ success: true, options, loginSessionId });
+    } catch (error) {
+        console.error('[WebAuthn Login Options Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /webauthn/login/verify — Verify authentication (unauthenticated)
+app.post('/webauthn/login/verify', async (req, res) => {
+    try {
+        const { credential, loginSessionId } = req.body;
+
+        const expectedChallenge = getAndDeleteChallenge(`login:${loginSessionId}`);
+        if (!expectedChallenge) {
+            return res.status(400).json({ success: false, error: 'Challenge expired or not found. Please try again.' });
+        }
+
+        // Look up the credential in the database
+        const credResult = await callPython({
+            action: "get_webauthn_credential",
+            credential_id: credential.id
+        });
+
+        if (!credResult.success || !credResult.data) {
+            return res.status(400).json({ success: false, error: 'Credential not recognized' });
+        }
+
+        const storedCred = credResult.data;
+        const publicKeyBytes = new Uint8Array(storedCred.publicKey);
+
+        const verification = await verifyAuthenticationResponse({
+            response: credential,
+            expectedChallenge,
+            expectedOrigin: WEBAUTHN_ORIGIN,
+            expectedRPID: WEBAUTHN_RP_ID,
+            credential: {
+                id: storedCred.credential_id,
+                publicKey: publicKeyBytes,
+                counter: storedCred.counter,
+                transports: storedCred.transports ? storedCred.transports.split(',') : ['internal'],
+            },
+        });
+
+        if (!verification.verified) {
+            return res.status(401).json({ success: false, error: 'Authentication verification failed' });
+        }
+
+        // Update counter
+        await callPython({
+            action: "update_webauthn_counter",
+            credential_id: credential.id,
+            new_counter: verification.authenticationInfo.newCounter,
+            last_used_at: new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
+        });
+
+        // Get teacher info and create session (same as normal login)
+        const teacherResult = await callPython({
+            action: "get_teacher_with_role",
+            teacher_id: storedCred.teacher_id
+        });
+
+        if (!teacherResult.success || !teacherResult.data) {
+            return res.status(500).json({ success: false, error: 'Failed to load user profile' });
+        }
+
+        const teacher = teacherResult.data;
+
+        // Generate session token (single active session)
+        const sessionId = require('crypto').randomBytes(16).toString('hex');
+        const nowStr = getIstTimestamp(new Date());
+
+        // Store session via Python
+        await callPython({
+            action: "update_session",
+            teacher_id: teacher.id,
+            session_id: sessionId,
+            last_login: nowStr
+        });
+
+        const userPayload = {
+            id: teacher.id,
+            name: teacher.name,
+            username: teacher.username || '',
+            role: teacher.role,
+            class_teacher_of: teacher.class_teacher_of,
+            subject: teacher.subject || '',
+            sessionId: sessionId
+        };
+
+        const token = createAuthToken(userPayload);
+
+        appendWebActivityEvent({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            timestamp: getIstTimestamp(new Date()),
+            date: getIstDateKey(new Date()),
+            epochMs: Date.now(),
+            actor: teacher.name || '',
+            username: teacher.username || '',
+            role: getUserRoleLabel(userPayload),
+            type: 'Login',
+            summary: 'Logged into the web app',
+            meta: 'Passkey authentication',
+        });
+
+        res.json({ success: true, user: userPayload, token });
+    } catch (error) {
+        console.error('[WebAuthn Login Verify Error]', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 app.post('/api/track-event', authenticateToken, (req, res) => {

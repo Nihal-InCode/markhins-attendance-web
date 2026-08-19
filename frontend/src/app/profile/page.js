@@ -2,10 +2,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { getMyProfile, updateCredentials, getTeachingStats } from "@/lib/api";
+import { getMyProfile, updateCredentials, getTeachingStats, getWebAuthnCredentials, getWebAuthnRegisterOptions, verifyWebAuthnRegister, deleteWebAuthnCredential } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
+import { isWebAuthnSupported, startRegistration } from '@/lib/webauthn';
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState(null);
@@ -21,6 +22,10 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({ username: "", password: "" });
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
+    const [passkeys, setPasskeys] = useState([]);
+    const [passkeysLoading, setPasskeysLoading] = useState(true);
+    const [passkeyError, setPasskeyError] = useState("");
+    const [registeringPasskey, setRegisteringPasskey] = useState(false);
 
     useEffect(() => {
         showLoaderRef.current = showLoader;
@@ -45,6 +50,81 @@ export default function ProfilePage() {
         fetchProfile();
         fetchStats();
     }, []);
+
+    // Fetch registered passkeys
+    useEffect(() => {
+        async function fetchPasskeys() {
+            try {
+                const result = await getWebAuthnCredentials();
+                if (result.success !== false) {
+                    setPasskeys(Array.isArray(result) ? result : (result.data || []));
+                }
+            } catch (err) {
+                console.error("Failed to load passkeys:", err);
+            } finally {
+                setPasskeysLoading(false);
+            }
+        }
+        fetchPasskeys();
+    }, []);
+
+    const handleRegisterPasskey = async () => {
+        setPasskeyError("");
+        if (!isWebAuthnSupported()) {
+            setPasskeyError("Your browser does not support passkeys.");
+            return;
+        }
+
+        const deviceName = prompt("Name this passkey (optional):", "") || "";
+        setRegisteringPasskey(true);
+        showLoader("Preparing passkey registration...");
+
+        try {
+            const optionsResult = await getWebAuthnRegisterOptions(deviceName);
+            if (!optionsResult.success || !optionsResult.options) {
+                throw new Error(optionsResult.error || "Failed to get registration options");
+            }
+
+            const credential = await startRegistration(optionsResult.options);
+
+            showLoader("Verifying passkey...");
+            const verifyResult = await verifyWebAuthnRegister(credential, deviceName);
+
+            if (verifyResult.success) {
+                playSound('uploadSuccess');
+                setSuccessMsg("Passkey registered successfully!");
+                const updated = await getWebAuthnCredentials();
+                setPasskeys(Array.isArray(updated) ? updated : (updated.data || []));
+            } else {
+                throw new Error(verifyResult.error || "Registration failed");
+            }
+        } catch (err) {
+            playSound('error');
+            if (err.name === 'NotAllowedError') {
+                setPasskeyError("Registration was cancelled.");
+            } else {
+                setPasskeyError(err.message || "Failed to register passkey.");
+            }
+        } finally {
+            setRegisteringPasskey(false);
+            hideLoader();
+        }
+    };
+
+    const handleDeletePasskey = async (credentialId) => {
+        if (!confirm("Remove this passkey? You will no longer be able to use it for login.")) return;
+        try {
+            const result = await deleteWebAuthnCredential(credentialId);
+            if (result.success) {
+                playSound('uploadSuccess');
+                setPasskeys(passkeys.filter(p => p.id !== credentialId));
+                setSuccessMsg("Passkey removed.");
+            }
+        } catch (err) {
+            playSound('error');
+            setPasskeyError(err.message || "Failed to remove passkey.");
+        }
+    };
 
     const handleUpdate = async (e) => {
         e.preventDefault();
@@ -266,6 +346,62 @@ export default function ProfilePage() {
                             )}
                         </div>
                     )}
+                </div>
+
+                {/* Passkey Management */}
+                <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <h2 className="text-sm font-black text-gray-900 mb-1">Passkey Security</h2>
+                    <p className="text-xs text-gray-400 font-medium mb-4">Sign in with fingerprint, face, or device PIN</p>
+
+                    {passkeyError && (
+                        <div className="mb-4 p-3 text-xs font-bold text-red-600 bg-red-50 rounded-xl border border-red-100">
+                            {passkeyError}
+                        </div>
+                    )}
+
+                    {passkeysLoading ? (
+                        <div className="space-y-2">
+                            {[...Array(2)].map((_, i) => <div key={i} className="h-16 rounded-2xl bg-gray-100 animate-pulse" />)}
+                        </div>
+                    ) : passkeys.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center mb-4">
+                            <p className="text-xs font-bold text-gray-400 uppercase">No passkeys registered</p>
+                            <p className="text-[10px] text-gray-300 mt-1">Register a passkey for faster, more secure login</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2 mb-4">
+                            {passkeys.map((pk) => (
+                                <div key={pk.id} className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm">
+                                            📱
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{pk.device_name || 'Passkey'}</p>
+                                            <p className="text-[10px] text-gray-400 font-medium">
+                                                {pk.created_at ? `Added ${new Date(pk.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                                                {pk.last_used_at ? ` · Last used ${new Date(pk.last_used_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeletePasskey(pk.id)}
+                                        className="shrink-0 ml-3 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-bold text-red-600 hover:bg-red-100 transition-all"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={handleRegisterPasskey}
+                        disabled={registeringPasskey}
+                        className="w-full rounded-2xl border border-blue-200 bg-blue-50 py-3.5 text-sm font-bold text-blue-600 shadow-sm hover:bg-blue-100 transition-all disabled:opacity-50"
+                    >
+                        {registeringPasskey ? "Registering..." : "+ Register New Passkey"}
+                    </button>
                 </div>
 
                 {/* Change Login Button */}

@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { login as loginApi } from "@/lib/api";
+import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
+import { isWebAuthnSupported, startAuthentication } from '@/lib/webauthn';
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [passkeyLoading, setPasskeyLoading] = useState(false);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
 
@@ -33,6 +35,56 @@ export default function LoginPage() {
             setError(err.message || "Login failed. Please check your credentials.");
         } finally {
             setLoading(false);
+            hideLoader();
+        }
+    };
+
+    const handlePasskeyLogin = async () => {
+        setError("");
+        if (!username.trim()) {
+            setError("Enter your username first, then tap Login with Passkey.");
+            return;
+        }
+        if (!isWebAuthnSupported()) {
+            setError("Your browser does not support passkeys. Please use username and password.");
+            return;
+        }
+
+        setPasskeyLoading(true);
+        showLoader("Waiting for biometric...");
+
+        try {
+            const optionsResult = await getWebAuthnLoginOptions(username);
+            if (!optionsResult.success || !optionsResult.options) {
+                throw new Error(optionsResult.error || "No passkeys found for this username");
+            }
+
+            if (optionsResult.options.allowCredentials && optionsResult.options.allowCredentials.length === 0) {
+                throw new Error("No passkeys registered for this account. Please login with password and register a passkey from your profile.");
+            }
+
+            const credential = await startAuthentication(optionsResult.options);
+
+            const verifyResult = await verifyWebAuthnLogin(credential, optionsResult.loginSessionId);
+
+            if (verifyResult.token) {
+                playSound('loginSuccess');
+                login(verifyResult.token, verifyResult.user);
+            } else {
+                playSound('loginError');
+                setError(verifyResult.error || verifyResult.message || "Passkey authentication failed");
+            }
+        } catch (err) {
+            playSound('loginError');
+            if (err.name === 'NotAllowedError') {
+                setError("Authentication was cancelled or timed out.");
+            } else if (err.name === 'SecurityError') {
+                setError("Security error. Ensure you are using HTTPS in production.");
+            } else {
+                setError(err.message || "Passkey login failed. Try username and password instead.");
+            }
+        } finally {
+            setPasskeyLoading(false);
             hideLoader();
         }
     };
@@ -92,6 +144,38 @@ export default function LoginPage() {
                         className="w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-blue-100 text-sm font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-50 transition-all active:scale-95"
                     >
                         {loading ? "Verifying..." : "Sign In"}
+                    </button>
+
+                    <div className="relative my-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-100"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px]">
+                            <span className="bg-white px-3 font-black text-gray-300 uppercase tracking-widest">or</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        disabled={passkeyLoading || loading}
+                        onClick={handlePasskeyLogin}
+                        className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-gray-200 rounded-2xl text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-100 disabled:opacity-50 transition-all active:scale-95"
+                    >
+                        {passkeyLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+                                Verifying...
+                            </>
+                        ) : (
+                            <>
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 10v4M7.5 21a7.5 7.5 0 0 1 0-15c2.5 0 4.5 1.5 5.5 3.5M15 10.5c0 0 1.5 1 2.5 1a3.5 3.5 0 0 0 0-7c-1 0-2.5.5-3.5 2" />
+                                    <rect x="5" y="2" width="14" height="20" rx="7" />
+                                    <circle cx="12" cy="15" r="3" fill="currentColor" opacity="0.3" />
+                                </svg>
+                                Login with Passkey
+                            </>
+                        )}
                     </button>
                 </form>
             </div>

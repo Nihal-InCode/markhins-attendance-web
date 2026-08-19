@@ -82,6 +82,39 @@ export const login = (username, password) =>
  */
 export const validateToken = () => apiRequest('/validate-token');
 
+// ── WebAuthn / Passkey API Endpoints ──
+
+export const getWebAuthnRegisterOptions = (deviceName) =>
+    apiRequest('/webauthn/register/options', {
+        method: 'POST',
+        body: JSON.stringify({ deviceName }),
+    });
+
+export const verifyWebAuthnRegister = (credential, deviceName) =>
+    apiRequest('/webauthn/register/verify', {
+        method: 'POST',
+        body: JSON.stringify({ credential, deviceName }),
+    });
+
+export const getWebAuthnLoginOptions = (username) =>
+    apiRequest('/webauthn/login/options', {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+    });
+
+export const verifyWebAuthnLogin = (credential, loginSessionId) =>
+    apiRequest('/webauthn/login/verify', {
+        method: 'POST',
+        body: JSON.stringify({ credential, loginSessionId }),
+    });
+
+export const getWebAuthnCredentials = () => apiRequest('/webauthn/credentials');
+
+export const deleteWebAuthnCredential = (credentialId) =>
+    apiRequest(`/webauthn/credentials/${credentialId}`, {
+        method: 'DELETE',
+    });
+
 export const resolvePeriod = (classId, period, date) =>
     apiRequest(`/resolve-period?class=${classId}&period=${period}&date=${date || ''}`);
 

@@ -586,6 +586,24 @@ def run_migrations():
             except sqlite3.OperationalError:
                 pass
 
+        # ── WebAuthn Credentials Table ──
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS webauthn_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                teacher_id INTEGER NOT NULL,
+                credential_id TEXT NOT NULL UNIQUE,
+                public_key BLOB NOT NULL,
+                counter INTEGER DEFAULT 0,
+                device_name TEXT,
+                transports TEXT,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_webauthn_teacher ON webauthn_credentials(teacher_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_webauthn_credential_id ON webauthn_credentials(credential_id)")
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -7237,6 +7255,162 @@ if __name__ == "__main__":
                         result = {"success": True}
                     else:
                         result = {"success": False, "error": "Session invalidated"}
+
+                # ── WebAuthn Credential Actions ──
+
+                elif action == "register_webauthn_credential":
+                    teacher_id = data.get("teacher_id")
+                    credential_id = data.get("credential_id")
+                    public_key = data.get("public_key")
+                    counter = data.get("counter", 0)
+                    device_name = data.get("device_name", "")
+                    transports = data.get("transports", "internal")
+                    created_at = data.get("created_at", get_ist_now().strftime("%Y-%m-%d %H:%M:%S"))
+
+                    if not teacher_id or not credential_id or not public_key:
+                        result = {"success": False, "error": "Missing required fields"}
+                    else:
+                        c.execute("SELECT id FROM webauthn_credentials WHERE credential_id=?", (credential_id,))
+                        if c.fetchone():
+                            result = {"success": False, "error": "Credential already registered"}
+                        else:
+                            c.execute(
+                                "INSERT INTO webauthn_credentials (teacher_id, credential_id, public_key, counter, device_name, transports, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (teacher_id, credential_id, public_key, counter, device_name, transports, created_at)
+                            )
+                            conn.commit()
+                            result = {"success": True, "message": "Passkey registered successfully"}
+
+                elif action == "get_webauthn_credentials":
+                    teacher_id = data.get("teacher_id")
+                    c.execute("SELECT id, credential_id, device_name, transports, created_at, last_used_at FROM webauthn_credentials WHERE teacher_id=? ORDER BY created_at DESC", (teacher_id,))
+                    rows = c.fetchall()
+                    credentials = []
+                    for row in rows:
+                        credentials.append({
+                            "id": row[0],
+                            "credential_id": row[1],
+                            "device_name": row[2] or "Unknown Device",
+                            "transports": row[3],
+                            "created_at": row[4],
+                            "last_used_at": row[5]
+                        })
+                    result = {"success": True, "data": credentials}
+
+                elif action == "get_webauthn_credentials_by_username":
+                    username = data.get("username", "").lower().strip()
+                    c.execute("SELECT id FROM teachers WHERE LOWER(username)=?", (username,))
+                    teacher = c.fetchone()
+                    if not teacher:
+                        result = {"success": True, "data": []}
+                    else:
+                        teacher_id = teacher[0]
+                        c.execute("SELECT credential_id, public_key, counter, transports FROM webauthn_credentials WHERE teacher_id=?", (teacher_id,))
+                        rows = c.fetchall()
+                        credentials = []
+                        for row in rows:
+                            credentials.append({
+                                "id": row[0],
+                                "publicKey": list(row[1]) if row[1] else [],
+                                "counter": row[2],
+                                "transports": row[3].split(",") if row[3] else ["internal"]
+                            })
+                        result = {"success": True, "data": credentials, "teacher_id": teacher_id}
+
+                elif action == "get_webauthn_credential":
+                    credential_id = data.get("credential_id")
+                    c.execute("SELECT id, teacher_id, credential_id, public_key, counter, transports FROM webauthn_credentials WHERE credential_id=?", (credential_id,))
+                    row = c.fetchone()
+                    if row:
+                        result = {
+                            "success": True,
+                            "data": {
+                                "id": row[0],
+                                "teacher_id": row[1],
+                                "credential_id": row[2],
+                                "publicKey": list(row[3]) if row[3] else [],
+                                "counter": row[4],
+                                "transports": row[5]
+                            }
+                        }
+                    else:
+                        result = {"success": False, "error": "Credential not found"}
+
+                elif action == "update_webauthn_counter":
+                    credential_id = data.get("credential_id")
+                    new_counter = data.get("new_counter")
+                    now_str = data.get("last_used_at", get_ist_now().strftime("%Y-%m-%d %H:%M:%S"))
+                    c.execute("UPDATE webauthn_credentials SET counter=?, last_used_at=? WHERE credential_id=?", (new_counter, now_str, credential_id))
+                    conn.commit()
+                    result = {"success": True}
+
+                elif action == "delete_webauthn_credential":
+                    credential_id = data.get("credential_id")
+                    teacher_id = data.get("teacher_id")
+                    c.execute("DELETE FROM webauthn_credentials WHERE credential_id=? AND teacher_id=?", (credential_id, teacher_id))
+                    conn.commit()
+                    result = {"success": True, "message": "Passkey removed"}
+
+                elif action == "get_teacher_by_username":
+                    username = data.get("username", "").lower().strip()
+                    c.execute("SELECT id, name, phone, class_teacher_of, subject FROM teachers WHERE LOWER(username)=?", (username,))
+                    teacher = c.fetchone()
+                    if teacher:
+                        result = {
+                            "success": True,
+                            "data": {
+                                "id": teacher[0],
+                                "name": teacher[1],
+                                "phone": teacher[2],
+                                "class_teacher_of": teacher[3],
+                                "subject": teacher[4]
+                            }
+                        }
+                    else:
+                        result = {"success": False, "error": "Teacher not found"}
+
+                elif action == "get_teacher_with_role":
+                    teacher_id = data.get("teacher_id")
+                    c.execute("SELECT id, name, username, phone, class_teacher_of, subject FROM teachers WHERE id=?", (teacher_id,))
+                    teacher = c.fetchone()
+                    if teacher:
+                        tid, tname, tusername, tphone, tcto, tsubj = teacher
+                        # Role detection (mirrors login logic)
+                        if tid == 3:
+                            role = "Principal"
+                        elif tid == 1:
+                            role = "Vice Principal"
+                        else:
+                            role = "Subject Teacher"
+                            upper_cto = str(tcto or "").upper()
+                            upper_name = str(tname or "").upper()
+                            if is_urdu_principal_name(tname):
+                                role = "Urdu Principal"
+                            elif "PRINCIPAL" in upper_name or "PRINCIPAL" in upper_cto:
+                                role = "Vice Principal" if ("VICE" in upper_name or "VICE" in upper_cto) else "Principal"
+                            elif tcto and str(tcto) not in ("None", "", "DEVELOPER"):
+                                role = "Class Teacher"
+                        result = {
+                            "success": True,
+                            "data": {
+                                "id": tid,
+                                "name": tname,
+                                "username": tusername,
+                                "role": role,
+                                "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal", "Urdu Principal") else None,
+                                "subject": tsubj
+                            }
+                        }
+                    else:
+                        result = {"success": False, "error": "Teacher not found"}
+
+                elif action == "update_session":
+                    teacher_id = data.get("teacher_id")
+                    session_id = data.get("session_id")
+                    last_login = data.get("last_login")
+                    c.execute("UPDATE teachers SET active_session_token=?, last_login=? WHERE id=?", (session_id, last_login, teacher_id))
+                    conn.commit()
+                    result = {"success": True}
 
                 elif action == "get_absentees_report":
                     class_id = str(data.get("classId") or "").strip()

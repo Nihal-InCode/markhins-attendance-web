@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "exceljs": "^4.4.0",
     "next": "16.1.6",
     "react": "19.2.3",
