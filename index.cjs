@@ -241,6 +241,36 @@ if (!TOKEN) {
   process.exit(1);
 }
 
+// Validate token before starting bot to avoid log flooding
+async function validateToken() {
+  try {
+    const https = require('https');
+    return new Promise((resolve) => {
+      https.get(`https://api.telegram.org/bot${TOKEN}/getMe`, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            resolve(json.ok);
+          } catch { resolve(false); }
+        });
+      }).on('error', () => resolve(false));
+    });
+  } catch { return false; }
+}
+
+validateToken().then(ok => {
+  if (!ok) {
+    console.error("❌ TELEGRAM_BOT_TOKEN is invalid (401). Bot will NOT start polling.");
+    console.error("Fix the token in .env and restart.");
+    return;
+  }
+  startBot();
+});
+
+function startBot() {
+
 if (!ADMIN_ID || ADMIN_ID === 'YOUR_NUMERIC_CHAT_ID_HERE') {
   console.error("⚠️ WARNING: ADMIN_CHAT_ID not set in .env file!");
   console.error("Daily DB backup will not work until you set your numeric chat ID.");
@@ -345,6 +375,10 @@ bot.on("document", async (msg) => {
 // Log when bot is ready
 bot.on('polling_error', (error) => {
   console.error('❌ Polling error:', error.message);
+  if (error.code === 'ETELEGRAM' && error.message.includes('401')) {
+    console.error('❌ Token is invalid. Stopping bot to prevent log flooding.');
+    bot.stopPolling();
+  }
 });
 
 bot.on('webhook_error', (error) => {
@@ -3930,6 +3964,8 @@ setInterval(async () => {
     console.error("Error in DB backup scheduler:", err);
   }
 }, 60 * 1000);
+
+} // end startBot
 
 
 
