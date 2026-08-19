@@ -7328,7 +7328,7 @@ if __name__ == "__main__":
                                 "id": row[0],
                                 "teacher_id": row[1],
                                 "credential_id": row[2],
-                                "publicKey": list(row[3]) if row[3] else [],
+                                "publicKey": json.loads(row[3]) if row[3] else [],
                                 "counter": row[4],
                                 "transports": row[5]
                             }
