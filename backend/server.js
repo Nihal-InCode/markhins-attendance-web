@@ -910,6 +910,7 @@ app.post('/webauthn/login/verify', async (req, res) => {
         }
 
         const storedCred = credResult.data;
+        console.log('[WebAuthn Login] storedCred:', JSON.stringify({ teacher_id: storedCred.teacher_id, credential_id: storedCred.credential_id, counter: storedCred.counter, hasPublicKey: !!storedCred.publicKey, publicKeyType: typeof storedCred.publicKey, publicKeyLength: Array.isArray(storedCred.publicKey) ? storedCred.publicKey.length : 'N/A' }));
         const pk = Array.isArray(storedCred.publicKey) ? storedCred.publicKey : Array.from(storedCred.publicKey);
         const publicKeyBytes = new Uint8Array(pk);
 
@@ -940,12 +941,15 @@ app.post('/webauthn/login/verify', async (req, res) => {
         });
 
         // Get teacher info and create session (same as normal login)
+        console.log('[WebAuthn Login] Loading teacher_id:', storedCred.teacher_id);
         const teacherResult = await callPython({
             action: "get_teacher_with_role",
             teacher_id: storedCred.teacher_id
         });
+        console.log('[WebAuthn Login] Teacher result:', JSON.stringify(teacherResult));
 
         if (!teacherResult.success || !teacherResult.data) {
+            console.error('[WebAuthn Login] Failed to load teacher:', teacherResult);
             return res.status(500).json({ success: false, error: 'Failed to load user profile' });
         }
 
