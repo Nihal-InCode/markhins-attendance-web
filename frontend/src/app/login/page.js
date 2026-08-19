@@ -41,10 +41,6 @@ export default function LoginPage() {
 
     const handlePasskeyLogin = async () => {
         setError("");
-        if (!username.trim()) {
-            setError("Enter your username first, then tap Login with Passkey.");
-            return;
-        }
         if (!isWebAuthnSupported()) {
             setError("Your browser does not support passkeys. Please use username and password.");
             return;
@@ -54,17 +50,18 @@ export default function LoginPage() {
         showLoader("Waiting for biometric...");
 
         try {
-            const optionsResult = await getWebAuthnLoginOptions(username);
+            // Request authentication options — no username needed.
+            // The browser/OS will present discoverable passkeys for this site.
+            const optionsResult = await getWebAuthnLoginOptions();
             if (!optionsResult.success || !optionsResult.options) {
-                throw new Error(optionsResult.error || "No passkeys found for this username");
+                throw new Error("Failed to initialize passkey authentication");
             }
 
-            if (optionsResult.options.allowCredentials && optionsResult.options.allowCredentials.length === 0) {
-                throw new Error("No passkeys registered for this account. Please login with password and register a passkey from your profile.");
-            }
-
+            // startAuthentication triggers the native platform authenticator
+            // (Android fingerprint, iOS Face ID/Touch ID, device PIN, etc.)
             const credential = await startAuthentication(optionsResult.options);
 
+            // Send the signed credential to the server for verification
             const verifyResult = await verifyWebAuthnLogin(credential, optionsResult.loginSessionId);
 
             if (verifyResult.token) {
@@ -77,9 +74,11 @@ export default function LoginPage() {
         } catch (err) {
             playSound('loginError');
             if (err.name === 'NotAllowedError') {
-                setError("Authentication was cancelled or timed out.");
+                setError("No passkey found or authentication was cancelled. Please sign in with your password and register a passkey from your profile.");
             } else if (err.name === 'SecurityError') {
                 setError("Security error. Ensure you are using HTTPS in production.");
+            } else if (err.name === 'InvalidStateError') {
+                setError("No passkey is registered for this site on this device. Please sign in with your password first.");
             } else {
                 setError(err.message || "Passkey login failed. Try username and password instead.");
             }
@@ -103,49 +102,53 @@ export default function LoginPage() {
                     <p className="mt-2 text-xs font-black text-gray-400 uppercase tracking-widest">Administrative Console</p>
                 </div>
 
-                <form className="mt-8 space-y-6 bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-blue-100/20 border border-gray-100" onSubmit={handleSubmit}>
+                <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-blue-100/20 border border-gray-100 space-y-4">
                     {error && (
                         <div className="p-4 text-xs font-bold text-red-600 bg-red-50 rounded-2xl border border-red-100 animate-shake">
-                            ⚠️ {error}
+                            {error}
                         </div>
                     )}
 
-                    <div className="space-y-5">
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Username</label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 focus:bg-white outline-none transition-all font-bold text-gray-700 placeholder:text-gray-200"
-                                placeholder="Your username"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                            />
-                        </div>
-
-                        <div>
-                            <div className="flex justify-between items-center mb-2 px-1">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</label>
+                    {/* Password Login Form */}
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Username</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 focus:bg-white outline-none transition-all font-bold text-gray-700 placeholder:text-gray-200"
+                                    placeholder="Your username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                />
                             </div>
-                            <input
-                                type="password"
-                                required
-                                className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 focus:bg-white outline-none transition-all font-bold text-gray-700 placeholder:text-gray-200"
-                                placeholder="Enter your password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
+
+                            <div>
+                                <div className="flex justify-between items-center mb-2 px-1">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</label>
+                                </div>
+                                <input
+                                    type="password"
+                                    required
+                                    className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-blue-100 focus:bg-white outline-none transition-all font-bold text-gray-700 placeholder:text-gray-200"
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-blue-100 text-sm font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-50 transition-all active:scale-95"
-                    >
-                        {loading ? "Verifying..." : "Sign In"}
-                    </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-blue-100 text-sm font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-50 transition-all active:scale-95"
+                        >
+                            {loading ? "Verifying..." : "Sign In"}
+                        </button>
+                    </form>
 
+                    {/* Divider */}
                     <div className="relative my-2">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-gray-100"></div>
@@ -155,6 +158,7 @@ export default function LoginPage() {
                         </div>
                     </div>
 
+                    {/* Passkey Login — completely independent of username/password */}
                     <button
                         type="button"
                         disabled={passkeyLoading || loading}
@@ -177,7 +181,7 @@ export default function LoginPage() {
                             </>
                         )}
                     </button>
-                </form>
+                </div>
             </div>
         </div>
     );

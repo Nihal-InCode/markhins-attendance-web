@@ -350,8 +350,8 @@ export default function ProfilePage() {
 
                 {/* Passkey Management */}
                 <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <h2 className="text-sm font-black text-gray-900 mb-1">Passkey Security</h2>
-                    <p className="text-xs text-gray-400 font-medium mb-4">Sign in with fingerprint, face, or device PIN</p>
+                    <h2 className="text-sm font-black text-gray-900 mb-1">Passkeys</h2>
+                    <p className="text-xs text-gray-400 font-medium mb-4">Use your phone&apos;s fingerprint, face, or device PIN to sign in without a password</p>
 
                     {passkeyError && (
                         <div className="mb-4 p-3 text-xs font-bold text-red-600 bg-red-50 rounded-xl border border-red-100">
@@ -366,7 +366,7 @@ export default function ProfilePage() {
                     ) : passkeys.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center mb-4">
                             <p className="text-xs font-bold text-gray-400 uppercase">No passkeys registered</p>
-                            <p className="text-[10px] text-gray-300 mt-1">Register a passkey for faster, more secure login</p>
+                            <p className="text-[10px] text-gray-300 mt-1">Register a passkey for one-tap passwordless login</p>
                         </div>
                     ) : (
                         <div className="space-y-2 mb-4">
@@ -377,7 +377,7 @@ export default function ProfilePage() {
                                             📱
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold text-gray-800 truncate">{pk.device_name || 'Passkey'}</p>
+                                            <p className="text-sm font-bold text-gray-800 truncate">{pk.device_name || 'This device'}</p>
                                             <p className="text-[10px] text-gray-400 font-medium">
                                                 {pk.created_at ? `Added ${new Date(pk.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
                                                 {pk.last_used_at ? ` · Last used ${new Date(pk.last_used_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}

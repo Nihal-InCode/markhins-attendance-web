@@ -96,10 +96,10 @@ export const verifyWebAuthnRegister = (credential, deviceName) =>
         body: JSON.stringify({ credential, deviceName }),
     });
 
-export const getWebAuthnLoginOptions = (username) =>
+export const getWebAuthnLoginOptions = () =>
     apiRequest('/webauthn/login/options', {
         method: 'POST',
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({}),
     });
 
 export const verifyWebAuthnLogin = (credential, loginSessionId) =>

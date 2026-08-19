@@ -775,8 +775,8 @@ app.post('/webauthn/register/options', authenticateToken, async (req, res) => {
             userDisplayName: String(user.name || user.username),
             excludeCredentials: existingCredentials,
             authenticatorSelection: {
-                residentKey: 'preferred',
-                userVerification: 'preferred',
+                residentKey: 'required',
+                userVerification: 'required',
             },
         });
 
@@ -866,29 +866,16 @@ app.delete('/webauthn/credentials/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// POST /webauthn/login/options — Get authentication options (unauthenticated)
+// POST /webauthn/login/options — Get authentication options (unauthenticated, usernameless)
 app.post('/webauthn/login/options', async (req, res) => {
     try {
-        const { username } = req.body || {};
-
-        let allowCredentials = [];
-        if (username) {
-            const credResult = await callPython({
-                action: "get_webauthn_credentials_by_username",
-                username
-            });
-            if (credResult.success && credResult.data && credResult.data.length > 0) {
-                allowCredentials = credResult.data.map(cred => ({
-                    id: cred.id,
-                    transports: cred.transports || ['internal'],
-                }));
-            }
-        }
-
+        // Discoverable credentials: no allowCredentials, no username required.
+        // The browser/OS will present the user's saved passkeys and they choose one.
         const options = await generateAuthenticationOptions({
             rpID: WEBAUTHN_RP_ID,
-            allowCredentials,
-            userVerification: 'preferred',
+            timeout: 60000,
+            allowCredentials: [],
+            userVerification: 'required',
         });
 
         // Store challenge keyed by a session token for this login attempt
@@ -936,6 +923,7 @@ app.post('/webauthn/login/verify', async (req, res) => {
                 counter: storedCred.counter,
                 transports: storedCred.transports ? storedCred.transports.split(',') : ['internal'],
             },
+            requireUserVerification: true,
         });
 
         if (!verification.verified) {
