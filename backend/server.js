@@ -910,7 +910,8 @@ app.post('/webauthn/login/verify', async (req, res) => {
         }
 
         const storedCred = credResult.data;
-        const publicKeyBytes = new Uint8Array(storedCred.publicKey);
+        const pk = Array.isArray(storedCred.publicKey) ? storedCred.publicKey : Array.from(storedCred.publicKey);
+        const publicKeyBytes = new Uint8Array(pk);
 
         const verification = await verifyAuthenticationResponse({
             response: credential,

@@ -117,7 +117,7 @@ export default function ProfilePage() {
             const result = await deleteWebAuthnCredential(credentialId);
             if (result.success) {
                 playSound('uploadSuccess');
-                setPasskeys(passkeys.filter(p => p.id !== credentialId));
+                setPasskeys(passkeys.filter(p => p.credential_id !== credentialId));
                 setSuccessMsg("Passkey removed.");
             }
         } catch (err) {
@@ -385,7 +385,7 @@ export default function ProfilePage() {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleDeletePasskey(pk.id)}
+                                        onClick={() => handleDeletePasskey(pk.credential_id)}
                                         className="shrink-0 ml-3 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-bold text-red-600 hover:bg-red-100 transition-all"
                                     >
                                         Remove
