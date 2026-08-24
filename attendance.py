@@ -690,7 +690,7 @@ def _date_range_days(from_date, to_date):
     return days
 
 def _pct(present, total):
-    return round((present / total) * 100, 1) if total else 0
+    return round((present / total) * 100, 2) if total else 0
 
 def _namaz_filters(data):
     today = get_ist_now().strftime("%Y-%m-%d")
@@ -5512,7 +5512,7 @@ if __name__ == "__main__":
                         if total == 0:
                             percent = None
                         else:
-                            percent = round((present / total) * 100, 1)
+                            percent = round((present / total) * 100, 2)
 
                         class_averages.append({
                             "class": cls,
@@ -7652,7 +7652,7 @@ if __name__ == "__main__":
                         assigned_periods = 0
 
                     classes_taken = len(all_sessions)
-                    teaching_percentage = round((classes_taken / assigned_periods) * 100, 1) if assigned_periods > 0 else 0
+                    teaching_percentage = round((classes_taken / assigned_periods) * 100, 2) if assigned_periods > 0 else 0
 
                     final_data = []
                     session_labels = [f"{session[0]} {session[2]}" for session in all_sessions]
@@ -7676,7 +7676,7 @@ if __name__ == "__main__":
                         
                         percentage = 0
                         if total_sessions > 0:
-                            percentage = round((present_count / total_sessions) * 100, 1)
+                            percentage = round((present_count / total_sessions) * 100, 2)
                             
                         final_data.append({
                             "rollNo": roll,

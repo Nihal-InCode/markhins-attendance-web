@@ -306,7 +306,7 @@ function EventOccurrenceRow({ occurrence }) {
   const totalCount = occurrence.totalCount || allStudents.length;
   const presentCount = presentStudents.length;
   const absentCount = Math.max(0, totalCount - presentCount);
-  const attendancePercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+  const attendancePercentage = totalCount > 0 ? Number(((presentCount / totalCount) * 100).toFixed(2)) : 0;
 
   return (
     <div className="bg-gray-55/40 rounded-2xl border border-gray-100 p-4 hover:border-blue-200 hover:bg-white transition-all shadow-xs duration-200">
@@ -482,7 +482,7 @@ function NamazSessionRow({ s, isExpanded, onToggle }) {
   const presentCount = (s.students || []).filter(st => st.status === "present").length;
   const totalCount = (s.students || []).length;
   const absentCount = Math.max(0, totalCount - presentCount);
-  const percent = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+  const percent = totalCount > 0 ? Number(((presentCount / totalCount) * 100).toFixed(2)) : 0;
 
   const timeParts = (() => {
     const source = s.createdAt || s.date;
@@ -5848,7 +5848,7 @@ export default function DashboardPage() {
                                 <div className="rounded-xl bg-[#1e3a8a]/5 border border-blue-100 p-4 text-center">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]/60 mb-1">Overall</p>
                                   <p className="text-[10px] font-bold text-[#1e3a8a]/40 mt-0.5">{withData.length} classes</p>
-                                  <p className="text-xl font-black text-[#1e3a8a] mt-0.5">{overallAvg.toFixed(1)}%</p>
+                                  <p className="text-xl font-black text-[#1e3a8a] mt-0.5">{overallAvg.toFixed(2)}%</p>
                                 </div>
                                 <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-center">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">Lowest</p>
@@ -5938,7 +5938,7 @@ export default function DashboardPage() {
                                 'bg-red-100 text-red-900 border border-red-300'
                               }`}>
                                 {student.percent < 60 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
-                                <span>{Math.round(student.percent)}%</span>
+                                <span>{typeof student.percent === 'number' ? student.percent.toFixed(2) : student.percent}%</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-gray-800 text-sm truncate">{student.name}</p>
