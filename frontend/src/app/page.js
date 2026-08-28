@@ -772,7 +772,10 @@ export default function DashboardPage() {
       return String(a.className || "").localeCompare(String(b.className || ""));
     });
 
-    let text = `⠀⠀⠀⠀*🕌 ${arabicName} — REPORT*\n\n`;
+    const ltrPadHeader = "\u200E\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
+    const ltrPadClass = "\u200E\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
+
+    let text = `${ltrPadHeader}*🕌 ${arabicName} — REPORT*\n\n`;
     text += `📅 *${formattedDate}*\n`;
     text += `📊 *${totalPresent} Present • ${totalAbsent} Absent*\n`;
     text += `📈 *Percentage:* *${overallPct}%*\n\n`;
@@ -784,14 +787,14 @@ export default function DashboardPage() {
       const sList = session.students || [];
       const classAbsent = sList.filter(st => st.status !== "present");
 
-      text += `*🏫 ${cleanClassName}*\n`;
+      text += `${ltrPadClass}*🏫 ${cleanClassName}*\n`;
 
       if (classAbsent.length > 0) {
         text += `🔴 *${classAbsent.length} Absent*\n\n`;
         classAbsent.forEach((st) => {
           const roll = st.rollNo || st.roll_no || "-";
           const name = st.name || "Student";
-          text += `• \`${roll}\` — ${name}\n`;
+          text += `• \`${roll}\` — _${name}_\n`;
         });
       } else {
         text += `🟢 *All Present* 🎉\n`;
