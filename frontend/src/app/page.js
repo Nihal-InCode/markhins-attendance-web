@@ -746,13 +746,39 @@ export default function DashboardPage() {
       }
     })();
 
-    let text = `*🕌 ${arabicName} — REPORT*\n\n`;
+    const getClassSortRank = (classNameStr) => {
+      const name = String(classNameStr || "").trim().toUpperCase().replace(/^CLASS\s+/i, "");
+      const priorityOrder = [
+        "HS1", "HSU1", "HS2", "HSU2", "HS3", "HSU3", "HS4", "HSU4",
+        "BS1", "BSU1", "BS2", "BSU2", "BS3", "BSU3", "BS4", "BSU4"
+      ];
+      const idx = priorityOrder.indexOf(name);
+      if (idx !== -1) return idx;
+
+      const match = name.match(/^(HS|HSU|BS|BSU)\s*(\d+)/i);
+      if (match) {
+        const prefix = match[1].toUpperCase();
+        const num = parseInt(match[2], 10);
+        const prefixRank = { "HS": 100, "HSU": 110, "BS": 200, "BSU": 210 }[prefix] || 300;
+        return prefixRank + num * 2;
+      }
+      return 1000;
+    };
+
+    const sortedSessions = [...(pSessions || [])].sort((a, b) => {
+      const rankA = getClassSortRank(a.className);
+      const rankB = getClassSortRank(b.className);
+      if (rankA !== rankB) return rankA - rankB;
+      return String(a.className || "").localeCompare(String(b.className || ""));
+    });
+
+    let text = `⠀⠀⠀⠀*🕌 ${arabicName} — REPORT*\n\n`;
     text += `📅 *${formattedDate}*\n`;
     text += `📊 *${totalPresent} Present • ${totalAbsent} Absent*\n`;
     text += `📈 *Percentage:* *${overallPct}%*\n\n`;
     text += `━━━━━━━━━━━━━━━━━━\n\n`;
 
-    pSessions.forEach((session) => {
+    sortedSessions.forEach((session) => {
       const rawClassName = session.className || "Class";
       const cleanClassName = rawClassName.replace(/^class\s+/i, "");
       const sList = session.students || [];
