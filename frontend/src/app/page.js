@@ -708,6 +708,106 @@ export default function DashboardPage() {
   const [namazAdvancedTab, setNamazAdvancedTab] = useState("monthly");
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
   const [selectedStudentDetailModal, setSelectedStudentDetailModal] = useState(null);
+  const [copiedPrayerState, setCopiedPrayerState] = useState(null);
+
+  const getArabicPrayerName = (prayerName) => {
+    const map = {
+      Subahi: "صبح",
+      Fajr: "صبح",
+      Luhar: "ظهر",
+      Dhuhr: "ظهر",
+      Asr: "عصر",
+      Maghrib: "مغرب",
+      Isha: "عشاء",
+      Jummah: "جمعة",
+    };
+    return map[prayerName] || prayerName;
+  };
+
+  const buildNamazWhatsappReport = (prayerName, pSessions, dateStr) => {
+    const arabicName = getArabicPrayerName(prayerName);
+    const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
+    const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present").length : 0), 0);
+    const totalAbsent = Math.max(0, totalStudents - totalPresent);
+    const overallPct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
+
+    const formattedDate = (() => {
+      if (!dateStr) return "";
+      try {
+        const parts = dateStr.split("-");
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(d);
+        const dayNum = parseInt(parts[2], 10);
+        const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(d);
+        const year = parts[0];
+        return `${dayName}, ${dayNum} ${monthName} ${year}`;
+      } catch (e) {
+        return dateStr;
+      }
+    })();
+
+    let text = `*🕌 ${arabicName}** — ATTENDANCE REPORT***\n\n`;
+    text += `📅 **Date:** ${formattedDate}\n`;
+    text += `📊 **Attendance:** ${totalPresent} Present • ${totalAbsent} Absent\n`;
+    text += `📈 **Overall Attendance:** **${overallPct}%**\n\n`;
+    text += `━━━━━━━━━━━━━━━━━━\n\n`;
+
+    pSessions.forEach((session) => {
+      const className = session.className || "Class";
+      const sList = session.students || [];
+      const classAbsent = sList.filter(st => st.status !== "present");
+
+      text += `\`🏫 **CLASS ${className}\`**\n`;
+
+      if (classAbsent.length > 0) {
+        text += `🔴 **${classAbsent.length} Absent**\n\n`;
+        classAbsent.forEach((st) => {
+          const roll = st.rollNo || st.roll_no || "-";
+          const name = st.name || "Student";
+          text += `• \`${roll}\` — ${name}\n`;
+        });
+      } else {
+        text += `🟢 **All Present** 🎉\n`;
+      }
+
+      text += `\n`;
+    });
+
+    text += `━━━━━━━━━━━━━━━━━━\n\n`;
+    text += `\`©️ MARKHINS CONNECT\``;
+
+    return text;
+  };
+
+  const handleCopyNamazWhatsApp = (prayerName, pSessions, e) => {
+    if (e) e.stopPropagation();
+    const text = buildNamazWhatsappReport(prayerName, pSessions, namazDailyDate);
+    const copyToClipboard = () => {
+      setCopiedPrayerState(prayerName);
+      setTimeout(() => setCopiedPrayerState(null), 2500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(copyToClipboard).catch(() => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        copyToClipboard();
+      });
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      copyToClipboard();
+    }
+  };
+
 
   // Handle phone native back button & browser back history for Namaz subviews / modals
   useEffect(() => {
@@ -4961,14 +5061,29 @@ export default function DashboardPage() {
                                                 <h5 className="font-black text-gray-900 text-base leading-tight">{p.name}</h5>
                                                 <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-emerald-100 mt-0.5">
                                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                  {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}                                                </span>
+                                                  {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}
+                                                </span>
                                               </div>
                                             </div>
-                                            {isSelected && (
-                                              <span className="text-teal-600 font-black text-xs bg-teal-100/80 px-2 py-0.5 rounded-lg">
-                                                Selected
-                                              </span>
-                                            )}
+                                            <div className="flex items-center gap-1.5">
+                                              {isSelected && (
+                                                <span className="text-teal-600 font-black text-xs bg-teal-100/80 px-2 py-0.5 rounded-lg">
+                                                  Selected
+                                                </span>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => handleCopyNamazWhatsApp(p.name, pSessions, e)}
+                                                className="p-1.5 rounded-xl bg-gray-100 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 transition-all text-xs font-bold border border-gray-200 hover:border-emerald-300 shadow-xs flex items-center gap-1"
+                                                title="Copy WhatsApp Attendance Report"
+                                              >
+                                                {copiedPrayerState === p.name ? (
+                                                  <span className="text-[10px] text-emerald-700 font-black px-1">Copied! ✅</span>
+                                                ) : (
+                                                  <span className="text-sm">📋</span>
+                                                )}
+                                              </button>
+                                            </div>
                                           </div>
 
                                           {/* Main Stat Display */}
@@ -5077,7 +5192,26 @@ export default function DashboardPage() {
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleCopyNamazWhatsApp(selectedTodayPrayer, pSessions, e)}
+                                            className="px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black transition-all shadow-sm flex items-center gap-1.5 border border-emerald-500"
+                                            title="Copy WhatsApp Attendance Report"
+                                          >
+                                            {copiedPrayerState === selectedTodayPrayer ? (
+                                              <>
+                                                <span>✅</span>
+                                                <span>Copied Report!</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <span className="text-sm">📋</span>
+                                                <span>Copy WhatsApp List</span>
+                                              </>
+                                            )}
+                                          </button>
+
                                           <div className="hidden md:flex items-center gap-2 text-xs font-black">
                                             <span className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl">
                                               Total: {totalStudents}
