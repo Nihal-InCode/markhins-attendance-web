@@ -772,10 +772,7 @@ export default function DashboardPage() {
       return String(a.className || "").localeCompare(String(b.className || ""));
     });
 
-    const ltrPadHeader = "\u200E\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
-    const ltrPadClass = "\u200E\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
-
-    let text = `${ltrPadHeader}*🕌 ${arabicName} — REPORT*\n\n`;
+    let text = `*🕌 ${arabicName} — REPORT*\n\n`;
     text += `📅 *${formattedDate}*\n`;
     text += `📊 *${totalPresent} Present • ${totalAbsent} Absent*\n`;
     text += `📈 *Percentage:* *${overallPct}%*\n\n`;
@@ -787,7 +784,7 @@ export default function DashboardPage() {
       const sList = session.students || [];
       const classAbsent = sList.filter(st => st.status !== "present");
 
-      text += `${ltrPadClass}*🏫 ${cleanClassName}*\n`;
+      text += `─── *🏫 ${cleanClassName}* ───\n`;
 
       if (classAbsent.length > 0) {
         text += `🔴 *${classAbsent.length} Absent*\n\n`;
