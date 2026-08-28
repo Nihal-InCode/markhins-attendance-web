@@ -772,7 +772,8 @@ export default function DashboardPage() {
       return String(a.className || "").localeCompare(String(b.className || ""));
     });
 
-    let text = `⠀⠀⠀⠀ *🕌 ${arabicName} — REPORT*\n\n`;
+    // \u200E forces LTR direction so Arabic text 'صبح' doesn't flip the message into RTL right-alignment in WhatsApp
+    let text = `\u200E─── *🕌 ${arabicName} — REPORT* ───\n\n`;
     text += `📅 *${formattedDate}*\n`;
     text += `📊 *${totalPresent} Present • ${totalAbsent} Absent*\n`;
     text += `📈 *Percentage:* *${overallPct}%*\n\n`;
@@ -5218,26 +5219,7 @@ export default function DashboardPage() {
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 sm:gap-3">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => handleCopyNamazWhatsApp(selectedTodayPrayer, pSessions, e)}
-                                            className="px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black transition-all shadow-sm flex items-center gap-1.5 border border-emerald-500"
-                                            title="Copy WhatsApp Attendance Report"
-                                          >
-                                            {copiedPrayerState === selectedTodayPrayer ? (
-                                              <>
-                                                <span>✅</span>
-                                                <span>Copied Report!</span>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <span className="text-sm">📋</span>
-                                                <span>Copy WhatsApp List</span>
-                                              </>
-                                            )}
-                                          </button>
-
+                                        <div className="flex items-center gap-3">
                                           <div className="hidden md:flex items-center gap-2 text-xs font-black">
                                             <span className="bg-white border border-gray-200 px-3 py-1.5 rounded-xl">
                                               Total: {totalStudents}
