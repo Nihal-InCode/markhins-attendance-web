@@ -753,11 +753,12 @@ export default function DashboardPage() {
     text += `━━━━━━━━━━━━━━━━━━\n\n`;
 
     pSessions.forEach((session) => {
-      const className = session.className || "Class";
+      const rawClassName = session.className || "Class";
+      const cleanClassName = rawClassName.replace(/^class\s+/i, "");
       const sList = session.students || [];
       const classAbsent = sList.filter(st => st.status !== "present");
 
-      text += `*🏫 CLASS ${className}*\n`;
+      text += `*🏫 ${cleanClassName}*\n`;
 
       if (classAbsent.length > 0) {
         text += `🔴 *${classAbsent.length} Absent*\n\n`;
