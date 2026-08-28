@@ -746,10 +746,10 @@ export default function DashboardPage() {
       }
     })();
 
-    let text = `*🕌 ${arabicName}** — ATTENDANCE REPORT***\n\n`;
-    text += `📅 **Date:** ${formattedDate}\n`;
-    text += `📊 **Attendance:** ${totalPresent} Present • ${totalAbsent} Absent\n`;
-    text += `📈 **Overall Attendance:** **${overallPct}%**\n\n`;
+    let text = `*🕌 ${arabicName} — REPORT*\n\n`;
+    text += `📅 *${formattedDate}*\n`;
+    text += `📊 *${totalPresent} Present • ${totalAbsent} Absent*\n`;
+    text += `📈 *Percentage:* *${overallPct}%*\n\n`;
     text += `━━━━━━━━━━━━━━━━━━\n\n`;
 
     pSessions.forEach((session) => {
@@ -757,24 +757,24 @@ export default function DashboardPage() {
       const sList = session.students || [];
       const classAbsent = sList.filter(st => st.status !== "present");
 
-      text += `\`🏫 **CLASS ${className}\`**\n`;
+      text += `*🏫 CLASS ${className}*\n`;
 
       if (classAbsent.length > 0) {
-        text += `🔴 **${classAbsent.length} Absent**\n\n`;
+        text += `🔴 *${classAbsent.length} Absent*\n\n`;
         classAbsent.forEach((st) => {
           const roll = st.rollNo || st.roll_no || "-";
           const name = st.name || "Student";
           text += `• \`${roll}\` — ${name}\n`;
         });
       } else {
-        text += `🟢 **All Present** 🎉\n`;
+        text += `🟢 *All Present* 🎉\n`;
       }
 
       text += `\n`;
     });
 
     text += `━━━━━━━━━━━━━━━━━━\n\n`;
-    text += `\`©️ MARKHINS CONNECT\``;
+    text += `*©️ MARKHINS CONNECT*`;
 
     return text;
   };
