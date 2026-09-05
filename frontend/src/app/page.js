@@ -567,6 +567,7 @@ function NamazSessionRow({ s, isExpanded, onToggle }) {
 }
 
 export default function DashboardPage() {
+  const { logout, user } = useAuth();
   const regularFormRef = useRef(null);
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState("");
@@ -591,6 +592,7 @@ export default function DashboardPage() {
         .catch((err) => console.error("Failed to fetch today teacher attendance status:", err));
     }
   }, [user]);
+
 
   // Substitute Planner System States
 
@@ -1179,10 +1181,10 @@ export default function DashboardPage() {
   const [selectedPeriods, setSelectedPeriods] = useState([]);
 
 
-  const { logout, user } = useAuth();
   const { showLoader, hideLoader } = useLoading();
   const router = useRouter();
   const searchParams = useSearchParams();
+
 
   // ── Sync activeTab with URL (?tab=attendance) so back button works ──
   const switchTab = useCallback((tab) => {
