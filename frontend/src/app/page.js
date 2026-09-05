@@ -875,7 +875,7 @@ export default function DashboardPage() {
     try {
       const res = await getTeacherAttendanceHistory(staff.id);
       if (res && res.success) {
-        setSelectedStaffHistory(res);
+        setSelectedStaffHistory(Array.isArray(res.history) ? res.history : []);
       } else {
         alert(res?.message || "Failed to fetch attendance history.");
       }
@@ -3827,23 +3827,18 @@ export default function DashboardPage() {
                       <p className="text-xs text-white/50 font-medium mt-1">Reports, permissions and syllabus tools</p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      {canUsePermissionManager(user) && (
-                        <button onClick={() => switchTab('permission_manager')}
-                          className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-center text-teal-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
-                          <span className="block text-2xl">🪪</span>
-                          <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Permission Manager</span>
-                        </button>
-                      )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3.5 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
+                        <span className="block text-2xl filter grayscale opacity-70">🪪</span>
+                        <span className="mt-1 block text-[10px] font-black uppercase tracking-widest text-teal-800/60">Permission Manager</span>
+                        <span className="mt-1 inline-block px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-widest bg-teal-600/10 text-teal-700 border border-teal-600/20">
+                          Coming Soon
+                        </span>
+                      </div>
                       <button onClick={() => setShowTeacherQrScanner(true)}
-                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
+                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
                         <span className="block text-2xl">📷</span>
-                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Scan Staff QR</span>
-                      </button>
-                      <button onClick={() => { setReportType('teacher_att'); router.push('/?tab=reports&type=teacher_att', { scroll: false }); }}
-                        className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-center text-purple-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
-                        <span className="block text-2xl">👔</span>
-                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Staff Att.</span>
+                        <span className="mt-1.5 block text-[10px] font-black uppercase tracking-widest">Scan Staff QR</span>
                       </button>
                     </div>
 
@@ -7340,7 +7335,13 @@ export default function DashboardPage() {
 
                     {/* Analytics KPI Cards */}
                     {(() => {
-                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isNonTeacherAdmin(t));
+                      const isSystemAccount = (t) => {
+                        const name = String(t?.name || "").trim().toUpperCase();
+                        const user = String(t?.username || "").trim().toLowerCase();
+                        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+                      };
+
+                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isSystemAccount(t));
                       const totalCount = allFaculty.length;
                       
                       const scanMap = new Map();
@@ -7362,9 +7363,9 @@ export default function DashboardPage() {
                         <div className="space-y-6">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
                             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Faculty</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Staff</span>
                               <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
-                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled staff members</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled faculty & staff</p>
                             </div>
                             <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present Today</span>
@@ -7457,9 +7458,8 @@ export default function DashboardPage() {
                                   <table className="w-full text-left border-collapse table-auto">
                                     <thead className="bg-gray-50/80 border-b border-gray-100">
                                       <tr>
-                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
-                                        <th className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
-                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Scan Time</th>
+                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Member</th>
+                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Today's Status</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50 text-xs">
@@ -7480,9 +7480,9 @@ export default function DashboardPage() {
                                             onClick={() => handleViewStaffHistory(t)}
                                           >
                                             {/* Staff Name Column */}
-                                            <td className="px-4 py-3">
-                                              <div className="flex items-center gap-2.5">
-                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[11px] text-white shrink-0 shadow-xs ${
+                                            <td className="px-4 py-3.5">
+                                              <div className="flex items-center gap-3">
+                                                <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center font-black text-[11px] text-white shrink-0 shadow-xs ${
                                                   isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
                                                 }`}>
                                                   {initials}
@@ -7492,8 +7492,8 @@ export default function DashboardPage() {
                                                     <span>{t.name}</span>
                                                     <span className="text-[10px] text-indigo-400 opacity-60">📜</span>
                                                   </p>
-                                                  <p className="text-[9px] font-semibold text-gray-400 truncate">
-                                                    {t.role || "Staff"} {t.subject ? `• ${t.subject}` : ""}
+                                                  <p className="text-[9.5px] font-semibold text-gray-400 truncate">
+                                                    {t.role || (t.is_teacher === 0 ? "Staff" : "Faculty")} {t.subject && t.subject !== 'General' ? `• ${t.subject}` : ""}
                                                   </p>
                                                 </div>
                                                 {user?.role === 'admin' && (
@@ -7517,27 +7517,16 @@ export default function DashboardPage() {
                                               </div>
                                             </td>
 
-                                            {/* Status Column */}
-                                            <td className="px-3 py-3 text-center shrink-0">
-                                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                                            {/* Today's Status Column */}
+                                            <td className="px-4 py-3.5 text-right shrink-0">
+                                              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
                                                 isPresent
                                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                                   : "bg-gray-50 text-gray-500 border-gray-200"
                                               }`}>
                                                 <span>{isPresent ? "✅" : "⏳"}</span>
-                                                <span className="hidden sm:inline">{isPresent ? "Present" : "Not Scanned"}</span>
+                                                <span>{isPresent ? "Present" : "Not Scanned"}</span>
                                               </span>
-                                            </td>
-
-                                            {/* Scan Time Column */}
-                                            <td className="px-4 py-3 text-right font-mono shrink-0">
-                                              {isPresent ? (
-                                                <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md text-[10px]">
-                                                  {scanTime}
-                                                </span>
-                                              ) : (
-                                                <span className="text-gray-300 font-bold text-xs">—</span>
-                                              )}
                                             </td>
                                           </tr>
                                         );
