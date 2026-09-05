@@ -106,17 +106,34 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
         };
     }, [isOpen]);
 
-    const cleanupScanner = () => {
+    const cleanupScanner = async () => {
         isScanningRef.current = false;
         if (scannerRef.current) {
-            if (scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch(() => {}).finally(() => {
-                    scannerRef.current = null;
-                });
-            } else {
-                scannerRef.current = null;
+            const instance = scannerRef.current;
+            scannerRef.current = null;
+            try {
+                if (typeof instance.stop === "function") {
+                    await instance.stop();
+                }
+            } catch (e) {
+                console.warn("Scanner stop warning:", e);
+            }
+            try {
+                if (typeof instance.clear === "function") {
+                    await instance.clear();
+                }
+            } catch (e) {
+                console.warn("Scanner clear warning:", e);
             }
         }
+    };
+
+    const handleClose = async () => {
+        await cleanupScanner();
+        setStatus("IDLE");
+        setMessage("");
+        setRecord(null);
+        if (onClose) onClose();
     };
 
     const handleRetry = () => {
@@ -139,6 +156,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         if (!isScanningRef.current) return;
                         isScanningRef.current = false;
                         try { await html5Qrcode.stop(); } catch (e) {}
+                        try { await html5Qrcode.clear(); } catch (e) {}
 
                         setStatus("PROCESSING");
                         try {
@@ -193,7 +211,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         </h2>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-all"
                     >
                         ✕
@@ -238,7 +256,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         )}
 
                         <button
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-95"
                         >
                             Done
@@ -262,7 +280,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         )}
 
                         <button
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-95"
                         >
                             Close
@@ -286,7 +304,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 Try Again
                             </button>
                             <button
-                                onClick={onClose}
+                                onClick={handleClose}
                                 className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold text-xs transition-all"
                             >
                                 Cancel
@@ -337,7 +355,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 Retry Scan
                             </button>
                             <button
-                                onClick={onClose}
+                                onClick={handleClose}
                                 className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold text-xs transition-all"
                             >
                                 Close
