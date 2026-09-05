@@ -886,6 +886,21 @@ export default function DashboardPage() {
     }
   };
 
+  const getDayFromDate = (dateStr) => {
+    if (!dateStr) return "—";
+    try {
+      const parts = String(dateStr).split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return d.toLocaleDateString('en-US', { weekday: 'long' });
+      }
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? "—" : d.toLocaleDateString('en-US', { weekday: 'long' });
+    } catch {
+      return "—";
+    }
+  };
+
   const getArabicPrayerName = (prayerName) => {
     const map = {
       Subahi: "صبح",
@@ -7307,14 +7322,11 @@ export default function DashboardPage() {
                       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
                       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-3xl">👔</span>
-                            <div>
-                              <h3 className="text-xl font-black tracking-tight">Faculty & Staff Attendance</h3>
-                              <p className="text-xs text-indigo-200 font-medium mt-0.5">
-                                Official Staff Attendance Register • {getIstDateString()}
-                              </p>
-                            </div>
+                          <div>
+                            <h3 className="text-xl font-black tracking-tight">Faculty & Staff Attendance</h3>
+                            <p className="text-xs text-indigo-200 font-medium mt-0.5">
+                              Official Staff Attendance Register • {getIstDateString()}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -7358,22 +7370,24 @@ export default function DashboardPage() {
                       
                       const scanMap = new Map();
                       todayTeacherScans.forEach(s => {
-                        scanMap.set(String(s.teacher_id), s.scan_time);
-                        scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
+                        if (s.scan_time) {
+                          scanMap.set(String(s.teacher_id), s.scan_time);
+                          if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
+                        }
                       });
 
                       let presentCount = 0;
                       allFaculty.forEach(t => {
-                        if (scanMap.has(String(t.id)) || scanMap.has(String(t.name).toLowerCase().trim())) {
+                        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+                        if (scanTime) {
                           presentCount++;
                         }
                       });
                       const absentCount = Math.max(0, totalCount - presentCount);
-                      const pct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
                       return (
                         <div className="space-y-6">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                          <div className="grid grid-cols-3 gap-3.5">
                             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Staff</span>
                               <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
@@ -7388,13 +7402,6 @@ export default function DashboardPage() {
                               <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Not Scanned</span>
                               <p className="text-2xl font-black text-amber-600 mt-1">{absentCount}</p>
                               <p className="text-[10px] font-bold text-amber-600 mt-0.5">Pending scan</p>
-                            </div>
-                            <div className="bg-indigo-50/70 rounded-2xl border border-indigo-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700">Attendance Rate</span>
-                              <p className="text-2xl font-black text-indigo-600 mt-1">{pct}%</p>
-                              <div className="mt-1.5 h-1.5 rounded-full bg-indigo-100 overflow-hidden">
-                                <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                              </div>
                             </div>
                           </div>
 
@@ -7500,9 +7507,8 @@ export default function DashboardPage() {
                                                   {initials}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                  <p className="font-extrabold text-gray-900 text-xs group-hover:text-indigo-600 transition-colors truncate flex items-center gap-1">
-                                                    <span>{t.name}</span>
-                                                    <span className="text-[10px] text-indigo-400 opacity-60">📜</span>
+                                                  <p className="font-extrabold text-gray-900 text-xs group-hover:text-indigo-600 transition-colors truncate">
+                                                    {t.name}
                                                   </p>
                                                   <p className="text-[9.5px] font-semibold text-gray-400 truncate">
                                                     {t.role || (t.is_teacher === 0 ? "Staff" : "Faculty")} {t.subject && t.subject !== 'General' ? `• ${t.subject}` : ""}
@@ -9799,23 +9805,23 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Staff Attendance History Modal ── */}
+      {/* ── Staff Attendance History Modal (Excel Sheet Style) ── */}
       {(historyStaffMember || loadingStaffHistory) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-700/60 text-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 relative max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-950 border border-slate-700/80 text-white rounded-2xl p-4 sm:p-6 max-w-xl w-full shadow-2xl space-y-4 relative max-h-[90vh] flex flex-col font-sans">
             
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-2xl">
-                  📜
+            {/* Excel Header Ribbon Bar */}
+            <div className="flex items-center justify-between bg-[#107c41] -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 py-3 sm:px-6 rounded-t-2xl border-b border-[#0b5c30]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-lg shrink-0 font-bold text-white">
+                  📊
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">
-                    Attendance History
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-extrabold text-white truncate font-mono tracking-tight">
+                    {historyStaffMember ? `${historyStaffMember.name.replace(/\s+/g, '_')}_Attendance.xlsx` : "Attendance_Log.xlsx"}
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    {historyStaffMember ? `${historyStaffMember.name} (${historyStaffMember.subject || historyStaffMember.role || 'Faculty'})` : "Loading staff history..."}
+                  <p className="text-[10px] text-emerald-100 font-medium truncate">
+                    {historyStaffMember ? `${historyStaffMember.name} • ${historyStaffMember.role || 'Staff'}` : "Staff Log"}
                   </p>
                 </div>
               </div>
@@ -9824,75 +9830,69 @@ export default function DashboardPage() {
                   setHistoryStaffMember(null);
                   setSelectedStaffHistory(null);
                 }}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all"
+                className="w-7 h-7 rounded-lg bg-black/20 hover:bg-black/40 text-emerald-100 hover:text-white flex items-center justify-center transition-all text-xs shrink-0"
               >
                 ✕
               </button>
             </div>
 
-            {/* History Table Container */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+            {/* Excel Sheet Table Container */}
+            <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pt-2">
               {loadingStaffHistory ? (
                 <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-3">
-                  <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm font-medium">Fetching attendance history...</p>
+                  <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs font-mono text-emerald-400">Loading Excel Data Sheet...</p>
                 </div>
               ) : selectedStaffHistory && selectedStaffHistory.length > 0 ? (
-                <div className="overflow-hidden border border-slate-800 rounded-2xl">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-850 text-slate-400 uppercase text-[11px] tracking-wider font-semibold border-b border-slate-800">
+                <div className="overflow-hidden border border-slate-700 rounded-lg shadow-sm">
+                  <table className="w-full text-left text-xs font-mono border-collapse">
+                    <thead className="bg-[#107c41]/90 text-white uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-700">
                       <tr>
-                        <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4">Scan Time</th>
-                        <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4 text-right">Verification Method</th>
+                        <th className="py-2.5 px-3 border-r border-slate-700/60">Date</th>
+                        <th className="py-2.5 px-3 border-r border-slate-700/60">Day</th>
+                        <th className="py-2.5 px-3 text-right">Scan Time</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
-                      {selectedStaffHistory.map((log, idx) => (
-                        <tr key={log.id || idx} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3 px-4 font-mono text-slate-200 font-semibold">
-                            {log.date}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-teal-400 font-bold">
-                            {log.scanTime || log.scan_time || '—'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                              Present
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right text-xs text-slate-400 font-medium">
-                            <span className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
-                              📷 QR Scanner
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-800">
+                      {selectedStaffHistory.map((log, idx) => {
+                        const dayName = getDayFromDate(log.date);
+                        return (
+                          <tr key={log.id || idx} className={`${idx % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/60'} hover:bg-slate-800 transition-colors`}>
+                            <td className="py-2 px-3 border-r border-slate-800 text-slate-200 font-semibold">
+                              {log.date}
+                            </td>
+                            <td className="py-2 px-3 border-r border-slate-800 text-emerald-400 font-medium">
+                              {dayName}
+                            </td>
+                            <td className="py-2 px-3 text-right text-teal-300 font-bold">
+                              {log.scanTime || log.scan_time || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               ) : (
                 <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
-                  <span className="text-3xl">📅</span>
-                  <p className="text-sm font-semibold text-slate-300">No Attendance Records Found</p>
-                  <p className="text-xs text-slate-500">This staff member has not scanned the office QR code yet.</p>
+                  <span className="text-3xl">📊</span>
+                  <p className="text-xs font-mono font-bold text-slate-300">Sheet Empty: 0 Scan Records Found</p>
+                  <p className="text-[10px] text-slate-500 font-sans">This staff member has not scanned the office QR code yet.</p>
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
-              <span>Total Records: <strong className="text-white">{selectedStaffHistory ? selectedStaffHistory.length : 0}</strong></span>
+            <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400 font-mono">
+              <span>Total Log Rows: <strong className="text-emerald-400 font-bold">{selectedStaffHistory ? selectedStaffHistory.length : 0}</strong></span>
               <button
                 onClick={() => {
                   setHistoryStaffMember(null);
                   setSelectedStaffHistory(null);
                 }}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-all"
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-sans text-xs font-semibold transition-all"
               >
-                Close
+                Close Sheet
               </button>
             </div>
 
