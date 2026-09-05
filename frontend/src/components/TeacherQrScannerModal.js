@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Html5Qrcode } from "html5-qrcode";
 import { scanTeacherAttendance } from "@/lib/api";
 
 export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
@@ -28,6 +27,9 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 // Ensure target div exists
                 const readerElement = document.getElementById("teacher-qr-reader");
                 if (!readerElement) return;
+
+                // Dynamically import html5-qrcode only in client browser environment
+                const { Html5Qrcode } = await import("html5-qrcode");
 
                 const html5Qrcode = new Html5Qrcode("teacher-qr-reader");
                 scannerRef.current = html5Qrcode;
@@ -83,7 +85,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         }
                     },
                     () => {
-                        // QR Code scan failure callback (frame by frame - ignorable)
+                        // Frame-by-frame scan callback
                     }
                 );
             } catch (err) {
@@ -95,7 +97,6 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
             }
         };
 
-        // Small delay to allow DOM to render modal container
         const timer = setTimeout(startScanner, 200);
 
         return () => {
@@ -126,6 +127,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
 
         setTimeout(async () => {
             try {
+                const { Html5Qrcode } = await import("html5-qrcode");
                 const html5Qrcode = new Html5Qrcode("teacher-qr-reader");
                 scannerRef.current = html5Qrcode;
                 isScanningRef.current = true;

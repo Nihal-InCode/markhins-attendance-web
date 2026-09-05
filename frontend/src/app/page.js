@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import {
   getClasses,
@@ -56,9 +57,11 @@ import {
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
-import TeacherQrScannerModal from "@/components/TeacherQrScannerModal";
 import { playSound } from "@/lib/sound";
 import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
+
+const TeacherQrScannerModal = dynamic(() => import("@/components/TeacherQrScannerModal"), { ssr: false });
+
 
 
 const isNonTeacherAdmin = (t) => {
