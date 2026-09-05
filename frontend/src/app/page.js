@@ -599,27 +599,7 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  const fetchTeacherAttData = useCallback(() => {
-    if (activeTab === "reports" && reportType === "teacher_att") {
-      setLoadingTeacherAtt(true);
-      Promise.all([
-        getTeachersList(),
-        getTodayTeacherAttendanceList()
-      ])
-        .then(([tList, scanRes]) => {
-          setTeachersList(Array.isArray(tList) ? tList : []);
-          if (scanRes && scanRes.success && Array.isArray(scanRes.records)) {
-            setTodayTeacherScans(scanRes.records);
-          }
-        })
-        .catch((err) => console.error("Failed to load teacher attendance data:", err))
-        .finally(() => setLoadingTeacherAtt(false));
-    }
-  }, [activeTab, reportType]);
 
-  useEffect(() => {
-    fetchTeacherAttData();
-  }, [fetchTeacherAttData]);
 
 
 
@@ -762,6 +742,28 @@ export default function DashboardPage() {
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
   const [selectedStudentDetailModal, setSelectedStudentDetailModal] = useState(null);
   const [copiedPrayerState, setCopiedPrayerState] = useState(null);
+
+  const fetchTeacherAttData = useCallback(() => {
+    if (activeTab === "reports" && reportType === "teacher_att") {
+      setLoadingTeacherAtt(true);
+      Promise.all([
+        getTeachersList(),
+        getTodayTeacherAttendanceList()
+      ])
+        .then(([tList, scanRes]) => {
+          setTeachersList(Array.isArray(tList) ? tList : []);
+          if (scanRes && scanRes.success && Array.isArray(scanRes.records)) {
+            setTodayTeacherScans(scanRes.records);
+          }
+        })
+        .catch((err) => console.error("Failed to load teacher attendance data:", err))
+        .finally(() => setLoadingTeacherAtt(false));
+    }
+  }, [activeTab, reportType]);
+
+  useEffect(() => {
+    fetchTeacherAttData();
+  }, [fetchTeacherAttData]);
 
   const getArabicPrayerName = (prayerName) => {
     const map = {
