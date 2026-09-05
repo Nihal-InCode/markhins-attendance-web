@@ -1,10 +1,11 @@
+import { playSound } from '@/lib/sound';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 if (!BASE_URL) {
     console.error("API base URL is not defined (NEXT_PUBLIC_API_URL is missing)");
 }
 
-import { playSound } from '@/lib/sound';
 
 /**
  * Generic API request handler with error handling and debug logging.

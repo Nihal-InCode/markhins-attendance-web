@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { LoadingProvider } from "@/context/LoadingContext";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -28,7 +29,6 @@ export const viewport = {
   themeColor: "#2563eb",
 };
 
-import { LoadingProvider } from "@/context/LoadingContext";
 
 export default function RootLayout({ children }) {
   return (
