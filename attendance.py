@@ -467,13 +467,25 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
-        # === SESSION SYSTEM MIGRATION ===
+        # === SESSION & TEACHER COLUMNS MIGRATION ===
         try:
             c.execute("ALTER TABLE teachers ADD COLUMN active_session_token TEXT")
         except sqlite3.OperationalError:
             pass
         try:
             c.execute("ALTER TABLE teachers ADD COLUMN last_login TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN role TEXT DEFAULT 'Faculty'")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN subject TEXT DEFAULT 'General'")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN class_teacher_of TEXT")
         except sqlite3.OperationalError:
             pass
 
@@ -7352,15 +7364,34 @@ if __name__ == "__main__":
                 elif action == "get_today_all_teachers_attendance":
                     now_ist = get_ist_now()
                     target_date = data.get("date") or now_ist.strftime("%Y-%m-%d")
-                    c.execute("SELECT teacher_id, teacher_name, scan_time, date FROM teacher_attendance WHERE date=?", (target_date,))
+                    c.execute("""
+                        SELECT 
+                            t.id, 
+                            t.name, 
+                            t.username, 
+                            t.role, 
+                            t.subject, 
+                            t.class_teacher_of, 
+                            ta.scan_time, 
+                            ta.date 
+                        FROM teachers t 
+                        LEFT JOIN teacher_attendance ta 
+                            ON t.id = ta.teacher_id AND ta.date = ?
+                        ORDER BY t.name ASC
+                    """, (target_date,))
                     rows = c.fetchall()
                     records = []
                     for r in rows:
                         records.append({
                             "teacher_id": str(r[0]),
                             "teacher_name": r[1],
-                            "scan_time": r[2],
-                            "date": r[3]
+                            "username": r[2] or "",
+                            "role": r[3] or "Faculty",
+                            "subject": r[4] or "General",
+                            "class_teacher_of": r[5] or "",
+                            "scan_time": r[6],
+                            "date": target_date,
+                            "marked_today": r[6] is not None
                         })
                     result = {
                         "success": True,
