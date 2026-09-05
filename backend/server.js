@@ -1837,13 +1837,8 @@ app.get('/health/:listType(sick-list|leave-list)', authenticateToken, async (req
         const targetStatus = statusMap[listType];
 
         const user_role = req.user.role || 'Subject Teacher';
-        const assigned_class = req.user.class_teacher_of;
-        const isPrincipal = user_role === 'Principal' || user_role === 'Vice Principal';
+        const isPrincipal = user_role === 'admin' || user_role === 'Principal' || user_role === 'Vice Principal';
         const isScopedUrduPrincipal = isUrduPrincipal(req.user);
-
-        if (!isPrincipal && !isScopedUrduPrincipal && user_role !== 'Class Teacher') {
-            return res.status(403).json({ success: false, error: 'Unauthorized: Only Class Teachers and Admin can view health lists.' });
-        }
 
         const result = await callPython({ action: "get_health_list", status: targetStatus });
 
@@ -1852,7 +1847,6 @@ app.get('/health/:listType(sick-list|leave-list)', authenticateToken, async (req
             result.total_count = result.health_list.reduce((total, group) => total + (group.students?.length || 0), 0);
         }
 
-        // Remove the Class Teacher filter to allow whole campus view
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

@@ -6656,17 +6656,17 @@ if __name__ == "__main__":
                 elif action == "get_health_list":
                     target_status = data.get("status") # 'S' or 'L'
                     
-                    # Fetch latest status for every student who has ever had a health status
-                    # We use a subquery to find the latest (highest ID) record per student
+                    # Fetch latest status for every student who currently has target_status as their latest record
                     c.execute("""
                         SELECT s.roll_no, s.name, s.class
                         FROM students s
-                        JOIN (
-                            SELECT student_id, status, MAX(id) as max_id
-                            FROM attendance
-                            GROUP BY student_id
-                        ) latest ON s.id = latest.student_id
-                        WHERE latest.status = ?
+                        JOIN attendance a ON a.id = (
+                            SELECT id FROM attendance 
+                            WHERE student_id = s.id 
+                            ORDER BY date DESC, id DESC 
+                            LIMIT 1
+                        )
+                        WHERE a.status = ?
                         ORDER BY s.class, s.roll_no
                     """, (target_status,))
                     
