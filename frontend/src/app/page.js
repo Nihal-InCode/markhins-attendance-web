@@ -3828,7 +3828,14 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-2.5">
-                      {/* Tile 1: Permission Manager */}
+                      {/* Tile 1: SCAN QR */}
+                      <button onClick={() => setShowTeacherQrScanner(true)}
+                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
+                        <span className="block text-xl">📷</span>
+                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
+                      </button>
+
+                      {/* Tile 2: Permission Manager */}
                       <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
                         <span className="block text-xl filter grayscale opacity-70">🪪</span>
                         <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-teal-800/60 truncate w-full">Permission Manager</span>
@@ -3837,17 +3844,10 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      {/* Tile 2: SCAN QR */}
-                      <button onClick={() => setShowTeacherQrScanner(true)}
-                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
-                        <span className="block text-xl">📷</span>
-                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
-                      </button>
-
-                      {/* Tile 3: Smart Insights / Coming Soon */}
+                      {/* Tile 3: AI */}
                       <div className="relative rounded-2xl border border-purple-100 bg-purple-50/50 p-3 text-center text-purple-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                        <span className="block text-xl filter grayscale opacity-70">🔮</span>
-                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">Smart Analytics</span>
+                        <span className="block text-xl filter grayscale opacity-70">🤖</span>
+                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">AI</span>
                         <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
                           Coming Soon
                         </span>
