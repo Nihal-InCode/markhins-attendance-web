@@ -52,7 +52,11 @@ import {
   approvePrincipalReturn,
   rejectPrincipalReturn,
   getTodayTeacherAttendanceStatus,
-  getTodayTeacherAttendanceList
+  getTodayTeacherAttendanceList,
+  getTeacherAttendanceHistory,
+  createStaffMember,
+  updateStaffMember,
+  deleteStaffMember
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -764,6 +768,109 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchTeacherAttData();
   }, [fetchTeacherAttData]);
+
+  // Staff Management & Attendance History States
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [staffFormData, setStaffFormData] = useState({
+    name: "",
+    username: "",
+    password: "",
+    role: "Faculty",
+    subject: "General",
+    class_teacher_of: ""
+  });
+  const [savingStaff, setSavingStaff] = useState(false);
+  const [selectedStaffHistory, setSelectedStaffHistory] = useState(null);
+  const [loadingStaffHistory, setLoadingStaffHistory] = useState(false);
+  const [historyStaffMember, setHistoryStaffMember] = useState(null);
+
+  const handleOpenAddStaff = () => {
+    setEditingStaff(null);
+    setStaffFormData({
+      name: "",
+      username: "",
+      password: "",
+      role: "Faculty",
+      subject: "General",
+      class_teacher_of: ""
+    });
+    setStaffModalOpen(true);
+  };
+
+  const handleOpenEditStaff = (staff) => {
+    setEditingStaff(staff);
+    setStaffFormData({
+      name: staff.name || "",
+      username: staff.username || "",
+      password: "",
+      role: staff.role || "Faculty",
+      subject: staff.subject || "General",
+      class_teacher_of: staff.class_teacher_of || staff.classTeacherOf || ""
+    });
+    setStaffModalOpen(true);
+  };
+
+  const handleSaveStaff = async (e) => {
+    e.preventDefault();
+    if (!staffFormData.name || !staffFormData.username) {
+      alert("Staff name and username are required.");
+      return;
+    }
+    setSavingStaff(true);
+    try {
+      let res;
+      if (editingStaff) {
+        res = await updateStaffMember(editingStaff.id, staffFormData);
+      } else {
+        res = await createStaffMember(staffFormData);
+      }
+      if (res && res.success) {
+        alert(res.message || "Staff member saved successfully!");
+        setStaffModalOpen(false);
+        fetchTeacherAttData();
+      } else {
+        alert(res?.message || "Failed to save staff member.");
+      }
+    } catch (err) {
+      alert(err.message || "Error saving staff member.");
+    } finally {
+      setSavingStaff(false);
+    }
+  };
+
+  const handleDeleteStaff = async (staff) => {
+    if (!window.confirm(`Are you sure you want to delete staff member "${staff.name}"?`)) return;
+    try {
+      const res = await deleteStaffMember(staff.id);
+      if (res && res.success) {
+        alert(res.message || "Staff member deleted.");
+        fetchTeacherAttData();
+      } else {
+        alert(res?.message || "Failed to delete staff member.");
+      }
+    } catch (err) {
+      alert(err.message || "Error deleting staff member.");
+    }
+  };
+
+  const handleViewStaffHistory = async (staff) => {
+    setHistoryStaffMember(staff);
+    setSelectedStaffHistory(null);
+    setLoadingStaffHistory(true);
+    try {
+      const res = await getTeacherAttendanceHistory(staff.id);
+      if (res && res.success) {
+        setSelectedStaffHistory(res);
+      } else {
+        alert(res?.message || "Failed to fetch attendance history.");
+      }
+    } catch (err) {
+      alert(err.message || "Error fetching attendance history.");
+    } finally {
+      setLoadingStaffHistory(false);
+    }
+  };
 
   const getArabicPrayerName = (prayerName) => {
     const map = {
@@ -3687,7 +3794,7 @@ export default function DashboardPage() {
               const reportTabs = [
                 { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
-                { id: 'teacher_att', label: 'Staff Att.', emoji: '👨‍🏫', desc: 'Staff QR scan & faculty attendance register.' },
+                { id: 'teacher_att', label: 'Staff Att.', emoji: '👔', desc: 'Staff QR scan & faculty attendance register.' },
                 { id: 'namaz', label: 'Namaz', emoji: '🕌', desc: 'Check daily and weekly prayer registers.' },
                 { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress and goals.' },
                 { id: 'events', label: 'Events History', emoji: '🏆', desc: 'Special events attendance records.' },
@@ -3721,7 +3828,7 @@ export default function DashboardPage() {
                       </button>
                       <button onClick={() => { setReportType('teacher_att'); router.push('/?tab=reports&type=teacher_att', { scroll: false }); }}
                         className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-center text-purple-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
-                        <span className="block text-2xl">👨‍🏫</span>
+                        <span className="block text-2xl">👔</span>
                         <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Staff Att.</span>
                       </button>
                     </div>
@@ -3736,7 +3843,7 @@ export default function DashboardPage() {
                       {[
                         { id: 'overview', label: 'Monitor', emoji: '📊', color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
                         { id: 'analysis', label: 'Analysis', emoji: '📈', color: 'bg-blue-50 border-blue-100 text-blue-700' },
-                        { id: 'teacher_att', label: 'Staff Att.', emoji: '👨‍🏫', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
+                        { id: 'teacher_att', label: 'Staff Att.', emoji: '👔', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                         { id: 'namaz', label: 'Namaz', emoji: '🕌', color: 'bg-amber-50 border-amber-100 text-amber-700' },
                         { id: 'syllabus', label: 'Syllabus', emoji: '📖', color: 'bg-violet-50 border-violet-100 text-violet-700' },
                         { id: 'events', label: 'Events', emoji: '🏆', color: 'bg-rose-50 border-rose-100 text-rose-700' },
@@ -7174,13 +7281,13 @@ export default function DashboardPage() {
 
                 {reportType === "teacher_att" && (
                   <div className="space-y-6 animate-in fade-in">
-                    {/* Header & Quick Action */}
+                    {/* Header & Quick Actions */}
                     <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
                       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-3">
-                            <span className="text-3xl">👨‍🏫</span>
+                            <span className="text-3xl">👔</span>
                             <div>
                               <h3 className="text-xl font-black tracking-tight">Faculty & Staff Attendance</h3>
                               <p className="text-xs text-indigo-200 font-medium mt-0.5">
@@ -7189,17 +7296,26 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          {user?.role === 'admin' && (
+                            <button
+                              onClick={handleOpenAddStaff}
+                              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-indigo-400/30"
+                            >
+                              <span>➕</span>
+                              <span>Add Staff Member</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => setShowTeacherQrScanner(true)}
-                            className="px-5 py-3 rounded-2xl bg-white text-indigo-950 font-black text-xs uppercase tracking-wider shadow-lg hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-2"
+                            className="px-4 py-2.5 rounded-2xl bg-white text-indigo-950 font-black text-xs uppercase tracking-wider shadow-lg hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-1.5"
                           >
                             <span>📷</span>
                             <span>Scan Staff QR</span>
                           </button>
                           <button
                             onClick={fetchTeacherAttData}
-                            className="p-3 rounded-2xl bg-indigo-800/80 hover:bg-indigo-700 border border-indigo-700 text-indigo-100 transition-all active:scale-95"
+                            className="p-2.5 rounded-2xl bg-indigo-800/80 hover:bg-indigo-700 border border-indigo-700 text-indigo-100 transition-all active:scale-95"
                             title="Refresh Data"
                           >
                             🔄
@@ -7208,7 +7324,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Analytics & KPI Cards */}
+                    {/* Analytics KPI Cards */}
                     {(() => {
                       const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isNonTeacherAdmin(t));
                       const totalCount = allFaculty.length;
@@ -7234,7 +7350,7 @@ export default function DashboardPage() {
                             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Faculty</span>
                               <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
-                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled staff</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled staff members</p>
                             </div>
                             <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present Today</span>
@@ -7260,7 +7376,7 @@ export default function DashboardPage() {
                             <div className="relative w-full md:w-80">
                               <input
                                 type="text"
-                                placeholder="Search teacher by name or role..."
+                                placeholder="Search staff by name, role or subject..."
                                 value={teacherAttSearch}
                                 onChange={(e) => setTeacherAttSearch(e.target.value)}
                                 className="w-full bg-gray-50 border border-gray-150 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-bold text-gray-800 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -7289,7 +7405,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Teacher Attendance Cards List */}
+                          {/* Faculty & Staff Table / List View */}
                           {loadingTeacherAtt ? (
                             <div className="flex justify-center p-16">
                               <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-indigo-600 border-t-transparent" />
@@ -7314,86 +7430,127 @@ export default function DashboardPage() {
                               if (filtered.length === 0) {
                                 return (
                                   <div className="bg-gray-50 border border-dashed border-gray-200 rounded-3xl p-12 text-center">
-                                    <span className="text-3xl">👨‍🏫</span>
+                                    <span className="text-3xl">👔</span>
                                     <p className="text-xs font-black uppercase tracking-widest text-gray-400 mt-2">
-                                      No matching teacher attendance records found.
+                                      No matching staff records found.
                                     </p>
                                   </div>
                                 );
                               }
 
                               return (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                                  {filtered.map((t, idx) => {
-                                    const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
-                                    const isPresent = !!scanTime;
-                                    const initials = (t.name || t.username || "?")
-                                      .split(" ")
-                                      .map(w => w[0])
-                                      .join("")
-                                      .slice(0, 2)
-                                      .toUpperCase();
+                                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                                  <div className="overflow-x-auto no-scrollbar">
+                                    <table className="w-full text-left border-collapse min-w-[700px]">
+                                      <thead className="bg-gray-50/80 border-b border-gray-100">
+                                        <tr>
+                                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Member</th>
+                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Role & Subject</th>
+                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Today's Status</th>
+                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Scan Timestamp</th>
+                                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions & History</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-50 text-xs">
+                                        {filtered.map((t, idx) => {
+                                          const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
+                                          const isPresent = !!scanTime;
+                                          const initials = (t.name || t.username || "?")
+                                            .split(" ")
+                                            .map(w => w[0])
+                                            .join("")
+                                            .slice(0, 2)
+                                            .toUpperCase();
 
-                                    return (
-                                      <div
-                                        key={t.id || idx}
-                                        className={`rounded-2xl p-4 border transition-all shadow-sm flex flex-col justify-between h-40 ${
-                                          isPresent
-                                            ? "bg-gradient-to-br from-emerald-50/80 to-white border-emerald-200"
-                                            : "bg-white border-gray-150"
-                                        }`}
-                                      >
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
-                                              isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
-                                            }`}>
-                                              {initials}
-                                            </div>
-                                            <div className="min-w-0">
-                                              <h5 className="font-black text-gray-900 text-sm truncate leading-tight" title={t.name}>
-                                                {t.name}
-                                              </h5>
-                                              <p className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
-                                                {t.role || "Faculty"} {t.subject ? `• ${t.subject}` : ""}
-                                              </p>
-                                            </div>
-                                          </div>
+                                          return (
+                                            <tr key={t.id || idx} className="hover:bg-indigo-50/20 transition-colors group">
+                                              <td className="px-6 py-4 cursor-pointer" onClick={() => handleViewStaffHistory(t)}>
+                                                <div className="flex items-center gap-3">
+                                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-xs ${
+                                                    isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
+                                                  }`}>
+                                                    {initials}
+                                                  </div>
+                                                  <div>
+                                                    <p className="font-black text-gray-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                                                      <span>{t.name}</span>
+                                                      <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">📜</span>
+                                                    </p>
+                                                    <p className="text-[10px] font-semibold text-gray-400">
+                                                      ID: #{t.id} {t.username ? `• @${t.username}` : ''}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                              </td>
 
-                                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border ${
-                                            isPresent
-                                              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                                              : "bg-gray-100 text-gray-500 border-gray-200"
-                                          }`}>
-                                            {isPresent ? "Present" : "Not Scanned"}
-                                          </span>
-                                        </div>
+                                              <td className="px-5 py-4">
+                                                <div>
+                                                  <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                    {t.role || "Faculty"}
+                                                  </span>
+                                                  <p className="text-[10px] font-bold text-gray-500 mt-1">
+                                                    {t.subject || "General"} {t.class_teacher_of ? `(Class Teacher of ${t.class_teacher_of})` : ''}
+                                                  </p>
+                                                </div>
+                                              </td>
 
-                                        <div className="my-2 pt-2 border-t border-gray-100">
-                                          {isPresent ? (
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span className="text-[10px] font-bold text-gray-400">Scan Timestamp:</span>
-                                              <span className="font-black text-emerald-700 font-mono text-[11px] bg-emerald-100/60 px-2 py-0.5 rounded-lg">
-                                                🕒 {scanTime}
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span className="text-[10px] font-bold text-gray-400">Status:</span>
-                                              <span className="font-bold text-amber-600 text-[10px] bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                                ⏳ Pending Scan
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
+                                              <td className="px-5 py-4 text-center">
+                                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                                  isPresent
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-gray-50 text-gray-500 border-gray-200"
+                                                }`}>
+                                                  <span>{isPresent ? "✅" : "⏳"}</span>
+                                                  <span>{isPresent ? "Present" : "Not Scanned"}</span>
+                                                </span>
+                                              </td>
 
-                                        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400">
-                                          <span>Faculty ID: #{t.id}</span>
-                                          <span className="text-indigo-600 font-black">MARKHINS Web</span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                              <td className="px-5 py-4 text-center font-mono">
+                                                {isPresent ? (
+                                                  <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg text-[11px]">
+                                                    🕒 {scanTime}
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-gray-300 font-bold text-xs">—</span>
+                                                )}
+                                              </td>
+
+                                              <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                  <button
+                                                    onClick={() => handleViewStaffHistory(t)}
+                                                    className="px-3 py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider transition-all shadow-2xs"
+                                                    title="View Full History"
+                                                  >
+                                                    📜 History
+                                                  </button>
+
+                                                  {user?.role === 'admin' && (
+                                                    <>
+                                                      <button
+                                                        onClick={() => handleOpenEditStaff(t)}
+                                                        className="p-1.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                                                        title="Edit Staff Member"
+                                                      >
+                                                        ✏️
+                                                      </button>
+                                                      <button
+                                                        onClick={() => handleDeleteStaff(t)}
+                                                        className="p-1.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
+                                                        title="Delete Staff Member"
+                                                      >
+                                                        🗑️
+                                                      </button>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                 </div>
                               );
                             })()
@@ -9473,6 +9630,242 @@ export default function DashboardPage() {
         }}
       />
 
+      {/* ── Add / Edit Staff Modal ── */}
+      {staffModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700/60 text-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4">
+              <button 
+                onClick={() => setStaffModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-2xl">
+                👔
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">
+                  {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {editingStaff ? "Update faculty details and credentials" : "Create a new teacher/staff account"}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveStaff} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={staffFormData.name}
+                  onChange={(e) => setStaffFormData({ ...staffFormData, name: e.target.value })}
+                  placeholder="e.g. Dr. Ramesh Kumar"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={staffFormData.username}
+                  onChange={(e) => setStaffFormData({ ...staffFormData, username: e.target.value })}
+                  placeholder="e.g. ramesh_k"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                  {editingStaff ? "Password / Phone (Leave blank to keep unchanged)" : "Password / Phone *"}
+                </label>
+                <input
+                  type="password"
+                  required={!editingStaff}
+                  value={staffFormData.password}
+                  onChange={(e) => setStaffFormData({ ...staffFormData, password: e.target.value })}
+                  placeholder={editingStaff ? "••••••••" : "Enter password or phone"}
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={staffFormData.role}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value })}
+                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all"
+                  >
+                    <option value="Faculty">Faculty</option>
+                    <option value="Senior Lecturer">Senior Lecturer</option>
+                    <option value="Assistant Professor">Assistant Professor</option>
+                    <option value="Head of Dept">Head of Dept</option>
+                    <option value="Staff">Staff</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={staffFormData.subject}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, subject: e.target.value })}
+                    placeholder="e.g. Physics"
+                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                  Class Teacher Of (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={staffFormData.class_teacher_of}
+                  onChange={(e) => setStaffFormData({ ...staffFormData, class_teacher_of: e.target.value })}
+                  placeholder="e.g. CS-A"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setStaffModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStaff}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+                >
+                  {savingStaff ? "Saving..." : editingStaff ? "Update Staff" : "Add Staff"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Staff Attendance History Modal ── */}
+      {(historyStaffMember || loadingStaffHistory) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700/60 text-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 relative max-h-[90vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-2xl">
+                  📜
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    Attendance History
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {historyStaffMember ? `${historyStaffMember.name} (${historyStaffMember.subject || historyStaffMember.role || 'Faculty'})` : "Loading staff history..."}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setHistoryStaffMember(null);
+                  setSelectedStaffHistory(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* History Table Container */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+              {loadingStaffHistory ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                  <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm font-medium">Fetching attendance history...</p>
+                </div>
+              ) : selectedStaffHistory && selectedStaffHistory.length > 0 ? (
+                <div className="overflow-hidden border border-slate-800 rounded-2xl">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-850 text-slate-400 uppercase text-[11px] tracking-wider font-semibold border-b border-slate-800">
+                      <tr>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Scan Time</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Verification Method</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 bg-slate-900/50">
+                      {selectedStaffHistory.map((log, idx) => (
+                        <tr key={log.id || idx} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-slate-200 font-semibold">
+                            {log.date}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-teal-400 font-bold">
+                            {log.scanTime || log.scan_time || '—'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                              Present
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right text-xs text-slate-400 font-medium">
+                            <span className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+                              📷 QR Scanner
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                  <span className="text-3xl">📅</span>
+                  <p className="text-sm font-semibold text-slate-300">No Attendance Records Found</p>
+                  <p className="text-xs text-slate-500">This staff member has not scanned the office QR code yet.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+              <span>Total Records: <strong className="text-white">{selectedStaffHistory ? selectedStaffHistory.length : 0}</strong></span>
+              <button
+                onClick={() => {
+                  setHistoryStaffMember(null);
+                  setSelectedStaffHistory(null);
+                }}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-all"
+              >
+                Close
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

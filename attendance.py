@@ -7368,6 +7368,109 @@ if __name__ == "__main__":
                         "records": records
                     }
 
+                elif action == "get_teacher_attendance_history":
+                    target_tid = data.get("teacher_id")
+                    if not target_tid:
+                        result = {"success": False, "message": "Teacher ID required."}
+                    else:
+                        c.execute("""
+                            SELECT date, scan_time, scanned_at 
+                            FROM teacher_attendance 
+                            WHERE teacher_id=? 
+                            ORDER BY date DESC, scan_time DESC
+                        """, (target_tid,))
+                        rows = c.fetchall()
+                        history = []
+                        for r in rows:
+                            history.append({
+                                "date": r[0],
+                                "scanTime": r[1],
+                                "scannedAt": r[2]
+                            })
+                        
+                        c.execute("SELECT id, name, role, username, subject, class_teacher_of FROM teachers WHERE id=?", (target_tid,))
+                        trow = c.fetchone()
+                        teacher_info = None
+                        if trow:
+                            teacher_info = {
+                                "id": str(trow[0]),
+                                "name": trow[1],
+                                "role": trow[2] or "Faculty",
+                                "username": trow[3],
+                                "subject": trow[4],
+                                "classTeacherOf": trow[5]
+                            }
+
+                        result = {
+                            "success": True,
+                            "teacher": teacher_info,
+                            "history": history,
+                            "totalPresent": len(history)
+                        }
+
+                elif action == "create_staff":
+                    name = str(data.get("name", "")).strip()
+                    username = str(data.get("username", "")).lower().strip()
+                    password = str(data.get("password", "")).strip() or "123456"
+                    role = str(data.get("role", "Faculty")).strip()
+                    subject = str(data.get("subject", "General")).strip()
+                    class_teacher_of = str(data.get("class_teacher_of", "")).strip()
+
+                    if not name or not username:
+                        result = {"success": False, "message": "Staff name and username are required."}
+                    else:
+                        c.execute("SELECT id FROM teachers WHERE LOWER(username)=?", (username,))
+                        if c.fetchone():
+                            result = {"success": False, "message": "Username already exists."}
+                        else:
+                            c.execute("""
+                                INSERT INTO teachers (name, username, phone, role, subject, class_teacher_of)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (name, username, password, role, subject, class_teacher_of))
+                            conn.commit()
+                            new_id = c.lastrowid
+                            result = {"success": True, "message": "Staff member created successfully.", "id": new_id}
+
+                elif action == "update_staff":
+                    target_tid = data.get("teacher_id")
+                    name = str(data.get("name", "")).strip()
+                    username = str(data.get("username", "")).lower().strip()
+                    password = str(data.get("password", "")).strip()
+                    role = str(data.get("role", "Faculty")).strip()
+                    subject = str(data.get("subject", "General")).strip()
+                    class_teacher_of = str(data.get("class_teacher_of", "")).strip()
+
+                    if not target_tid or not name or not username:
+                        result = {"success": False, "message": "Teacher ID, name, and username are required."}
+                    else:
+                        c.execute("SELECT id FROM teachers WHERE LOWER(username)=? AND id!=?", (username, target_tid))
+                        if c.fetchone():
+                            result = {"success": False, "message": "Username is already used by another account."}
+                        else:
+                            if password:
+                                c.execute("""
+                                    UPDATE teachers 
+                                    SET name=?, username=?, phone=?, role=?, subject=?, class_teacher_of=?
+                                    WHERE id=?
+                                """, (name, username, password, role, subject, class_teacher_of, target_tid))
+                            else:
+                                c.execute("""
+                                    UPDATE teachers 
+                                    SET name=?, username=?, role=?, subject=?, class_teacher_of=?
+                                    WHERE id=?
+                                """, (name, username, role, subject, class_teacher_of, target_tid))
+                            conn.commit()
+                            result = {"success": True, "message": "Staff member updated successfully."}
+
+                elif action == "delete_staff":
+                    target_tid = data.get("teacher_id")
+                    if not target_tid:
+                        result = {"success": False, "message": "Teacher ID is required."}
+                    else:
+                        c.execute("DELETE FROM teachers WHERE id=?", (target_tid,))
+                        conn.commit()
+                        result = {"success": True, "message": "Staff member deleted successfully."}
+
                 # ── WebAuthn Credential Actions ──
 
                 elif action == "register_webauthn_credential":

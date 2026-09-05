@@ -1583,6 +1583,69 @@ app.get('/api/teacher-attendance/today-list', authenticateToken, async (req, res
     }
 });
 
+app.get('/api/teacher-attendance/history/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        const result = await callPython({
+            action: "get_teacher_attendance_history",
+            teacher_id: teacherId
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Teacher Attendance History Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/teachers/create', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: "Only administrators can create staff members." });
+        }
+        const result = await callPython({
+            action: "create_staff",
+            ...req.body
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Create Staff Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.put('/api/teachers/:id', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: "Only administrators can update staff members." });
+        }
+        const result = await callPython({
+            action: "update_staff",
+            teacher_id: req.params.id,
+            ...req.body
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Update Staff Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/api/teachers/:id', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: "Only administrators can delete staff members." });
+        }
+        const result = await callPython({
+            action: "delete_staff",
+            teacher_id: req.params.id
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Delete Staff Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 // --- Syllabus Tracker Endpoints ---
 app.get('/api/syllabus', authenticateToken, async (req, res) => {
