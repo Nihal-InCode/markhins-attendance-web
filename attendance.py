@@ -7349,6 +7349,25 @@ if __name__ == "__main__":
                             "date": today_date
                         }
 
+                elif action == "get_today_all_teachers_attendance":
+                    now_ist = get_ist_now()
+                    target_date = data.get("date") or now_ist.strftime("%Y-%m-%d")
+                    c.execute("SELECT teacher_id, teacher_name, scan_time, date FROM teacher_attendance WHERE date=?", (target_date,))
+                    rows = c.fetchall()
+                    records = []
+                    for r in rows:
+                        records.append({
+                            "teacher_id": str(r[0]),
+                            "teacher_name": r[1],
+                            "scan_time": r[2],
+                            "date": r[3]
+                        })
+                    result = {
+                        "success": True,
+                        "date": target_date,
+                        "records": records
+                    }
+
                 # ── WebAuthn Credential Actions ──
 
                 elif action == "register_webauthn_credential":

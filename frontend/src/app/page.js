@@ -51,7 +51,8 @@ import {
   approveTeacherReturn,
   approvePrincipalReturn,
   rejectPrincipalReturn,
-  getTodayTeacherAttendanceStatus
+  getTodayTeacherAttendanceStatus,
+  getTodayTeacherAttendanceList
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -580,6 +581,11 @@ export default function DashboardPage() {
   // Teacher Permanent QR Attendance State
   const [showTeacherQrScanner, setShowTeacherQrScanner] = useState(false);
   const [teacherAttStatus, setTeacherAttStatus] = useState({ markedToday: false, scanTime: null });
+  const [teachersList, setTeachersList] = useState([]);
+  const [todayTeacherScans, setTodayTeacherScans] = useState([]);
+  const [loadingTeacherAtt, setLoadingTeacherAtt] = useState(false);
+  const [teacherAttSearch, setTeacherAttSearch] = useState("");
+  const [teacherAttFilter, setTeacherAttFilter] = useState("all");
 
   useEffect(() => {
     if (user && user.role !== 'admin' && user.role !== 'Majlis') {
@@ -592,6 +598,29 @@ export default function DashboardPage() {
         .catch((err) => console.error("Failed to fetch today teacher attendance status:", err));
     }
   }, [user]);
+
+  const fetchTeacherAttData = useCallback(() => {
+    if (activeTab === "reports" && reportType === "teacher_att") {
+      setLoadingTeacherAtt(true);
+      Promise.all([
+        getTeachersList(),
+        getTodayTeacherAttendanceList()
+      ])
+        .then(([tList, scanRes]) => {
+          setTeachersList(Array.isArray(tList) ? tList : []);
+          if (scanRes && scanRes.success && Array.isArray(scanRes.records)) {
+            setTodayTeacherScans(scanRes.records);
+          }
+        })
+        .catch((err) => console.error("Failed to load teacher attendance data:", err))
+        .finally(() => setLoadingTeacherAtt(false));
+    }
+  }, [activeTab, reportType]);
+
+  useEffect(() => {
+    fetchTeacherAttData();
+  }, [fetchTeacherAttData]);
+
 
 
   // Substitute Planner System States
@@ -3372,45 +3401,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Feature: Teacher QR Attendance ── */}
-        {activeTab === "attendance" && user && user.role !== 'admin' && user.role !== 'Majlis' && (
-          <div
-            className="mx-auto max-w-md mt-6"
-            style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.35s' }}
-          >
-            <button
-              onClick={() => setShowTeacherQrScanner(true)}
-              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-xl shadow-blue-200 hover:shadow-2xl transition-all active:scale-[0.98] group relative overflow-hidden"
-            >
-              <div className="flex items-center gap-5 z-10">
-                <div className="w-14 h-14 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                  📷
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
-                    Teacher Attendance
-                    {teacherAttStatus.markedToday && (
-                      <span className="text-[10px] bg-emerald-500 text-white px-2.5 py-0.5 rounded-full font-black tracking-wider uppercase shadow-sm">
-                        Present
-                      </span>
-                    )}
-                  </h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-100 mt-1">
-                    {teacherAttStatus.markedToday
-                      ? `Scanned at ${teacherAttStatus.scanTime || 'Today'}`
-                      : "Scan Office QR to mark present"}
-                  </p>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white z-10 group-hover:bg-white/20 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </button>
-          </div>
-        )}
-
         {/* ── Feature: Health & Leave Management ── */}
         {activeTab === "attendance" && user && canManageHealthStatus(user) && (
           <div
@@ -3693,8 +3683,9 @@ export default function DashboardPage() {
             {(() => {
               const isCoordinator = user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username);
               const reportTabs = [
-                { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
                 { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
+                { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
+                { id: 'teacher_att', label: 'Staff Att.', emoji: '👨‍🏫', desc: 'Staff QR scan & faculty attendance register.' },
                 { id: 'namaz', label: 'Namaz', emoji: '🕌', desc: 'Check daily and weekly prayer registers.' },
                 { id: 'syllabus', label: 'Syllabus Tracker', emoji: '📖', desc: 'Track curriculum progress and goals.' },
                 { id: 'events', label: 'Events History', emoji: '🏆', desc: 'Special events attendance records.' },
@@ -3721,15 +3712,15 @@ export default function DashboardPage() {
                           <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Permission Manager</span>
                         </button>
                       )}
-                      <button disabled
-                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
-                        <span className="block text-2xl">⏳</span>
-                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
+                      <button onClick={() => setShowTeacherQrScanner(true)}
+                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
+                        <span className="block text-2xl">📷</span>
+                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Scan Staff QR</span>
                       </button>
-                      <button disabled
-                        className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 text-center text-gray-400 opacity-60 shadow-sm">
-                        <span className="block text-2xl">⏳</span>
-                        <span className="mt-2 block text-[9px] font-black uppercase tracking-wider">Coming Soon</span>
+                      <button onClick={() => { setReportType('teacher_att'); router.push('/?tab=reports&type=teacher_att', { scroll: false }); }}
+                        className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-center text-purple-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md">
+                        <span className="block text-2xl">👨‍🏫</span>
+                        <span className="mt-2 block text-[10px] font-black uppercase tracking-widest">Staff Att.</span>
                       </button>
                     </div>
 
@@ -3743,12 +3734,13 @@ export default function DashboardPage() {
                       {[
                         { id: 'overview', label: 'Monitor', emoji: '📊', color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
                         { id: 'analysis', label: 'Analysis', emoji: '📈', color: 'bg-blue-50 border-blue-100 text-blue-700' },
+                        { id: 'teacher_att', label: 'Staff Att.', emoji: '👨‍🏫', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
                         { id: 'namaz', label: 'Namaz', emoji: '🕌', color: 'bg-amber-50 border-amber-100 text-amber-700' },
                         { id: 'syllabus', label: 'Syllabus', emoji: '📖', color: 'bg-violet-50 border-violet-100 text-violet-700' },
                         { id: 'events', label: 'Events', emoji: '🏆', color: 'bg-rose-50 border-rose-100 text-rose-700' },
                         { id: 'extra', label: 'Extra Class', emoji: '⚡', color: 'bg-orange-50 border-orange-100 text-orange-700' },
                         { id: 'register', label: 'Register', emoji: '📒', color: 'bg-slate-50 border-slate-200 text-slate-700' },
-                        ...(isCoordinator ? [{ id: 'substitute', label: 'Substitute', emoji: '📅', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' }] : [])
+                        ...(isCoordinator ? [{ id: 'substitute', label: 'Substitute', emoji: '📅', color: 'bg-teal-50 border-teal-100 text-teal-700' }] : [])
                       ].map((card) => (
                         <button
                           key={card.id}
@@ -7175,6 +7167,238 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {reportType === "teacher_att" && (
+                  <div className="space-y-6 animate-in fade-in">
+                    {/* Header & Quick Action */}
+                    <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl">👨‍🏫</span>
+                            <div>
+                              <h3 className="text-xl font-black tracking-tight">Faculty & Staff Attendance</h3>
+                              <p className="text-xs text-indigo-200 font-medium mt-0.5">
+                                Official Staff Attendance Register • {getIstDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setShowTeacherQrScanner(true)}
+                            className="px-5 py-3 rounded-2xl bg-white text-indigo-950 font-black text-xs uppercase tracking-wider shadow-lg hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-2"
+                          >
+                            <span>📷</span>
+                            <span>Scan Staff QR</span>
+                          </button>
+                          <button
+                            onClick={fetchTeacherAttData}
+                            className="p-3 rounded-2xl bg-indigo-800/80 hover:bg-indigo-700 border border-indigo-700 text-indigo-100 transition-all active:scale-95"
+                            title="Refresh Data"
+                          >
+                            🔄
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Analytics & KPI Cards */}
+                    {(() => {
+                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isNonTeacherAdmin(t));
+                      const totalCount = allFaculty.length;
+                      
+                      const scanMap = new Map();
+                      todayTeacherScans.forEach(s => {
+                        scanMap.set(String(s.teacher_id), s.scan_time);
+                        scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
+                      });
+
+                      let presentCount = 0;
+                      allFaculty.forEach(t => {
+                        if (scanMap.has(String(t.id)) || scanMap.has(String(t.name).toLowerCase().trim())) {
+                          presentCount++;
+                        }
+                      });
+                      const absentCount = Math.max(0, totalCount - presentCount);
+                      const pct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
+                      return (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Faculty</span>
+                              <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled staff</p>
+                            </div>
+                            <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present Today</span>
+                              <p className="text-2xl font-black text-emerald-600 mt-1">{presentCount}</p>
+                              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Scanned today</p>
+                            </div>
+                            <div className="bg-amber-50/70 rounded-2xl border border-amber-100 p-4 shadow-sm">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Not Scanned</span>
+                              <p className="text-2xl font-black text-amber-600 mt-1">{absentCount}</p>
+                              <p className="text-[10px] font-bold text-amber-600 mt-0.5">Pending scan</p>
+                            </div>
+                            <div className="bg-indigo-50/70 rounded-2xl border border-indigo-100 p-4 shadow-sm">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700">Attendance Rate</span>
+                              <p className="text-2xl font-black text-indigo-600 mt-1">{pct}%</p>
+                              <div className="mt-1.5 h-1.5 rounded-full bg-indigo-100 overflow-hidden">
+                                <div className="h-full bg-indigo-600 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Search & Filter Controls */}
+                          <div className="bg-white rounded-3xl border border-gray-100 p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+                            <div className="relative w-full md:w-80">
+                              <input
+                                type="text"
+                                placeholder="Search teacher by name or role..."
+                                value={teacherAttSearch}
+                                onChange={(e) => setTeacherAttSearch(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-150 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-bold text-gray-800 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                              />
+                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                            </div>
+
+                            <div className="flex gap-1.5 bg-gray-50 p-1 rounded-2xl border border-gray-100 w-full md:w-auto">
+                              {[
+                                { id: "all", label: `All (${totalCount})` },
+                                { id: "present", label: `Present (${presentCount})` },
+                                { id: "absent", label: `Not Scanned (${absentCount})` }
+                              ].map((tab) => (
+                                <button
+                                  key={tab.id}
+                                  onClick={() => setTeacherAttFilter(tab.id)}
+                                  className={`flex-1 md:flex-initial px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                    teacherAttFilter === tab.id
+                                      ? "bg-white text-indigo-900 shadow-sm border border-gray-100"
+                                      : "text-gray-500 hover:text-gray-800"
+                                  }`}
+                                >
+                                  {tab.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Teacher Attendance Cards List */}
+                          {loadingTeacherAtt ? (
+                            <div className="flex justify-center p-16">
+                              <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-indigo-600 border-t-transparent" />
+                            </div>
+                          ) : (
+                            (() => {
+                              const filtered = allFaculty.filter(t => {
+                                const nameMatch = (t.name || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
+                                  (t.username || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
+                                  (t.role || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
+                                  (t.subject || "").toLowerCase().includes(teacherAttSearch.toLowerCase());
+                                
+                                const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
+                                const isPresent = !!scanTime;
+
+                                if (teacherAttFilter === "present" && !isPresent) return false;
+                                if (teacherAttFilter === "absent" && isPresent) return false;
+
+                                return nameMatch;
+                              });
+
+                              if (filtered.length === 0) {
+                                return (
+                                  <div className="bg-gray-50 border border-dashed border-gray-200 rounded-3xl p-12 text-center">
+                                    <span className="text-3xl">👨‍🏫</span>
+                                    <p className="text-xs font-black uppercase tracking-widest text-gray-400 mt-2">
+                                      No matching teacher attendance records found.
+                                    </p>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                                  {filtered.map((t, idx) => {
+                                    const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
+                                    const isPresent = !!scanTime;
+                                    const initials = (t.name || t.username || "?")
+                                      .split(" ")
+                                      .map(w => w[0])
+                                      .join("")
+                                      .slice(0, 2)
+                                      .toUpperCase();
+
+                                    return (
+                                      <div
+                                        key={t.id || idx}
+                                        className={`rounded-2xl p-4 border transition-all shadow-sm flex flex-col justify-between h-40 ${
+                                          isPresent
+                                            ? "bg-gradient-to-br from-emerald-50/80 to-white border-emerald-200"
+                                            : "bg-white border-gray-150"
+                                        }`}
+                                      >
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
+                                              isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
+                                            }`}>
+                                              {initials}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <h5 className="font-black text-gray-900 text-sm truncate leading-tight" title={t.name}>
+                                                {t.name}
+                                              </h5>
+                                              <p className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                                {t.role || "Faculty"} {t.subject ? `• ${t.subject}` : ""}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border ${
+                                            isPresent
+                                              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                              : "bg-gray-100 text-gray-500 border-gray-200"
+                                          }`}>
+                                            {isPresent ? "Present" : "Not Scanned"}
+                                          </span>
+                                        </div>
+
+                                        <div className="my-2 pt-2 border-t border-gray-100">
+                                          {isPresent ? (
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="text-[10px] font-bold text-gray-400">Scan Timestamp:</span>
+                                              <span className="font-black text-emerald-700 font-mono text-[11px] bg-emerald-100/60 px-2 py-0.5 rounded-lg">
+                                                🕒 {scanTime}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="text-[10px] font-bold text-gray-400">Status:</span>
+                                              <span className="font-bold text-amber-600 text-[10px] bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                                ⏳ Pending Scan
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400">
+                                          <span>Faculty ID: #{t.id}</span>
+                                          <span className="text-indigo-600 font-black">MARKHINS Web</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

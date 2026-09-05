@@ -71,7 +71,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 if (onSuccess) onSuccess(response.record);
                             } else {
                                 setStatus("INVALID_QR");
-                                setMessage(response.message || "Invalid Office QR code.");
+                                setMessage(response.message || "Invalid QR code.");
                             }
                         } catch (err) {
                             console.error("Scan submit error:", err);
@@ -80,7 +80,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 setMessage("Unable to connect to server. Please check your connection.");
                             } else {
                                 setStatus("INVALID_QR");
-                                setMessage(err.message || "Invalid Office QR code.");
+                                setMessage(err.message || "Invalid QR code.");
                             }
                         }
                     },
@@ -155,7 +155,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 if (onSuccess) onSuccess(response.record);
                             } else {
                                 setStatus("INVALID_QR");
-                                setMessage(response.message || "Invalid Office QR code.");
+                                setMessage(response.message || "Invalid QR code.");
                             }
                         } catch (err) {
                             if (err.message && err.message.toLowerCase().includes("network")) {
@@ -163,7 +163,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 setMessage("Unable to connect to server. Please check your connection.");
                             } else {
                                 setStatus("INVALID_QR");
-                                setMessage(err.message || "Invalid Office QR code.");
+                                setMessage(err.message || "Invalid QR code.");
                             }
                         }
                     },
@@ -189,7 +189,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                             📷
                         </div>
                         <h2 className="text-base font-black text-gray-800 uppercase tracking-tight">
-                            Office QR Attendance
+                            Staff Attendance Scanner
                         </h2>
                     </div>
                     <button
@@ -204,7 +204,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 {status === "SCANNING" && (
                     <div className="w-full flex flex-col items-center">
                         <p className="text-xs text-gray-500 font-medium mb-3">
-                            Point camera at the office QR code
+                            Point camera at the official staff attendance QR code
                         </p>
                         <div className="relative w-64 h-64 rounded-3xl overflow-hidden border-4 border-blue-500/30 bg-black flex items-center justify-center shadow-inner">
                             <div id="teacher-qr-reader" className="w-full h-full"></div>
@@ -218,7 +218,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 {status === "PROCESSING" && (
                     <div className="py-12 flex flex-col items-center space-y-4">
                         <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-                        <p className="text-sm font-bold text-gray-700">Verifying Office QR Code...</p>
+                        <p className="text-sm font-bold text-gray-700">Verifying Attendance QR...</p>
                     </div>
                 )}
 
@@ -275,8 +275,8 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl shadow-lg shadow-red-100">
                             ⚠️
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Invalid Office QR</h3>
-                        <p className="text-xs text-red-600 font-medium px-2">{message || "The scanned QR code is not recognized as the official office attendance QR."}</p>
+                        <h3 className="text-lg font-black text-gray-800">Invalid Attendance QR</h3>
+                        <p className="text-xs text-red-600 font-medium px-2">{message || "The scanned QR code is not recognized as the official staff attendance QR."}</p>
 
                         <div className="flex gap-2 w-full pt-2">
                             <button

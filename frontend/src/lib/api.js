@@ -442,4 +442,5 @@ export const scanTeacherAttendance = (qrToken) => apiRequest('/api/teacher-atten
 });
 
 export const getTodayTeacherAttendanceStatus = () => apiRequest('/api/teacher-attendance/today-status');
+export const getTodayTeacherAttendanceList = (date) => apiRequest(`/api/teacher-attendance/today-list${date ? `?date=${date}` : ''}`);
 

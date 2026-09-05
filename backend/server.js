@@ -1569,6 +1569,20 @@ app.get('/api/teacher-attendance/today-status', authenticateToken, async (req, r
     }
 });
 
+app.get('/api/teacher-attendance/today-list', authenticateToken, async (req, res) => {
+    try {
+        const { date } = req.query;
+        const result = await callPython({
+            action: "get_today_all_teachers_attendance",
+            date: date || null
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Teacher Attendance Today List Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 // --- Syllabus Tracker Endpoints ---
 app.get('/api/syllabus', authenticateToken, async (req, res) => {
