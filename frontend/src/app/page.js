@@ -1501,7 +1501,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.role === 'Majlis' || isNonTeacher) {
       setActiveTab("reports");
-      setReportType(null);
+      const type = searchParams.get('type');
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att'].includes(type)) {
+        setReportType(type);
+      } else {
+        setReportType(null);
+      }
       return;
     }
     const urlTab = searchParams.get('tab');
