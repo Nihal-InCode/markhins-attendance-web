@@ -604,6 +604,22 @@ def run_migrations():
         c.execute("CREATE INDEX IF NOT EXISTS idx_webauthn_teacher ON webauthn_credentials(teacher_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_webauthn_credential_id ON webauthn_credentials(credential_id)")
 
+        # ── Teacher Attendance Table ──
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS teacher_attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                teacher_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                scan_time TEXT NOT NULL,
+                scanned_at DATETIME NOT NULL,
+                created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+                FOREIGN KEY (teacher_id) REFERENCES teachers(id),
+                CONSTRAINT unique_teacher_daily_attendance UNIQUE (teacher_id, date)
+            )
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_teacher_att_date ON teacher_attendance(date)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_teacher_att_teacher_date ON teacher_attendance(teacher_id, date)")
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -7255,6 +7271,83 @@ if __name__ == "__main__":
                         result = {"success": True}
                     else:
                         result = {"success": False, "error": "Session invalidated"}
+
+                # ── Teacher Attendance Actions ──
+                elif action == "mark_teacher_attendance":
+                    teacher_id = data.get("teacher_id")
+                    qr_token = str(data.get("qr_token") or "").strip()
+                    expected_secret = str(data.get("expected_secret") or "").strip()
+
+                    clean_token = qr_token.replace("MARKHINS_OFFICE_ATTENDANCE:", "").strip()
+                    clean_secret = expected_secret.replace("MARKHINS_OFFICE_ATTENDANCE:", "").strip()
+
+                    if not teacher_id:
+                        result = {"success": False, "message": "Teacher ID is required."}
+                    elif not qr_token or not clean_secret or clean_token != clean_secret:
+                        result = {"success": False, "message": "Invalid Office QR code."}
+                    else:
+                        now_ist = get_ist_now()
+                        today_date = now_ist.strftime("%Y-%m-%d")
+                        scan_time_str = now_ist.strftime("%I:%M:%S %p")
+                        scanned_at_str = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+
+                        c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                        existing = c.fetchone()
+                        if existing:
+                            result = {
+                                "success": True,
+                                "status": "ALREADY_MARKED",
+                                "message": "Attendance already marked for today.",
+                                "record": {
+                                    "date": today_date,
+                                    "scanTime": existing[0]
+                                }
+                            }
+                        else:
+                            try:
+                                c.execute(
+                                    "INSERT INTO teacher_attendance (teacher_id, date, scan_time, scanned_at) VALUES (?, ?, ?, ?)",
+                                    (teacher_id, today_date, scan_time_str, scanned_at_str)
+                                )
+                                conn.commit()
+                                result = {
+                                    "success": True,
+                                    "status": "MARKED_PRESENT",
+                                    "message": "Teacher attendance marked successfully.",
+                                    "record": {
+                                        "date": today_date,
+                                        "scanTime": scan_time_str
+                                    }
+                                }
+                            except sqlite3.IntegrityError:
+                                c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                                row_after = c.fetchone()
+                                result = {
+                                    "success": True,
+                                    "status": "ALREADY_MARKED",
+                                    "message": "Attendance already marked for today.",
+                                    "record": {
+                                        "date": today_date,
+                                        "scanTime": row_after[0] if row_after else scan_time_str
+                                    }
+                                }
+
+                elif action == "get_today_teacher_attendance_status":
+                    teacher_id = data.get("teacher_id")
+                    now_ist = get_ist_now()
+                    today_date = now_ist.strftime("%Y-%m-%d")
+
+                    if not teacher_id:
+                        result = {"success": False, "message": "Teacher ID is required."}
+                    else:
+                        c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                        row = c.fetchone()
+                        result = {
+                            "success": True,
+                            "markedToday": row is not None,
+                            "scanTime": row[0] if row else None,
+                            "date": today_date
+                        }
 
                 # ── WebAuthn Credential Actions ──
 

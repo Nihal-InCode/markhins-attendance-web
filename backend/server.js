@@ -1522,6 +1522,54 @@ app.post('/mark-attendance', authenticateToken, async (req, res) => {
     }
 });
 
+// ── Teacher Permanent QR Attendance Endpoints ──
+app.post('/api/teacher-attendance/scan', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        if (!user || !user.id || user.id === 'system-admin' || user.id === 'majlis-user' || user.role === 'admin' || user.role === 'Majlis') {
+            return res.status(403).json({ success: false, message: "Only authenticated teachers are authorized to scan office QR attendance." });
+        }
+
+        const { qrToken } = req.body || {};
+        if (!qrToken) {
+            return res.status(400).json({ success: false, message: "QR token is required." });
+        }
+
+        const expected_secret = process.env.OFFICE_ATTENDANCE_QR_SECRET || 'MARKHINS_OFFICE_SECRET_KEY_2026';
+        const result = await callPython({
+            action: "mark_teacher_attendance",
+            teacher_id: user.id,
+            qr_token: qrToken,
+            expected_secret
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('[Teacher Attendance Scan Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/teacher-attendance/today-status', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        if (!user || !user.id || user.id === 'system-admin' || user.id === 'majlis-user') {
+            return res.json({ success: true, markedToday: false });
+        }
+
+        const result = await callPython({
+            action: "get_today_teacher_attendance_status",
+            teacher_id: user.id
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('[Teacher Attendance Today Status Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
 // --- Syllabus Tracker Endpoints ---
 app.get('/api/syllabus', authenticateToken, async (req, res) => {
     try {

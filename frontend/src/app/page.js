@@ -50,13 +50,16 @@ import {
   rejectPermission,
   approveTeacherReturn,
   approvePrincipalReturn,
-  rejectPrincipalReturn
+  rejectPrincipalReturn,
+  getTodayTeacherAttendanceStatus
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
+import TeacherQrScannerModal from "@/components/TeacherQrScannerModal";
 import { playSound } from "@/lib/sound";
 import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
+
 
 const isNonTeacherAdmin = (t) => {
   const name = String(t?.name || "").trim().toUpperCase();
@@ -571,7 +574,24 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("attendance");
 
+  // Teacher Permanent QR Attendance State
+  const [showTeacherQrScanner, setShowTeacherQrScanner] = useState(false);
+  const [teacherAttStatus, setTeacherAttStatus] = useState({ markedToday: false, scanTime: null });
+
+  useEffect(() => {
+    if (user && user.role !== 'admin' && user.role !== 'Majlis') {
+      getTodayTeacherAttendanceStatus()
+        .then((res) => {
+          if (res && res.success) {
+            setTeacherAttStatus({ markedToday: !!res.markedToday, scanTime: res.scanTime || null });
+          }
+        })
+        .catch((err) => console.error("Failed to fetch today teacher attendance status:", err));
+    }
+  }, [user]);
+
   // Substitute Planner System States
+
   const [subCoordinators, setSubCoordinators] = useState([]);
   const [subWidget, setSubWidget] = useState(null);
   const [plannerDate, setPlannerDate] = useState(() => {
@@ -3345,6 +3365,45 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Feature: Teacher QR Attendance ── */}
+        {activeTab === "attendance" && user && user.role !== 'admin' && user.role !== 'Majlis' && (
+          <div
+            className="mx-auto max-w-md mt-6"
+            style={{ animation: 'fadeUpIn 0.4s ease both', animationDelay: '0.35s' }}
+          >
+            <button
+              onClick={() => setShowTeacherQrScanner(true)}
+              className="w-full flex items-center justify-between p-6 rounded-[2.5rem] bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-xl shadow-blue-200 hover:shadow-2xl transition-all active:scale-[0.98] group relative overflow-hidden"
+            >
+              <div className="flex items-center gap-5 z-10">
+                <div className="w-14 h-14 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  📷
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    Teacher Attendance
+                    {teacherAttStatus.markedToday && (
+                      <span className="text-[10px] bg-emerald-500 text-white px-2.5 py-0.5 rounded-full font-black tracking-wider uppercase shadow-sm">
+                        Present
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-100 mt-1">
+                    {teacherAttStatus.markedToday
+                      ? `Scanned at ${teacherAttStatus.scanTime || 'Today'}`
+                      : "Scan Office QR to mark present"}
+                  </p>
+                </div>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white z-10 group-hover:bg-white/20 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
           </div>
         )}
 
@@ -9173,6 +9232,19 @@ export default function DashboardPage() {
       </nav>
       )}
 
+      {/* ── Teacher QR Attendance Scanner Modal ── */}
+      <TeacherQrScannerModal
+        isOpen={showTeacherQrScanner}
+        onClose={() => setShowTeacherQrScanner(false)}
+        onSuccess={(record) => {
+          if (record) {
+            setTeacherAttStatus({ markedToday: true, scanTime: record.scanTime });
+          }
+        }}
+      />
+
+
     </div>
   );
 }
+

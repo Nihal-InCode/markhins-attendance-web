@@ -433,3 +433,12 @@ export const getSubstituteReport = (params = {}) => {
     return apiRequest(`/api/substitute/report?${search.toString()}`);
 };
 export const getSubstituteDashboardWidget = () => apiRequest('/api/substitute/dashboard-widget');
+
+// ── Teacher Attendance API Helpers ──
+export const scanTeacherAttendance = (qrToken) => apiRequest('/api/teacher-attendance/scan', {
+    method: 'POST',
+    body: JSON.stringify({ qrToken }),
+});
+
+export const getTodayTeacherAttendanceStatus = () => apiRequest('/api/teacher-attendance/today-status');
+

@@ -17,9 +17,12 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.local
+.env.*
+*.env
+
