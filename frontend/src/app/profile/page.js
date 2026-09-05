@@ -28,6 +28,13 @@ export default function ProfilePage() {
     const [registeringPasskey, setRegisteringPasskey] = useState(false);
 
     useEffect(() => {
+        if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
+            router.replace("/?tab=reports");
+            return;
+        }
+    }, [user, router]);
+
+    useEffect(() => {
         showLoaderRef.current = showLoader;
         hideLoaderRef.current = hideLoader;
     }, [showLoader, hideLoader]);

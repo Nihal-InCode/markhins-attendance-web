@@ -1480,9 +1480,11 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
 
 
+  const isNonTeacher = Boolean(user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false));
+
   // ── Sync activeTab with URL (?tab=attendance) so back button works ──
   const switchTab = useCallback((tab) => {
-    if (user?.role === 'Majlis' && tab !== 'reports') return;
+    if ((user?.role === 'Majlis' || isNonTeacher) && tab !== 'reports') return;
     setActiveTab(tab);
     setTimetableError("");
     setReportError("");
@@ -1493,11 +1495,11 @@ export default function DashboardPage() {
       router.push(`/?tab=${tab}`, { scroll: false });
     }
     setTimeout(() => trackEvent(`Switched to ${tab} tab`), 0);
-  }, [router, user?.role]);
+  }, [router, user?.role, isNonTeacher]);
 
   // On mount (and URL change): read tab from URL
   useEffect(() => {
-    if (user?.role === 'Majlis') {
+    if (user?.role === 'Majlis' || isNonTeacher) {
       setActiveTab("reports");
       setReportType(null);
       return;
@@ -1516,7 +1518,7 @@ export default function DashboardPage() {
     } else {
       setReportType(null);
     }
-  }, [searchParams]);
+  }, [searchParams, user?.role, isNonTeacher]);
 
   // ── Close period modal on browser/phone back button ──
   useEffect(() => {
@@ -9698,7 +9700,7 @@ export default function DashboardPage() {
         >
         <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-2 pb-1">
           {(() => {
-            const tabs = user?.role === 'Majlis' ? [
+            const tabs = (user?.role === 'Majlis' || isNonTeacher) ? [
               {
                 id: 'reports', label: 'Management',
                 icon: (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>)

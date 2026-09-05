@@ -127,7 +127,10 @@ function ConfirmationModal({ params, students, attendance, onGoHome }) {
 // ─────────────────────────────────────────────
 // MAIN ATTENDANCE PAGE
 // ─────────────────────────────────────────────
+import { useAuth } from "@/context/AuthContext";
+
 export default function AttendancePage() {
+    const { user } = useAuth();
     const [params, setParams] = useState(null);
     const [students, setStudents] = useState([]);
     const [attendance, setAttendance] = useState({});
@@ -138,6 +141,13 @@ export default function AttendancePage() {
     const [currentLessonPage, setCurrentLessonPage] = useState("");
     const { showLoader, hideLoader } = useLoading();
     const router = useRouter();
+
+    useEffect(() => {
+        if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
+            router.replace("/?tab=reports");
+            return;
+        }
+    }, [user, router]);
 
     useEffect(() => {
         const stored = sessionStorage.getItem("attendance_params");

@@ -5174,13 +5174,13 @@ if __name__ == "__main__":
                     password = str(data.get("password", ""))  # phone number entered by user
 
                     # Query teacher by username
-                    c.execute("SELECT id, name, phone, class_teacher_of, subject FROM teachers WHERE LOWER(username)=?", (username,))
+                    c.execute("SELECT id, name, phone, class_teacher_of, subject, is_teacher FROM teachers WHERE LOWER(username)=?", (username,))
                     teacher = c.fetchone()
                     print(f"[DEBUG] Login attempt - Username: {username}, Found in DB: {teacher is not None}")
                     
                     authenticated = False
                     if teacher:
-                        tid, tname, tphone, tcto, tsubj = teacher
+                        tid, tname, tphone, tcto, tsubj, is_teacher_val = teacher
                         stored_password = str(tphone or "").strip()
                         entered_password = str(password).strip()
                         print(f"[DEBUG] Stored pass: '{stored_password}', Entered pass: '{entered_password}'")
@@ -5198,7 +5198,8 @@ if __name__ == "__main__":
                     print(f"[DEBUG] Authentication result: {authenticated}")
 
                     if authenticated:
-                        tid, tname, tphone, tcto, tsubj = teacher
+                        tid, tname, tphone, tcto, tsubj, is_teacher_val = teacher
+                        is_teacher = is_teacher_val if is_teacher_val is not None else 1
                         
                         # ── Role Detection ──
                         # Hardcoded: id=3 = Principal (JAFAR NURANI), id=1 = VP (JUNAID NURANI)
@@ -5235,6 +5236,7 @@ if __name__ == "__main__":
                                 "role": role,
                                 "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal", "Urdu Principal") else None,
                                 "subject": tsubj,
+                                "is_teacher": is_teacher,
                                 "sessionId": session_id
                             }
                         }
@@ -7031,14 +7033,14 @@ if __name__ == "__main__":
 
                 elif action == "get_admin_teachers":
                     c.execute("""
-                        SELECT id, name, username, phone, class_teacher_of, subject, active_session_token
+                        SELECT id, name, username, phone, class_teacher_of, subject, active_session_token, is_teacher
                         FROM teachers
                         ORDER BY name COLLATE NOCASE, username COLLATE NOCASE
                     """)
                     rows = c.fetchall()
                     teachers = []
                     for r in rows:
-                        tid, name, username, phone, class_teacher_of, subject, active_session_token = r
+                        tid, name, username, phone, class_teacher_of, subject, active_session_token, is_teacher_val = r
                         teachers.append({
                             "id": tid,
                             "name": name,
@@ -7049,14 +7051,26 @@ if __name__ == "__main__":
                             "passwordStatus": "Has password" if str(phone or "").strip() else "Using default",
                             "classTeacherOf": class_teacher_of,
                             "subject": subject,
-                            "sessionActive": bool(active_session_token)
+                            "sessionActive": bool(active_session_token),
+                            "is_teacher": is_teacher_val if is_teacher_val is not None else 1
                         })
                     result = {"success": True, "data": teachers}
+
+                elif action == "get_teacher_by_id":
+                    target_tid = data.get("teacher_id")
+                    c.execute("SELECT id, name, username, role, is_teacher FROM teachers WHERE id=?", (target_tid,))
+                    trow = c.fetchone()
+                    if trow:
+                        result = {"success": True, "teacher": {"id": trow[0], "name": trow[1], "username": trow[2], "role": trow[3], "is_teacher": trow[4] if trow[4] is not None else 1}}
+                    else:
+                        result = {"success": False, "message": "Teacher not found."}
 
                 elif action == "create_teacher":
                     name = str(data.get("name") or "").strip()
                     username = str(data.get("username") or "").strip().lower()
                     password = str(data.get("password") or "").strip()
+                    is_teacher_raw = data.get("is_teacher")
+                    is_teacher = 1 if (is_teacher_raw in (1, "1", True, "true")) else (0 if is_teacher_raw in (0, "0", False, "false") else 1)
 
                     if not name:
                         result = {"success": False, "message": "Teacher name is required."}
@@ -7068,9 +7082,9 @@ if __name__ == "__main__":
                             result = {"success": False, "message": "Username already exists."}
                         else:
                             c.execute("""
-                                INSERT INTO teachers (name, username, phone, class_teacher_of, subject)
-                                VALUES (?, ?, ?, '', 'General')
-                            """, (name, username, password))
+                                INSERT INTO teachers (name, username, phone, class_teacher_of, subject, is_teacher)
+                                VALUES (?, ?, ?, '', 'General', ?)
+                            """, (name, username, password, is_teacher))
                             conn.commit()
                             result = {"success": True, "message": "Teacher created successfully."}
 
@@ -7079,6 +7093,7 @@ if __name__ == "__main__":
                     name = str(data.get("name") or "").strip()
                     username = str(data.get("username") or "").strip().lower()
                     password = data.get("password")
+                    is_teacher_raw = data.get("is_teacher")
 
                     if not teacher_id:
                         result = {"success": False, "message": "Teacher ID is required."}
@@ -7095,10 +7110,17 @@ if __name__ == "__main__":
                             if c.fetchone():
                                 result = {"success": False, "message": "Username already exists."}
                             else:
-                                if password is not None and str(password).strip() != "":
-                                    c.execute("UPDATE teachers SET name=?, username=?, phone=? WHERE id=?", (name, username, str(password).strip(), teacher_id))
+                                if is_teacher_raw is not None:
+                                    is_teacher = 1 if (is_teacher_raw in (1, "1", True, "true")) else 0
+                                    if password is not None and str(password).strip() != "":
+                                        c.execute("UPDATE teachers SET name=?, username=?, phone=?, is_teacher=? WHERE id=?", (name, username, str(password).strip(), is_teacher, teacher_id))
+                                    else:
+                                        c.execute("UPDATE teachers SET name=?, username=?, is_teacher=? WHERE id=?", (name, username, is_teacher, teacher_id))
                                 else:
-                                    c.execute("UPDATE teachers SET name=?, username=? WHERE id=?", (name, username, teacher_id))
+                                    if password is not None and str(password).strip() != "":
+                                        c.execute("UPDATE teachers SET name=?, username=?, phone=? WHERE id=?", (name, username, str(password).strip(), teacher_id))
+                                    else:
+                                        c.execute("UPDATE teachers SET name=?, username=? WHERE id=?", (name, username, teacher_id))
                                 conn.commit()
                                 result = {"success": True, "message": "Teacher updated successfully."}
 

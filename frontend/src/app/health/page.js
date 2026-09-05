@@ -45,6 +45,13 @@ export default function HealthPage() {
     const isClassTeacher = user?.role === 'Class Teacher';
     const assignedClass = user?.class_teacher_of;
 
+    useEffect(() => {
+        if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
+            router.replace("/?tab=reports");
+            return;
+        }
+    }, [user, router]);
+
     // Initial load: Classes
     useEffect(() => {
         trackEvent('Opened health page');

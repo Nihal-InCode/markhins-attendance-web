@@ -74,8 +74,44 @@ export default function SettingsPage() {
     const [teachersBusy, setTeachersBusy] = useState(false);
     const [teacherSearch, setTeacherSearch] = useState("");
     const [teacherModalOpen, setTeacherModalOpen] = useState(false);
-    const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "" });
+    const [teacherForm, setTeacherForm] = useState({ id: null, name: "", username: "", password: "", is_teacher: 1 });
     const [photoBusyTeacherId, setPhotoBusyTeacherId] = useState(null);
+
+    function openCreateTeacherModal() { setTeacherForm({ id: null, name: "", username: "", password: "", is_teacher: 1 }); setTeacherModalOpen(true); }
+    function openEditTeacherModal(teacher) { setTeacherForm({ id: teacher.id, name: teacher.name || "", username: teacher.username || "", password: "", is_teacher: teacher.is_teacher !== undefined ? teacher.is_teacher : 1 }); setTeacherModalOpen(true); }
+
+    async function handleToggleTeacherStatus(teacher, checked) {
+        setTeachersBusy(true);
+        try {
+            const newIsTeacher = checked ? 1 : 0;
+            await updateAdminTeacher(teacher.id, {
+                id: teacher.id,
+                name: teacher.name,
+                username: teacher.username,
+                is_teacher: newIsTeacher
+            });
+            setMsg(`Updated teacher status for ${teacher.name}`);
+            await refreshTeachers();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setTeachersBusy(false);
+        }
+    }
+
+    async function submitTeacherForm(e) {
+        e.preventDefault();
+        setTeachersBusy(true);
+        setError("");
+        try {
+            if (teacherForm.id) { await updateAdminTeacher(teacherForm.id, teacherForm); setMsg("Teacher updated."); }
+            else { await createAdminTeacher(teacherForm); setMsg("Teacher created."); }
+            playSound('success');
+            setTeacherModalOpen(false);
+            await Promise.all([refreshTeachers(), refreshSessions()]);
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setTeachersBusy(false); }
+    }
     const [namazApiMonitor, setNamazApiMonitor] = useState(null);
     const [selectedWeekday, setSelectedWeekday] = useState(new Date().getDay() === 0 ? 0 : new Date().getDay() - 1);
     const [timetableRows, setTimetableRows] = useState([]);
@@ -241,23 +277,6 @@ export default function SettingsPage() {
             else throw new Error(res.message || "Failed");
         } catch (err) { playSound('error'); setError(err.message); }
         finally { setResettingData(false); hideLoader(); }
-    }
-
-    function openCreateTeacherModal() { setTeacherForm({ id: null, name: "", username: "", password: "" }); setTeacherModalOpen(true); }
-    function openEditTeacherModal(teacher) { setTeacherForm({ id: teacher.id, name: teacher.name || "", username: teacher.username || "", password: "" }); setTeacherModalOpen(true); }
-
-    async function submitTeacherForm(e) {
-        e.preventDefault();
-        setTeachersBusy(true);
-        setError("");
-        try {
-            if (teacherForm.id) { await updateAdminTeacher(teacherForm.id, teacherForm); setMsg("Teacher updated."); }
-            else { await createAdminTeacher(teacherForm); setMsg("Teacher created."); }
-            playSound('success');
-            setTeacherModalOpen(false);
-            await Promise.all([refreshTeachers(), refreshSessions()]);
-        } catch (err) { playSound('error'); setError(err.message); }
-        finally { setTeachersBusy(false); }
     }
 
     async function handleTeacherPhotoUpload(teacher, file) {
@@ -549,7 +568,7 @@ export default function SettingsPage() {
                                 <table className="w-full min-w-[800px] text-left">
                                     <thead className="bg-gray-50/80">
                                         <tr>
-                                            {["Photo", "Name", "Username", "Password", "Class", "Actions"].map(h => (
+                                            {["Photo", "Name", "Username", "Password", "Class", "Teacher Access", "Actions"].map(h => (
                                                 <th key={h} className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                             ))}
                                         </tr>
@@ -588,6 +607,20 @@ export default function SettingsPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">{teacher.classTeacherOf || "—"}</td>
+                                                <td className="px-6 py-4">
+                                                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={teacher.is_teacher === 1 || teacher.is_teacher === true}
+                                                            disabled={teachersBusy}
+                                                            onChange={(e) => handleToggleTeacherStatus(teacher, e.target.checked)}
+                                                            className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
+                                                        />
+                                                        <span className={`text-xs font-semibold ${teacher.is_teacher === 1 || teacher.is_teacher === true ? "text-emerald-700" : "text-amber-700"}`}>
+                                                            {teacher.is_teacher === 1 || teacher.is_teacher === true ? "Teacher (All Access)" : "Staff (Management Only)"}
+                                                        </span>
+                                                    </label>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2">
                                                         <button onClick={() => openEditTeacherModal(teacher)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50 transition-all">Edit</button>
@@ -970,6 +1003,18 @@ export default function SettingsPage() {
                                 <input type="password" value={teacherForm.password} onChange={(e) => setTeacherForm(p => ({ ...p, password: e.target.value }))}
                                     placeholder={teacherForm.id ? "Leave blank to keep" : "Default password"}
                                     className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
+                                <label className="flex items-center gap-2.5 px-1 py-1 cursor-pointer select-none border-t border-gray-100 pt-3 mt-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={teacherForm.is_teacher === 1 || teacherForm.is_teacher === true}
+                                        onChange={(e) => setTeacherForm(p => ({ ...p, is_teacher: e.target.checked ? 1 : 0 }))}
+                                        className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold text-gray-800">Is Teacher (Full Access)</span>
+                                        <span className="text-[10px] text-gray-400">Uncheck if user should only access the Management Page.</span>
+                                    </div>
+                                </label>
                                 <div className="flex gap-2 pt-2">
                                     <button type="button" onClick={() => setTeacherModalOpen(false)}
                                         className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>

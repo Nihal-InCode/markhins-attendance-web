@@ -11,9 +11,18 @@ const statusConfig = {
     absent: { label: "Absent", color: "bg-red-500", text: "text-red-600", bg: "bg-red-50", border: "border-red-200" },
 };
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function ExtraAttendancePage() {
+    const { user } = useAuth();
     const router = useRouter();
     const { showLoader, hideLoader } = useLoading();
+
+    useEffect(() => {
+        if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
+            router.replace("/?tab=reports");
+        }
+    }, [user, router]);
     const [step, setStep] = useState("setup");
     const [classes, setClasses] = useState([]);
     const [subjects, setSubjects] = useState([]);

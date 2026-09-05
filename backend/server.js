@@ -739,8 +739,19 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.get('/validate-token', authenticateToken, (req, res) => {
-    res.json({ success: true, user: req.user });
+app.get('/validate-token', authenticateToken, async (req, res) => {
+    try {
+        let user = req.user;
+        if (user && user.id && user.role !== 'admin' && user.role !== 'Majlis') {
+            const dbCheck = await callPython({ action: "get_teacher_by_id", teacher_id: user.id });
+            if (dbCheck && dbCheck.success && dbCheck.teacher) {
+                user = { ...user, is_teacher: dbCheck.teacher.is_teacher };
+            }
+        }
+        res.json({ success: true, user });
+    } catch (e) {
+        res.json({ success: true, user: req.user });
+    }
 });
 
 // ── Create Auth Token Helper ──
@@ -2176,8 +2187,8 @@ app.get('/admin/teachers', authenticateToken, async (req, res) => {
 app.post('/admin/teachers', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
-        const { name, username, password } = req.body;
-        const result = await callPython({ action: "create_teacher", name, username, password });
+        const { name, username, password, is_teacher } = req.body;
+        const result = await callPython({ action: "create_teacher", name, username, password, is_teacher });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -2187,13 +2198,14 @@ app.post('/admin/teachers', authenticateToken, async (req, res) => {
 app.put('/admin/teachers/:teacherId', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
-        const { name, username, password } = req.body;
+        const { name, username, password, is_teacher } = req.body;
         const result = await callPython({
             action: "update_teacher",
             teacherId: req.params.teacherId,
             name,
             username,
-            password
+            password,
+            is_teacher
         });
         res.json(result);
     } catch (error) {

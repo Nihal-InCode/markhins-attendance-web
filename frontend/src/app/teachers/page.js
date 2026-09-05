@@ -16,6 +16,13 @@ export default function TeachersPage() {
     const { showLoader, hideLoader } = useLoading();
 
     useEffect(() => {
+        if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
+            router.replace("/?tab=reports");
+            return;
+        }
+    }, [user, router]);
+
+    useEffect(() => {
         async function fetchTeachers() {
             showLoader("Loading faculty list...");
             try {
