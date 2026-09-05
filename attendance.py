@@ -488,6 +488,10 @@ def run_migrations():
             c.execute("ALTER TABLE teachers ADD COLUMN class_teacher_of TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            c.execute("ALTER TABLE teachers ADD COLUMN is_teacher INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
 
         # === SYLLABUS TRACKER MIGRATIONS ===
         c.execute("""
@@ -6131,14 +6135,14 @@ if __name__ == "__main__":
 
                 elif action == "get_teachers_list":
                     # Fetch all teachers
-                    c.execute("SELECT id, name, username, teacher_code, class_teacher_of, subject FROM teachers ORDER BY name")
+                    c.execute("SELECT id, name, username, teacher_code, class_teacher_of, subject, role, is_teacher FROM teachers ORDER BY name")
                     rows = c.fetchall()
                     
                     teachers_list = []
                     for r in rows:
-                        tid, tname, tuname, tcode, tcto, tsubj = r
+                        tid, tname, tuname, tcode, tcto, tsubj, db_role, is_teacher = r
                         
-                        trole = "Subject Teacher"
+                        trole = db_role or "Subject Teacher"
                         if str(tcto).upper() == "PRINCIPAL" or str(tname).upper() == "PRINCIPAL":
                             trole = "Principal"
                         elif tcto and str(tcto) not in ("None", "", "DEVELOPER"):
@@ -6151,7 +6155,8 @@ if __name__ == "__main__":
                             "teacher_code": tcode,
                             "role": trole,
                             "class_teacher_of": tcto if trole == "Class Teacher" else None,
-                            "subject": tsubj
+                            "subject": tsubj,
+                            "is_teacher": is_teacher if is_teacher is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
                         })
                     
                     result = {"success": True, "data": teachers_list}
@@ -7373,7 +7378,8 @@ if __name__ == "__main__":
                             t.subject, 
                             t.class_teacher_of, 
                             ta.scan_time, 
-                            ta.date 
+                            ta.date,
+                            t.is_teacher 
                         FROM teachers t 
                         LEFT JOIN teacher_attendance ta 
                             ON t.id = ta.teacher_id AND ta.date = ?
@@ -7391,7 +7397,8 @@ if __name__ == "__main__":
                             "class_teacher_of": r[5] or "",
                             "scan_time": r[6],
                             "date": target_date,
-                            "marked_today": r[6] is not None
+                            "marked_today": r[6] is not None,
+                            "is_teacher": r[8] if r[8] is not None else (0 if str(r[3] or '').lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
                         })
                     result = {
                         "success": True,
@@ -7419,7 +7426,7 @@ if __name__ == "__main__":
                                 "scannedAt": r[2]
                             })
                         
-                        c.execute("SELECT id, name, role, username, subject, class_teacher_of FROM teachers WHERE id=?", (target_tid,))
+                        c.execute("SELECT id, name, role, username, subject, class_teacher_of, is_teacher FROM teachers WHERE id=?", (target_tid,))
                         trow = c.fetchone()
                         teacher_info = None
                         if trow:
@@ -7429,7 +7436,8 @@ if __name__ == "__main__":
                                 "role": trow[2] or "Faculty",
                                 "username": trow[3],
                                 "subject": trow[4],
-                                "classTeacherOf": trow[5]
+                                "classTeacherOf": trow[5],
+                                "is_teacher": trow[6] if trow[6] is not None else 1
                             }
 
                         result = {
@@ -7446,6 +7454,13 @@ if __name__ == "__main__":
                     role = str(data.get("role", "Faculty")).strip()
                     subject = str(data.get("subject", "General")).strip()
                     class_teacher_of = str(data.get("class_teacher_of", "")).strip()
+                    
+                    is_teacher_raw = data.get("is_teacher")
+                    if is_teacher_raw is None:
+                        non_teacher_roles = ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"]
+                        is_teacher = 0 if role.lower() in non_teacher_roles else 1
+                    else:
+                        is_teacher = 1 if (is_teacher_raw in (1, "1", True, "true")) else 0
 
                     if not name or not username:
                         result = {"success": False, "message": "Staff name and username are required."}
@@ -7455,9 +7470,9 @@ if __name__ == "__main__":
                             result = {"success": False, "message": "Username already exists."}
                         else:
                             c.execute("""
-                                INSERT INTO teachers (name, username, phone, role, subject, class_teacher_of)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (name, username, password, role, subject, class_teacher_of))
+                                INSERT INTO teachers (name, username, phone, role, subject, class_teacher_of, is_teacher)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (name, username, password, role, subject, class_teacher_of, is_teacher))
                             conn.commit()
                             new_id = c.lastrowid
                             result = {"success": True, "message": "Staff member created successfully.", "id": new_id}
@@ -7470,6 +7485,13 @@ if __name__ == "__main__":
                     role = str(data.get("role", "Faculty")).strip()
                     subject = str(data.get("subject", "General")).strip()
                     class_teacher_of = str(data.get("class_teacher_of", "")).strip()
+                    
+                    is_teacher_raw = data.get("is_teacher")
+                    if is_teacher_raw is None:
+                        non_teacher_roles = ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"]
+                        is_teacher = 0 if role.lower() in non_teacher_roles else 1
+                    else:
+                        is_teacher = 1 if (is_teacher_raw in (1, "1", True, "true")) else 0
 
                     if not target_tid or not name or not username:
                         result = {"success": False, "message": "Teacher ID, name, and username are required."}
@@ -7481,15 +7503,15 @@ if __name__ == "__main__":
                             if password:
                                 c.execute("""
                                     UPDATE teachers 
-                                    SET name=?, username=?, phone=?, role=?, subject=?, class_teacher_of=?
+                                    SET name=?, username=?, phone=?, role=?, subject=?, class_teacher_of=?, is_teacher=?
                                     WHERE id=?
-                                """, (name, username, password, role, subject, class_teacher_of, target_tid))
+                                """, (name, username, password, role, subject, class_teacher_of, is_teacher, target_tid))
                             else:
                                 c.execute("""
                                     UPDATE teachers 
-                                    SET name=?, username=?, role=?, subject=?, class_teacher_of=?
+                                    SET name=?, username=?, role=?, subject=?, class_teacher_of=?, is_teacher=?
                                     WHERE id=?
-                                """, (name, username, role, subject, class_teacher_of, target_tid))
+                                """, (name, username, role, subject, class_teacher_of, is_teacher, target_tid))
                             conn.commit()
                             result = {"success": True, "message": "Staff member updated successfully."}
 

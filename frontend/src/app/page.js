@@ -69,9 +69,19 @@ import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/
 
 
 const isNonTeacherAdmin = (t) => {
+  if (!t) return true;
   const name = String(t?.name || "").trim().toUpperCase();
   const user = String(t?.username || "").trim().toLowerCase();
-  return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+  const role = String(t?.role || "").trim().toLowerCase();
+
+  if (name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin") {
+    return true;
+  }
+  if (t?.is_teacher === 0 || t?.is_teacher === false || t?.is_teacher === "0") {
+    return true;
+  }
+  const nonTeacherRoles = ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "peon", "admin"];
+  return nonTeacherRoles.includes(role);
 };
 
 const getNamazPerfStyle = (pct) => {
@@ -778,7 +788,8 @@ export default function DashboardPage() {
     password: "",
     role: "Faculty",
     subject: "General",
-    class_teacher_of: ""
+    class_teacher_of: "",
+    is_teacher: 1
   });
   const [savingStaff, setSavingStaff] = useState(false);
   const [selectedStaffHistory, setSelectedStaffHistory] = useState(null);
@@ -793,20 +804,23 @@ export default function DashboardPage() {
       password: "",
       role: "Faculty",
       subject: "General",
-      class_teacher_of: ""
+      class_teacher_of: "",
+      is_teacher: 1
     });
     setStaffModalOpen(true);
   };
 
   const handleOpenEditStaff = (staff) => {
     setEditingStaff(staff);
+    const isTeacherCalc = staff.is_teacher !== undefined ? (staff.is_teacher ? 1 : 0) : (!isNonTeacherAdmin(staff) ? 1 : 0);
     setStaffFormData({
       name: staff.name || "",
       username: staff.username || "",
       password: "",
       role: staff.role || "Faculty",
       subject: staff.subject || "General",
-      class_teacher_of: staff.class_teacher_of || staff.classTeacherOf || ""
+      class_teacher_of: staff.class_teacher_of || staff.classTeacherOf || "",
+      is_teacher: isTeacherCalc
     });
     setStaffModalOpen(true);
   };
@@ -1352,7 +1366,7 @@ export default function DashboardPage() {
     }
     if (urlTab === 'reports') {
       const type = searchParams.get('type');
-      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute'].includes(type)) {
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att'].includes(type)) {
         setReportType(type);
       } else {
         setReportType(null);
@@ -7439,118 +7453,97 @@ export default function DashboardPage() {
                               }
 
                               return (
-                                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-                                  <div className="overflow-x-auto no-scrollbar">
-                                    <table className="w-full text-left border-collapse min-w-[700px]">
-                                      <thead className="bg-gray-50/80 border-b border-gray-100">
-                                        <tr>
-                                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Member</th>
-                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Role & Subject</th>
-                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Today's Status</th>
-                                          <th className="px-5 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Scan Timestamp</th>
-                                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions & History</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-50 text-xs">
-                                        {filtered.map((t, idx) => {
-                                          const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
-                                          const isPresent = !!scanTime;
-                                          const initials = (t.name || t.username || "?")
-                                            .split(" ")
-                                            .map(w => w[0])
-                                            .join("")
-                                            .slice(0, 2)
-                                            .toUpperCase();
+                                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden w-full">
+                                  <table className="w-full text-left border-collapse table-auto">
+                                    <thead className="bg-gray-50/80 border-b border-gray-100">
+                                      <tr>
+                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Name</th>
+                                        <th className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                                        <th className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Scan Time</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50 text-xs">
+                                      {filtered.map((t, idx) => {
+                                        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
+                                        const isPresent = !!scanTime;
+                                        const initials = (t.name || t.username || "?")
+                                          .split(" ")
+                                          .map(w => w[0])
+                                          .join("")
+                                          .slice(0, 2)
+                                          .toUpperCase();
 
-                                          return (
-                                            <tr key={t.id || idx} className="hover:bg-indigo-50/20 transition-colors group">
-                                              <td className="px-6 py-4 cursor-pointer" onClick={() => handleViewStaffHistory(t)}>
-                                                <div className="flex items-center gap-3">
-                                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-xs ${
-                                                    isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
-                                                  }`}>
-                                                    {initials}
-                                                  </div>
-                                                  <div>
-                                                    <p className="font-black text-gray-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
-                                                      <span>{t.name}</span>
-                                                      <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">📜</span>
-                                                    </p>
-                                                    <p className="text-[10px] font-semibold text-gray-400">
-                                                      ID: #{t.id} {t.username ? `• @${t.username}` : ''}
-                                                    </p>
-                                                  </div>
+                                        return (
+                                          <tr 
+                                            key={t.id || idx} 
+                                            className="hover:bg-indigo-50/30 transition-colors group cursor-pointer"
+                                            onClick={() => handleViewStaffHistory(t)}
+                                          >
+                                            {/* Staff Name Column */}
+                                            <td className="px-4 py-3">
+                                              <div className="flex items-center gap-2.5">
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[11px] text-white shrink-0 shadow-xs ${
+                                                  isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
+                                                }`}>
+                                                  {initials}
                                                 </div>
-                                              </td>
-
-                                              <td className="px-5 py-4">
-                                                <div>
-                                                  <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                    {t.role || "Faculty"}
-                                                  </span>
-                                                  <p className="text-[10px] font-bold text-gray-500 mt-1">
-                                                    {t.subject || "General"} {t.class_teacher_of ? `(Class Teacher of ${t.class_teacher_of})` : ''}
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="font-extrabold text-gray-900 text-xs group-hover:text-indigo-600 transition-colors truncate flex items-center gap-1">
+                                                    <span>{t.name}</span>
+                                                    <span className="text-[10px] text-indigo-400 opacity-60">📜</span>
+                                                  </p>
+                                                  <p className="text-[9px] font-semibold text-gray-400 truncate">
+                                                    {t.role || "Staff"} {t.subject ? `• ${t.subject}` : ""}
                                                   </p>
                                                 </div>
-                                              </td>
-
-                                              <td className="px-5 py-4 text-center">
-                                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                                                  isPresent
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                    : "bg-gray-50 text-gray-500 border-gray-200"
-                                                }`}>
-                                                  <span>{isPresent ? "✅" : "⏳"}</span>
-                                                  <span>{isPresent ? "Present" : "Not Scanned"}</span>
-                                                </span>
-                                              </td>
-
-                                              <td className="px-5 py-4 text-center font-mono">
-                                                {isPresent ? (
-                                                  <span className="font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg text-[11px]">
-                                                    🕒 {scanTime}
-                                                  </span>
-                                                ) : (
-                                                  <span className="text-gray-300 font-bold text-xs">—</span>
+                                                {user?.role === 'admin' && (
+                                                  <div className="flex items-center gap-1 shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                      onClick={() => handleOpenEditStaff(t)}
+                                                      className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                                                      title="Edit Staff"
+                                                    >
+                                                      ✏️
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleDeleteStaff(t)}
+                                                      className="p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all text-xs"
+                                                      title="Delete Staff"
+                                                    >
+                                                      🗑️
+                                                    </button>
+                                                  </div>
                                                 )}
-                                              </td>
+                                              </div>
+                                            </td>
 
-                                              <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                  <button
-                                                    onClick={() => handleViewStaffHistory(t)}
-                                                    className="px-3 py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider transition-all shadow-2xs"
-                                                    title="View Full History"
-                                                  >
-                                                    📜 History
-                                                  </button>
+                                            {/* Status Column */}
+                                            <td className="px-3 py-3 text-center shrink-0">
+                                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                                                isPresent
+                                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                  : "bg-gray-50 text-gray-500 border-gray-200"
+                                              }`}>
+                                                <span>{isPresent ? "✅" : "⏳"}</span>
+                                                <span className="hidden sm:inline">{isPresent ? "Present" : "Not Scanned"}</span>
+                                              </span>
+                                            </td>
 
-                                                  {user?.role === 'admin' && (
-                                                    <>
-                                                      <button
-                                                        onClick={() => handleOpenEditStaff(t)}
-                                                        className="p-1.5 rounded-xl border border-gray-150 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
-                                                        title="Edit Staff Member"
-                                                      >
-                                                        ✏️
-                                                      </button>
-                                                      <button
-                                                        onClick={() => handleDeleteStaff(t)}
-                                                        className="p-1.5 rounded-xl border border-gray-150 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all text-xs"
-                                                        title="Delete Staff Member"
-                                                      >
-                                                        🗑️
-                                                      </button>
-                                                    </>
-                                                  )}
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                            {/* Scan Time Column */}
+                                            <td className="px-4 py-3 text-right font-mono shrink-0">
+                                              {isPresent ? (
+                                                <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md text-[10px]">
+                                                  {scanTime}
+                                                </span>
+                                              ) : (
+                                                <span className="text-gray-300 font-bold text-xs">—</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
                                 </div>
                               );
                             })()
@@ -9700,6 +9693,42 @@ export default function DashboardPage() {
                 />
               </div>
 
+              {/* Account Category: Teacher vs Non-Teacher Staff */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Account Type (Category) *
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/90 rounded-xl border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setStaffFormData({ ...staffFormData, is_teacher: 1, role: staffFormData.role === "Office Staff" ? "Faculty" : staffFormData.role })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      staffFormData.is_teacher === 1
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>👨‍🏫 Teacher / Faculty</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStaffFormData({ ...staffFormData, is_teacher: 0, role: staffFormData.role === "Faculty" ? "Office Staff" : staffFormData.role })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      staffFormData.is_teacher === 0
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>💼 Other Staff</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {staffFormData.is_teacher === 1 
+                    ? "✓ Teacher accounts can take student attendance & appear in homepage teacher lists." 
+                    : "🔒 Non-teacher staff can scan QR attendance but are excluded from homepage student attendance lists."}
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
@@ -9714,7 +9743,10 @@ export default function DashboardPage() {
                     <option value="Senior Lecturer">Senior Lecturer</option>
                     <option value="Assistant Professor">Assistant Professor</option>
                     <option value="Head of Dept">Head of Dept</option>
-                    <option value="Staff">Staff</option>
+                    <option value="Office Staff">Office Staff</option>
+                    <option value="Accountant">Accountant</option>
+                    <option value="Librarian">Librarian</option>
+                    <option value="Staff">Other Staff</option>
                   </select>
                 </div>
 
