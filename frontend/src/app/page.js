@@ -56,7 +56,8 @@ import {
   getTeacherAttendanceHistory,
   createStaffMember,
   updateStaffMember,
-  deleteStaffMember
+  deleteStaffMember,
+  clearAllTeacherAttendance
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -883,6 +884,132 @@ export default function DashboardPage() {
       alert(err.message || "Error fetching attendance history.");
     } finally {
       setLoadingStaffHistory(false);
+    }
+  };
+
+  const exportStaffAttendanceExcel = async () => {
+    try {
+      const isSystemAccount = (t) => {
+        const name = String(t?.name || "").trim().toUpperCase();
+        const user = String(t?.username || "").trim().toLowerCase();
+        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+      };
+
+      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isSystemAccount(t));
+      if (allFaculty.length === 0) {
+        alert("No staff members found to export.");
+        return;
+      }
+
+      const scanMap = new Map();
+      todayTeacherScans.forEach(s => {
+        if (s.scan_time) {
+          scanMap.set(String(s.teacher_id), s.scan_time);
+          if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
+        }
+      });
+
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Faculty & Staff Attendance");
+
+      // Title & Meta Rows
+      sheet.addRow(["Faculty & Staff Attendance Register"]);
+      sheet.addRow([`Date: ${getIstDateString()}`, `Total Enrolled: ${allFaculty.length}`]);
+      sheet.addRow([]);
+
+      // Table Headers
+      const headerRow = sheet.addRow([
+        "Staff ID",
+        "Full Name",
+        "Username",
+        "Staff Type",
+        "Role",
+        "Subject",
+        "Class Teacher Of",
+        "Today's Status",
+        "Scan Time"
+      ]);
+
+      headerRow.font = { bold: true, color: { argb: "FFFFFF" } };
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "4F46E5" }
+        };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+
+      // Data Rows
+      allFaculty.forEach((t) => {
+        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+        const isPresent = Boolean(scanTime);
+        const isTeacher = t.is_teacher === 1 || t.is_teacher === undefined || t.is_teacher === null;
+
+        const row = sheet.addRow([
+          t.id,
+          t.name || "N/A",
+          t.username || "N/A",
+          isTeacher ? "Teacher" : "Other Staff",
+          t.role || "Faculty",
+          t.subject || "General",
+          t.class_teacher_of || t.classTeacherOf || "—",
+          isPresent ? "PRESENT" : "ABSENT",
+          scanTime || "—"
+        ]);
+
+        const statusCell = row.getCell(8);
+        if (isPresent) {
+          statusCell.font = { color: { argb: "047857" }, bold: true };
+        } else {
+          statusCell.font = { color: { argb: "B91C1C" }, bold: true };
+        }
+      });
+
+      sheet.columns.forEach((column) => {
+        column.width = 22;
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `faculty_staff_attendance_${getIstDateString().replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export Excel error:", err);
+      alert("Failed to export Excel file: " + err.message);
+    }
+  };
+
+  const handleClearTeacherAttendance = async () => {
+    if (user?.role !== 'admin') {
+      alert("Only administrators can clear attendance data.");
+      return;
+    }
+    const confirm1 = window.confirm("⚠️ ARE YOU SURE?\n\nThis will permanently delete ALL recorded scan attendance history for all faculty & staff members.\n\nThis action cannot be undone!");
+    if (!confirm1) return;
+
+    const confirm2 = window.prompt("To confirm clearing all attendance records, type 'CLEAR' in uppercase below:");
+    if (confirm2 !== "CLEAR") {
+      alert("Action cancelled. Confirmation text did not match 'CLEAR'.");
+      return;
+    }
+
+    try {
+      const res = await clearAllTeacherAttendance();
+      if (res && res.success) {
+        alert(res.message || "All attendance data cleared successfully.");
+        fetchTeacherAttData();
+      } else {
+        alert("Failed to clear attendance data: " + (res?.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Clear attendance error:", err);
+      alert("Error clearing attendance data: " + err.message);
     }
   };
 
@@ -3861,7 +3988,7 @@ export default function DashboardPage() {
 
                       {/* Tile 3: AI */}
                       <div className="relative rounded-2xl border border-purple-100 bg-purple-50/50 p-3 text-center text-purple-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                        <span className="block text-xl filter grayscale opacity-70">🤖</span>
+                        <span className="block text-xl filter grayscale opacity-70">✨</span>
                         <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">AI</span>
                         <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
                           Coming Soon
@@ -7331,13 +7458,31 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-2.5 flex-wrap">
                           {user?.role === 'admin' && (
-                            <button
-                              onClick={handleOpenAddStaff}
-                              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-indigo-400/30"
-                            >
-                              <span>➕</span>
-                              <span>Add Staff Member</span>
-                            </button>
+                            <>
+                              <button
+                                onClick={handleOpenAddStaff}
+                                className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-indigo-400/30"
+                              >
+                                <span>➕</span>
+                                <span>Add Staff Member</span>
+                              </button>
+                              <button
+                                onClick={exportStaffAttendanceExcel}
+                                className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-emerald-400/30"
+                                title="Export all staff attendance & details to Excel sheet"
+                              >
+                                <span>📊</span>
+                                <span>Export Excel</span>
+                              </button>
+                              <button
+                                onClick={handleClearTeacherAttendance}
+                                className="px-4 py-2.5 rounded-2xl bg-rose-600/90 hover:bg-rose-600 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-rose-400/30"
+                                title="Clear all recorded staff attendance history"
+                              >
+                                <span>🗑️</span>
+                                <span>Clear Data</span>
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => setShowTeacherQrScanner(true)}

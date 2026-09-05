@@ -7524,6 +7524,11 @@ if __name__ == "__main__":
                         conn.commit()
                         result = {"success": True, "message": "Staff member deleted successfully."}
 
+                elif action == "clear_all_teacher_attendance":
+                    c.execute("DELETE FROM teacher_attendance")
+                    conn.commit()
+                    result = {"success": True, "message": "All teacher & staff attendance recorded data has been cleared."}
+
                 # ── WebAuthn Credential Actions ──
 
                 elif action == "register_webauthn_credential":

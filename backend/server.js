@@ -1646,6 +1646,21 @@ app.delete('/api/teachers/:id', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/teacher-attendance/clear-all', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: "Only administrators can clear attendance data." });
+        }
+        const result = await callPython({
+            action: "clear_all_teacher_attendance"
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Clear Teacher Attendance Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 // --- Syllabus Tracker Endpoints ---
 app.get('/api/syllabus', authenticateToken, async (req, res) => {

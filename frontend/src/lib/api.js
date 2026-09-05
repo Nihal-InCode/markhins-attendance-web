@@ -447,4 +447,5 @@ export const getTeacherAttendanceHistory = (teacherId) => apiRequest(`/api/teach
 export const createStaffMember = (data) => apiRequest('/api/teachers/create', { method: 'POST', body: JSON.stringify(data) });
 export const updateStaffMember = (id, data) => apiRequest(`/api/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteStaffMember = (id) => apiRequest(`/api/teachers/${id}`, { method: 'DELETE' });
+export const clearAllTeacherAttendance = () => apiRequest('/api/teacher-attendance/clear-all', { method: 'POST' });
 
