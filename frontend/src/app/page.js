@@ -7521,9 +7521,7 @@ export default function DashboardPage() {
                         return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
                       };
 
-                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => 
-                        !isSystemAccount(t) && (t.is_teacher === 1 || t.is_teacher === true || t.is_teacher === undefined || t.is_teacher === null)
-                      );
+                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isSystemAccount(t));
                       const totalCount = allFaculty.length;
                       
                       const scanMap = new Map();
