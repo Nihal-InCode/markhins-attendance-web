@@ -453,6 +453,7 @@ export const scanTeacherAttendance = (qrToken) => apiRequest('/api/teacher-atten
 export const getTodayTeacherAttendanceStatus = () => apiRequest('/api/teacher-attendance/today-status');
 export const getTodayTeacherAttendanceList = (date) => apiRequest(`/api/teacher-attendance/today-list${date ? `?date=${date}` : ''}`);
 export const getTeacherAttendanceHistory = (teacherId) => apiRequest(`/api/teacher-attendance/history/${teacherId}`);
+export const getAllTeacherAttendanceHistory = () => apiRequest('/api/teacher-attendance/all-history');
 export const createStaffMember = (data) => apiRequest('/api/teachers/create', { method: 'POST', body: JSON.stringify(data) });
 export const updateStaffMember = (id, data) => apiRequest(`/api/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteStaffMember = (id) => apiRequest(`/api/teachers/${id}`, { method: 'DELETE' });

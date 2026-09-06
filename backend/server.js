@@ -1693,6 +1693,18 @@ app.get('/api/teacher-attendance/history/:teacherId', authenticateToken, async (
     }
 });
 
+app.get('/api/teacher-attendance/all-history', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({
+            action: "get_all_teacher_attendance_history"
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('[Teacher Attendance All History Error]:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/api/teachers/create', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') {

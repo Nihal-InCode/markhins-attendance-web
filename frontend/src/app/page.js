@@ -54,6 +54,7 @@ import {
   getTodayTeacherAttendanceStatus,
   getTodayTeacherAttendanceList,
   getTeacherAttendanceHistory,
+  getAllTeacherAttendanceHistory,
   createStaffMember,
   updateStaffMember,
   deleteStaffMember,
@@ -889,51 +890,157 @@ export default function DashboardPage() {
 
   const exportStaffAttendanceExcel = async () => {
     try {
+      showLoader("Fetching complete staff attendance history...");
+      
       const isSystemAccount = (t) => {
         const name = String(t?.name || "").trim().toUpperCase();
         const user = String(t?.username || "").trim().toLowerCase();
         return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
       };
 
-      const rawFacultyList = teachersList.length > 0 
-        ? teachersList 
-        : (todayTeacherScans.length > 0 
-            ? todayTeacherScans.map(s => ({
-                id: s.teacher_id,
-                name: s.teacher_name,
-                username: s.username,
-                role: s.role,
-                subject: s.subject,
-                class_teacher_of: s.class_teacher_of,
-                is_teacher: s.is_teacher
-              }))
-            : teachers);
+      // Fetch all history from backend API
+      let allRecords = [];
+      let staffList = [];
 
-      const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
+      try {
+        const res = await getAllTeacherAttendanceHistory();
+        if (res && res.records) {
+          allRecords = res.records;
+        }
+        if (res && res.teachers) {
+          staffList = res.teachers;
+        }
+      } catch (apiErr) {
+        console.warn("Could not fetch full attendance history from API, falling back to local today list:", apiErr);
+      }
+
+      // Fallback staff list if teachers table API response empty
+      if (staffList.length === 0) {
+        const rawFacultyList = teachersList.length > 0 
+          ? teachersList 
+          : (todayTeacherScans.length > 0 
+              ? todayTeacherScans.map(s => ({
+                  id: s.teacher_id,
+                  name: s.teacher_name,
+                  username: s.username,
+                  role: s.role,
+                  subject: s.subject,
+                  class_teacher_of: s.class_teacher_of,
+                  is_teacher: s.is_teacher
+                }))
+              : teachers);
+        staffList = rawFacultyList;
+      }
+
+      const allFaculty = staffList.filter(t => !isSystemAccount(t));
       if (allFaculty.length === 0) {
+        hideLoader();
         alert("No staff members found to export.");
         return;
       }
 
-      const scanMap = new Map();
-      todayTeacherScans.forEach(s => {
-        if (s.scan_time) {
-          scanMap.set(String(s.teacher_id), s.scan_time);
-          if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
-        }
+      // Filter out system accounts from history records
+      const filteredRecords = allRecords.filter(r => {
+        const name = String(r.teacher_name || "").trim().toUpperCase();
+        const user = String(r.username || "").trim().toLowerCase();
+        return !(name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest");
       });
+
+      // Group records by month (key: YYYY-MM)
+      const monthMap = new Map();
+      
+      // Group history records by YYYY-MM
+      filteredRecords.forEach(r => {
+        if (!r.date) return;
+        const key = String(r.date).substring(0, 7);
+        if (!monthMap.has(key)) {
+          const parts = key.split("-");
+          let monthLabel = key;
+          let monthShort = key;
+          if (parts.length === 2) {
+            const year = parts[0];
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            const dateObj = new Date(year, monthIdx, 1);
+            monthLabel = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            monthShort = dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+          }
+          monthMap.set(key, { monthKey: key, monthLabel, monthShort, records: [] });
+        }
+        monthMap.get(key).records.push(r);
+      });
+
+      // If no history records exist yet, create current month group using todayTeacherScans
+      if (monthMap.size === 0) {
+        const todayStr = getIstDateString();
+        const key = todayStr.substring(0, 7);
+        const parts = key.split("-");
+        let monthLabel = key;
+        let monthShort = key;
+        if (parts.length === 2) {
+          const dateObj = new Date(parts[0], parseInt(parts[1], 10) - 1, 1);
+          monthLabel = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          monthShort = dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        const fallbackRecords = [];
+        const scanMap = new Map();
+        todayTeacherScans.forEach(s => {
+          if (s.scan_time) {
+            scanMap.set(String(s.teacher_id), s.scan_time);
+            if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
+          }
+        });
+
+        allFaculty.forEach(t => {
+          const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+          if (scanTime) {
+            fallbackRecords.push({
+              id: t.id,
+              teacher_id: String(t.id),
+              teacher_name: t.name || "N/A",
+              username: t.username || "",
+              role: t.role || "Faculty",
+              subject: t.subject || "General",
+              class_teacher_of: t.class_teacher_of || t.classTeacherOf || "",
+              is_teacher: t.is_teacher,
+              date: todayStr,
+              scan_time: scanTime
+            });
+          }
+        });
+
+        monthMap.set(key, { monthKey: key, monthLabel, monthShort, records: fallbackRecords });
+      }
+
+      // Sort month keys descending (most recent month first)
+      const sortedMonthKeys = Array.from(monthMap.keys()).sort().reverse();
 
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Faculty & Staff Attendance");
 
-      // Title & Meta Rows
-      sheet.addRow(["Faculty & Staff Attendance Register"]);
-      sheet.addRow([`Date: ${getIstDateString()}`, `Total Enrolled: ${allFaculty.length}`]);
-      sheet.addRow([]);
+      // Helper function to format day of week
+      const getDayName = (dateStr) => {
+        if (!dateStr) return "—";
+        try {
+          const parts = dateStr.split("-");
+          if (parts.length === 3) {
+            const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            return d.toLocaleString('en-US', { weekday: 'short' });
+          }
+        } catch (e) {}
+        return "—";
+      };
 
-      // Table Headers
-      const headerRow = sheet.addRow([
+      // ── SHEET 1: Master Attendance History (All Records) ──
+      const masterSheet = workbook.addWorksheet("Master History");
+      masterSheet.addRow(["Faculty & Staff Attendance Master Register (All History)"]);
+      masterSheet.addRow([`Export Date: ${getIstDateString()}`, `Total Enrolled Staff: ${allFaculty.length}`, `Total Scan Records: ${filteredRecords.length}`]);
+      masterSheet.addRow([]);
+
+      const masterHeader = masterSheet.addRow([
+        "Month",
+        "Date",
+        "Day",
         "Staff ID",
         "Full Name",
         "Username",
@@ -941,48 +1048,184 @@ export default function DashboardPage() {
         "Role",
         "Subject",
         "Class Teacher Of",
-        "Today's Status",
+        "Status",
         "Scan Time"
       ]);
-
-      headerRow.font = { bold: true, color: { argb: "FFFFFF" } };
-      headerRow.eachCell((cell) => {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "4F46E5" }
-        };
+      masterHeader.font = { bold: true, color: { argb: "FFFFFF" } };
+      masterHeader.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "312E81" } };
         cell.alignment = { vertical: "middle", horizontal: "center" };
       });
 
-      // Data Rows
-      allFaculty.forEach((t) => {
-        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-        const isPresent = Boolean(scanTime);
-        const isTeacher = t.is_teacher === 1 || t.is_teacher === undefined || t.is_teacher === null;
-
-        const row = sheet.addRow([
-          t.id,
-          t.name || "N/A",
-          t.username || "N/A",
-          isTeacher ? "Teacher" : "Other Staff",
-          t.role || "Faculty",
-          t.subject || "General",
-          t.class_teacher_of || t.classTeacherOf || "—",
-          isPresent ? "PRESENT" : "ABSENT",
-          scanTime || "—"
-        ]);
-
-        const statusCell = row.getCell(8);
-        if (isPresent) {
+      // Populate Master Sheet Records
+      sortedMonthKeys.forEach(mKey => {
+        const group = monthMap.get(mKey);
+        group.records.forEach(r => {
+          const isTeacher = r.is_teacher === 1 || r.is_teacher === undefined || r.is_teacher === null;
+          const row = masterSheet.addRow([
+            group.monthLabel,
+            r.date,
+            getDayName(r.date),
+            r.teacher_id,
+            r.teacher_name || "N/A",
+            r.username || "N/A",
+            isTeacher ? "Teacher" : "Other Staff",
+            r.role || "Faculty",
+            r.subject || "General",
+            r.class_teacher_of || "—",
+            "PRESENT",
+            r.scan_time || "—"
+          ]);
+          const statusCell = row.getCell(11);
           statusCell.font = { color: { argb: "047857" }, bold: true };
-        } else {
-          statusCell.font = { color: { argb: "B91C1C" }, bold: true };
-        }
+        });
       });
+      masterSheet.columns.forEach(col => { col.width = 20; });
 
-      sheet.columns.forEach((column) => {
-        column.width = 22;
+      // ── SHEET 2 & Onwards: Individual Monthly Log Sheets & Monthly Grid Register Matrices ──
+      sortedMonthKeys.forEach(mKey => {
+        const group = monthMap.get(mKey);
+        const records = group.records;
+
+        // 1. Monthly Log Sheet (e.g. "Sep 2026 Logs")
+        const logSheetName = `${group.monthShort} Logs`.substring(0, 31);
+        const logSheet = workbook.addWorksheet(logSheetName);
+
+        logSheet.addRow([`Faculty & Staff Attendance Register — ${group.monthLabel}`]);
+        logSheet.addRow([`Total Recorded Scans: ${records.length}`, `Enrolled Staff: ${allFaculty.length}`]);
+        logSheet.addRow([]);
+
+        const logHeader = logSheet.addRow([
+          "Date",
+          "Day",
+          "Staff ID",
+          "Full Name",
+          "Username",
+          "Staff Type",
+          "Role",
+          "Subject",
+          "Class Teacher Of",
+          "Status",
+          "Scan Time"
+        ]);
+        logHeader.font = { bold: true, color: { argb: "FFFFFF" } };
+        logHeader.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "4F46E5" } };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+
+        records.forEach(r => {
+          const isTeacher = r.is_teacher === 1 || r.is_teacher === undefined || r.is_teacher === null;
+          const row = logSheet.addRow([
+            r.date,
+            getDayName(r.date),
+            r.teacher_id,
+            r.teacher_name || "N/A",
+            r.username || "N/A",
+            isTeacher ? "Teacher" : "Other Staff",
+            r.role || "Faculty",
+            r.subject || "General",
+            r.class_teacher_of || "—",
+            "PRESENT",
+            r.scan_time || "—"
+          ]);
+          const statusCell = row.getCell(10);
+          statusCell.font = { color: { argb: "047857" }, bold: true };
+        });
+        logSheet.columns.forEach(col => { col.width = 20; });
+
+        // 2. Monthly Attendance Register Grid Sheet (e.g. "Sep 2026 Grid")
+        const matrixSheetName = `${group.monthShort} Grid`.substring(0, 31);
+        const matrixSheet = workbook.addWorksheet(matrixSheetName);
+
+        // Find number of days in this month
+        const parts = mKey.split("-");
+        const yearNum = parseInt(parts[0], 10);
+        const monthNum = parseInt(parts[1], 10);
+        const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+
+        // Map: teacher_id -> Set of present date strings ("YYYY-MM-DD")
+        const teacherPresentDates = new Map();
+        records.forEach(r => {
+          const tid = String(r.teacher_id);
+          if (!teacherPresentDates.has(tid)) {
+            teacherPresentDates.set(tid, new Set());
+          }
+          teacherPresentDates.get(tid).add(r.date);
+        });
+
+        matrixSheet.addRow([`Monthly Attendance Matrix Register — ${group.monthLabel}`]);
+        matrixSheet.addRow([`Enrolled Staff: ${allFaculty.length}`, `Month: ${group.monthLabel}`]);
+        matrixSheet.addRow([]);
+
+        // Build header row: Staff Details + Day 1..N + Total Present
+        const dayHeaders = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+          dayHeaders.push(`Day ${d}`);
+        }
+        const matrixHeader = matrixSheet.addRow([
+          "Staff ID",
+          "Full Name",
+          "Role",
+          "Subject",
+          ...dayHeaders,
+          "Total Present"
+        ]);
+        matrixHeader.font = { bold: true, color: { argb: "FFFFFF" } };
+        matrixHeader.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" } };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+
+        // Add staff rows for matrix
+        allFaculty.forEach(t => {
+          const tid = String(t.id);
+          const presentSet = teacherPresentDates.get(tid) || new Set();
+          const dayCells = [];
+          let totalPresentCount = 0;
+
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dayStr = String(d).padStart(2, '0');
+            const fullDateStr = `${mKey}-${dayStr}`;
+            if (presentSet.has(fullDateStr)) {
+              dayCells.push("P");
+              totalPresentCount++;
+            } else {
+              dayCells.push("—");
+            }
+          }
+
+          const mRow = matrixSheet.addRow([
+            t.id,
+            t.name || "N/A",
+            t.role || "Faculty",
+            t.subject || "General",
+            ...dayCells,
+            totalPresentCount
+          ]);
+
+          // Style P cells green
+          for (let d = 1; d <= daysInMonth; d++) {
+            const cell = mRow.getCell(4 + d);
+            const val = cell.value;
+            cell.alignment = { vertical: "middle", horizontal: "center" };
+            if (val === "P") {
+              cell.font = { bold: true, color: { argb: "047857" } };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D1FAE5" } };
+            } else {
+              cell.font = { color: { argb: "9CA3AF" } };
+            }
+          }
+          const totalCell = mRow.getCell(4 + daysInMonth + 1);
+          totalCell.font = { bold: true, color: { argb: "0369A1" } };
+          totalCell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+
+        matrixSheet.columns.forEach((col, idx) => {
+          if (idx < 4) col.width = 18;
+          else if (idx === 4 + daysInMonth) col.width = 15;
+          else col.width = 7;
+        });
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -990,12 +1233,17 @@ export default function DashboardPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `faculty_staff_attendance_${getIstDateString().replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+      a.download = `faculty_staff_attendance_full_history_${getIstDateString().replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
+
+      playSound('success');
     } catch (err) {
       console.error("Export Excel error:", err);
+      playSound('error');
       alert("Failed to export Excel file: " + err.message);
+    } finally {
+      hideLoader();
     }
   };
 

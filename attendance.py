@@ -7630,6 +7630,61 @@ if __name__ == "__main__":
                             "totalPresent": len(history)
                         }
 
+                elif action == "get_all_teacher_attendance_history":
+                    c.execute("""
+                        SELECT 
+                            ta.id,
+                            ta.teacher_id,
+                            t.name as teacher_name,
+                            t.username,
+                            t.role,
+                            t.subject,
+                            t.class_teacher_of,
+                            t.is_teacher,
+                            ta.date,
+                            ta.scan_time,
+                            ta.scanned_at
+                        FROM teacher_attendance ta
+                        JOIN teachers t ON ta.teacher_id = t.id
+                        ORDER BY ta.date DESC, t.name ASC
+                    """)
+                    rows = c.fetchall()
+                    records = []
+                    for r in rows:
+                        records.append({
+                            "id": r[0],
+                            "teacher_id": str(r[1]),
+                            "teacher_name": r[2],
+                            "username": r[3] or "",
+                            "role": r[4] or "Faculty",
+                            "subject": r[5] or "General",
+                            "class_teacher_of": r[6] or "",
+                            "is_teacher": r[7] if r[7] is not None else 1,
+                            "date": r[8],
+                            "scan_time": r[9],
+                            "scanned_at": r[10]
+                        })
+
+                    c.execute("SELECT id, name, username, role, subject, class_teacher_of, is_teacher FROM teachers ORDER BY name ASC")
+                    trows = c.fetchall()
+                    teachers_list = []
+                    for tr in trows:
+                        teachers_list.append({
+                            "id": str(tr[0]),
+                            "name": tr[1],
+                            "username": tr[2] or "",
+                            "role": tr[3] or "Faculty",
+                            "subject": tr[4] or "General",
+                            "class_teacher_of": tr[5] or "",
+                            "is_teacher": tr[6] if tr[6] is not None else 1
+                        })
+
+                    result = {
+                        "success": True,
+                        "records": records,
+                        "teachers": teachers_list
+                    }
+
                 elif action == "create_staff":
                     name = str(data.get("name", "")).strip()
                     username = str(data.get("username", "")).lower().strip()
