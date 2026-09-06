@@ -3955,8 +3955,9 @@ export default function DashboardPage() {
         {activeTab === "reports" && (
           <>
             {(() => {
+              const isGuest = String(user?.username || "").toLowerCase() === 'guest';
               const isCoordinator = user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username);
-              const reportTabs = [
+              const rawReportTabs = [
                 { id: 'overview', label: 'Monitor', emoji: '📊', desc: 'Real-time class attendance verification.' },
                 { id: 'analysis', label: 'Analysis', emoji: '📈', desc: 'Perform searches and view aggregate stats.' },
                 { id: 'teacher_att', label: 'Staff Att.', emoji: '👔', desc: 'Staff QR scan & faculty attendance register.' },
@@ -3967,8 +3968,9 @@ export default function DashboardPage() {
                 { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
               ];
               if (isCoordinator) {
-                reportTabs.push({ id: 'substitute', label: 'Substitute Planner', emoji: '📅', desc: 'Manage teacher leaves and coverage.' });
+                rawReportTabs.push({ id: 'substitute', label: 'Substitute Planner', emoji: '📅', desc: 'Manage teacher leaves and coverage.' });
               }
+              const reportTabs = isGuest ? rawReportTabs.filter(t => t.id !== 'teacher_att') : rawReportTabs;
 
               if (!reportType) {
                 return (
@@ -3978,32 +3980,34 @@ export default function DashboardPage() {
                       <p className="text-xs text-white/50 font-medium mt-1">Reports, permissions and syllabus tools</p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2.5">
-                      {/* Tile 1: SCAN QR */}
-                      <button onClick={() => setShowTeacherQrScanner(true)}
-                        className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
-                        <span className="block text-xl">📷</span>
-                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
-                      </button>
+                    {!isGuest && (
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {/* Tile 1: SCAN QR */}
+                        <button onClick={() => setShowTeacherQrScanner(true)}
+                          className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
+                          <span className="block text-xl">📷</span>
+                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
+                        </button>
 
-                      {/* Tile 2: Permission Manager */}
-                      <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                        <span className="block text-xl filter grayscale opacity-70">🪪</span>
-                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-teal-800/60 truncate w-full">Permission Manager</span>
-                        <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-teal-600/10 text-teal-700 border border-teal-600/20">
-                          Coming Soon
-                        </span>
-                      </div>
+                        {/* Tile 2: Permission Manager */}
+                        <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
+                          <span className="block text-xl filter grayscale opacity-70">🪪</span>
+                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-teal-800/60 truncate w-full">Permission Manager</span>
+                          <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-teal-600/10 text-teal-700 border border-teal-600/20">
+                            Coming Soon
+                          </span>
+                        </div>
 
-                      {/* Tile 3: AI */}
-                      <div className="relative rounded-2xl border border-purple-100 bg-purple-50/50 p-3 text-center text-purple-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                        <span className="block text-xl filter grayscale opacity-70">✨</span>
-                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">AI</span>
-                        <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
-                          Coming Soon
-                        </span>
+                        {/* Tile 3: AI */}
+                        <div className="relative rounded-2xl border border-purple-100 bg-purple-50/50 p-3 text-center text-purple-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
+                          <span className="block text-xl filter grayscale opacity-70">✨</span>
+                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">AI</span>
+                          <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
+                            Coming Soon
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="flex items-center gap-3">
                       <div className="h-px flex-1 bg-gray-100" />
@@ -4015,7 +4019,7 @@ export default function DashboardPage() {
                       {[
                         { id: 'overview', label: 'Monitor', emoji: '📊', color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
                         { id: 'analysis', label: 'Analysis', emoji: '📈', color: 'bg-blue-50 border-blue-100 text-blue-700' },
-                        { id: 'teacher_att', label: 'Staff Att.', emoji: '👔', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
+                        ...(!isGuest ? [{ id: 'teacher_att', label: 'Staff Att.', emoji: '👔', color: 'bg-indigo-50 border-indigo-100 text-indigo-700' }] : []),
                         { id: 'namaz', label: 'Namaz', emoji: '🕌', color: 'bg-amber-50 border-amber-100 text-amber-700' },
                         { id: 'syllabus', label: 'Syllabus', emoji: '📖', color: 'bg-violet-50 border-violet-100 text-violet-700' },
                         { id: 'events', label: 'Events', emoji: '🏆', color: 'bg-rose-50 border-rose-100 text-rose-700' },

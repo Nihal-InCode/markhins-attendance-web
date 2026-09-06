@@ -8128,14 +8128,17 @@ if __name__ == "__main__":
                         result = {"success": False, "message": f"Invalid date format: {str(e)}"}
                     else:
                         # 1. Fetch all teachers for selection list
-                        c.execute("SELECT id, name, username, subject FROM teachers ORDER BY name")
+                        c.execute("SELECT id, name, username, subject, role, is_teacher FROM teachers ORDER BY name")
                         all_teachers = []
                         for r in c.fetchall():
                             t_name = (r[1] or "").strip().upper()
                             t_user = (r[2] or "").strip().lower()
-                            if t_name in ("MARKHINS OFFICIAL", "ADMIN") or t_user in ("markhinsofficial", "admin"):
+                            if t_name in ("MARKHINS OFFICIAL", "ADMIN") or t_user in ("markhinsofficial", "admin", "guest"):
                                 continue
-                            all_teachers.append({"id": r[0], "name": r[1], "username": r[2], "subject": r[3]})
+                            trole = r[4] or "Subject Teacher"
+                            is_teacher_flag = r[5] if r[5] is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin", "guest"] else 1)
+                            if is_teacher_flag == 1:
+                                all_teachers.append({"id": r[0], "name": r[1], "username": r[2], "subject": r[3]})
                         all_teachers.append({"id": -1, "name": "LIBRARY", "username": "library", "subject": "Library"})
                         all_teachers.append({"id": -2, "name": "IT LAB", "username": "it_lab", "subject": "IT Lab"})
                         
@@ -8192,7 +8195,7 @@ if __name__ == "__main__":
                                     continue
 
                                 # Find available teachers using our availability engine
-                                c.execute("SELECT id, name FROM teachers ORDER BY name")
+                                c.execute("SELECT id, name, role, is_teacher, username FROM teachers ORDER BY name")
                                 all_teachers_raw = c.fetchall()
                                 avail_teachers = [
                                     {
@@ -8208,11 +8211,16 @@ if __name__ == "__main__":
                                         "matched_subjects": ["IT Lab"]
                                     }
                                 ]
-                                for av_id, av_name in all_teachers_raw:
+                                for av_id, av_name, av_role, av_is_teacher, av_user in all_teachers_raw:
                                     if av_id == r_ot_id:
                                         continue
                                     av_name_clean = (av_name or "").strip().upper()
-                                    if av_name_clean in ("MARKHINS OFFICIAL", "ADMIN"):
+                                    av_user_clean = (av_user or "").strip().lower()
+                                    if av_name_clean in ("MARKHINS OFFICIAL", "ADMIN") or av_user_clean in ("markhinsofficial", "admin", "guest"):
+                                        continue
+                                    trole = av_role or "Subject Teacher"
+                                    is_teacher_flag = av_is_teacher if av_is_teacher is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin", "guest"] else 1)
+                                    if is_teacher_flag != 1:
                                         continue
                                     if is_teacher_available(c, av_id, planner_date, weekday, r_period, leaves_config, not_working_classes):
                                         c.execute("""

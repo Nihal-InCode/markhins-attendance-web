@@ -579,11 +579,29 @@ export default function SettingsPage() {
                 {/* Teachers Tab */}
                 {activeTab === "teachers" && (
                     <div className="space-y-6">
+                        {/* Teacher List Visibility Info Banner */}
+                        <div className="rounded-3xl border border-teal-100 bg-teal-50/60 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">👥</span>
+                                    <h2 className="text-base font-black text-teal-900">Teacher List Visibility Controls</h2>
+                                </div>
+                                <p className="text-xs text-teal-800/80 max-w-2xl font-medium">
+                                    Use the <strong>"Show in Teachers List"</strong> toggle in the table below for each staff member to choose who appears in the Dashboard Teachers List, substitute planner, and teacher report selectors.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-bold text-teal-800 bg-white px-3 py-1.5 rounded-xl border border-teal-100 shadow-sm shrink-0">
+                                <span>Checked = Shown</span>
+                                <span>•</span>
+                                <span>Unchecked = Hidden</span>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <input type="text" value={teacherSearch} onChange={(e) => setTeacherSearch(e.target.value)} placeholder="Search teachers..."
+                            <input type="text" value={teacherSearch} onChange={(e) => setTeacherSearch(e.target.value)} placeholder="Search teachers & staff..."
                                 className="rounded-2xl border border-gray-100 bg-white px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-[#0d9488]/10 flex-1 sm:max-w-xs" />
                             <button onClick={openCreateTeacherModal} className="rounded-2xl bg-[#0d9488] px-6 py-3 text-sm font-bold text-white hover:bg-[#0a7a70] transition-all shadow-lg shadow-[#0d9488]/20">
-                                + Add Teacher
+                                + Add Teacher / Staff
                             </button>
                         </div>
                         <div className="rounded-3xl border border-gray-100 bg-white overflow-hidden">
