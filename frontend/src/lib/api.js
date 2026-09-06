@@ -298,7 +298,10 @@ export const getPendingAnnouncement = () => apiRequest('/announcements/pending/c
 export const dismissAnnouncement = (announcementKey) => apiRequest(`/announcements/${announcementKey}/dismiss`, {
     method: 'POST',
 });
-export const getTeachersList = () => apiRequest('/teachers');
+export const getTeachersList = (params = {}) => {
+    const includeAll = params?.include_all ? '?include_all=true' : '';
+    return apiRequest(`/teachers${includeAll}`);
+};
 
 export const getAdminAnnouncements = () => apiRequest('/admin/announcements');
 export const createAdminAnnouncement = (data) => apiRequest('/admin/announcements', {

@@ -1518,7 +1518,8 @@ app.post('/announcements/:announcementKey/dismiss', authenticateToken, async (re
 
 app.get('/teachers', authenticateToken, async (req, res) => {
     try {
-        const result = await callPython({ action: "get_teachers_list", teacher_id: req.user.id });
+        const include_all = req.query.include_all === 'true' || req.query.include_all === '1';
+        const result = await callPython({ action: "get_teachers_list", teacher_id: req.user.id, include_all });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
