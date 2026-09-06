@@ -14,6 +14,8 @@ const sounds = typeof window !== 'undefined' ? {
     error: new Audio('/sounds/error.mp3'),
     uploadSuccess: new Audio('/sounds/upload-success.mp3'),
     downloadSuccess: new Audio('/sounds/download-success.mp3'),
+    qrDone: new Audio('/sounds/qr done.mp3'),
+    rescan: new Audio('/sounds/rescan.mp3'),
 } : {};
 
 export function playSound(type) {

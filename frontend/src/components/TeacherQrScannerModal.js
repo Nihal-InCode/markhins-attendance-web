@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { scanTeacherAttendance } from "@/lib/api";
+import { playSound } from "@/lib/sound";
 
 export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
     const [status, setStatus] = useState("IDLE"); // IDLE, SCANNING, PROCESSING, SUCCESS, ALREADY_MARKED, INVALID_QR, CAMERA_ERROR, NETWORK_ERROR
@@ -64,17 +65,21 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 if (response.status === "ALREADY_MARKED") {
                                     setStatus("ALREADY_MARKED");
                                     setMessage(response.message || "Attendance already marked for today.");
+                                    playSound('rescan');
                                 } else {
                                     setStatus("SUCCESS");
                                     setMessage(response.message || "Attendance marked successfully!");
+                                    playSound('qrDone');
                                 }
                                 if (onSuccess) onSuccess(response.record);
                             } else {
                                 setStatus("INVALID_QR");
                                 setMessage(response.message || "Invalid QR code.");
+                                playSound('error');
                             }
                         } catch (err) {
                             console.error("Scan submit error:", err);
+                            playSound('error');
                             if (err.message && err.message.toLowerCase().includes("network")) {
                                 setStatus("NETWORK_ERROR");
                                 setMessage("Unable to connect to server. Please check your connection.");
@@ -166,16 +171,20 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 if (response.status === "ALREADY_MARKED") {
                                     setStatus("ALREADY_MARKED");
                                     setMessage(response.message || "Attendance already marked for today.");
+                                    playSound('rescan');
                                 } else {
                                     setStatus("SUCCESS");
                                     setMessage(response.message || "Attendance marked successfully!");
+                                    playSound('qrDone');
                                 }
                                 if (onSuccess) onSuccess(response.record);
                             } else {
                                 setStatus("INVALID_QR");
                                 setMessage(response.message || "Invalid QR code.");
+                                playSound('error');
                             }
                         } catch (err) {
+                            playSound('error');
                             if (err.message && err.message.toLowerCase().includes("network")) {
                                 setStatus("NETWORK_ERROR");
                                 setMessage("Unable to connect to server. Please check your connection.");
