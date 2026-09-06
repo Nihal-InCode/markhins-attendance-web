@@ -81,6 +81,7 @@ export const login = (username, password, guest_name = '') =>
 export const getGuestSessions = () => apiRequest('/admin/guest-sessions');
 export const revokeGuestSession = (id) => apiRequest(`/admin/guest-sessions/${id}`, { method: 'DELETE' });
 export const clearGuestSessions = () => apiRequest('/admin/guest-sessions', { method: 'DELETE' });
+export const logoutAllGuestSessions = () => apiRequest('/admin/guest-sessions', { method: 'DELETE' });
 
 /**
  * Validate Token Endpoint (Check if still valid on app load)

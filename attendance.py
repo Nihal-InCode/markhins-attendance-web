@@ -5299,6 +5299,20 @@ if __name__ == "__main__":
                     else:
                         result = {"success": False, "error": "Invalid username or password"}
 
+                elif action == "verify_guest_session":
+                    token = data.get("guest_session_token")
+                    if not token:
+                        result = {"success": False, "message": "No guest session token"}
+                    else:
+                        c.execute("SELECT id FROM guest_sessions WHERE session_token=?", (token,))
+                        row = c.fetchone()
+                        if row:
+                            c.execute("UPDATE guest_sessions SET last_active=datetime('now', 'localtime') WHERE session_token=?", (token,))
+                            conn.commit()
+                            result = {"success": True}
+                        else:
+                            result = {"success": False, "message": "Guest session logged out by admin"}
+
                 elif action == "touch_guest_session":
                     token = data.get("guest_session_token")
                     if token:

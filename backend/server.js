@@ -543,6 +543,22 @@ const authenticateToken = (req, res, next) => {
             }
         }
 
+        // --- GUEST USER ACTIVE SESSION VERIFICATION ---
+        if (String(user.username || '').toLowerCase() === 'guest' && user.guest_session_token) {
+            try {
+                const gCheck = await callPython({
+                    action: "verify_guest_session",
+                    guest_session_token: user.guest_session_token
+                });
+                if (!gCheck.success) {
+                    console.warn(`[Auth] Guest session invalidated for ${user.name}`);
+                    return res.status(401).json({ message: 'Guest session expired or logged out by admin.' });
+                }
+            } catch (gErr) {
+                console.error('[Auth] Guest session verification error:', gErr.message);
+            }
+        }
+
         req.user = user;
         res.on('finish', () => {
             if (res.statusCode < 400) {

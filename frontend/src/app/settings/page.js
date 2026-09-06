@@ -29,6 +29,7 @@ import {
     getGuestSessions,
     revokeGuestSession,
     clearGuestSessions,
+    logoutAllGuestSessions,
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
@@ -217,6 +218,19 @@ export default function SettingsPage() {
         try {
             await revokeGuestSession(id);
             setMsg("Guest session record removed.");
+            playSound('success');
+            await refreshGuestSessions();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        }
+    }
+
+    async function handleLogoutAllGuestUsers() {
+        if (!confirm("⚠️ Are you sure you want to LOG OUT ALL active guest portal students?\n\nThis will immediately disconnect all logged-in students and force them back to the login screen.")) return;
+        try {
+            await logoutAllGuestSessions();
+            setMsg("Logged out all active guest portal students successfully.");
             playSound('success');
             await refreshGuestSessions();
         } catch (err) {
@@ -657,7 +671,15 @@ export default function SettingsPage() {
                                         Shows all students who logged in using the universal guest account along with their entered names.
                                     </p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                    <button
+                                        onClick={handleLogoutAllGuestUsers}
+                                        className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-rose-200 active:scale-95 flex items-center gap-1.5"
+                                        title="Log out all active guest students immediately"
+                                    >
+                                        <span>🚨</span>
+                                        <span>Logout All Guest Users</span>
+                                    </button>
                                     <button
                                         onClick={refreshGuestSessions}
                                         disabled={loadingGuestSessions}
@@ -670,7 +692,7 @@ export default function SettingsPage() {
                                     {guestSessions.length > 0 && (
                                         <button
                                             onClick={handleClearAllGuestSessions}
-                                            className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all border border-rose-100 active:scale-95"
+                                            className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all border border-gray-200 active:scale-95"
                                             title="Clear guest login history log"
                                         >
                                             Clear Logs
