@@ -292,6 +292,19 @@ def run_migrations():
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('timetable_editors', '')")
 
+        c.execute("SELECT 1 FROM system_settings WHERE key='single_session_enforcement'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('single_session_enforcement', '1')")
+
+        c.execute("SELECT id FROM teachers WHERE LOWER(username)='guest'")
+        if not c.fetchone():
+            c.execute("""
+                INSERT INTO teachers (name, username, phone, class_teacher_of, subject, is_teacher, role)
+                VALUES ('Student Guest Portal', 'guest', '560008', '', 'General', 0, 'Guest')
+            """)
+        else:
+            c.execute("UPDATE teachers SET phone='560008', is_teacher=0 WHERE LOWER(username)='guest'")
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS admins (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6136,10 +6149,11 @@ if __name__ == "__main__":
                     result = {"success": True, "message": "Syllabus configuration deleted successfully."}
 
                 elif action == "get_teachers_list":
-                    # Fetch all teachers
+                    # Fetch teachers
                     c.execute("SELECT id, name, username, teacher_code, class_teacher_of, subject, role, is_teacher FROM teachers ORDER BY name")
                     rows = c.fetchall()
                     
+                    include_all = data.get("include_all") in (True, "true", 1)
                     teachers_list = []
                     for r in rows:
                         tid, tname, tuname, tcode, tcto, tsubj, db_role, is_teacher = r
@@ -6150,16 +6164,19 @@ if __name__ == "__main__":
                         elif tcto and str(tcto) not in ("None", "", "DEVELOPER"):
                             trole = "Class Teacher"
                         
-                        teachers_list.append({
-                            "id": tid,
-                            "name": tname,
-                            "username": tuname,
-                            "teacher_code": tcode,
-                            "role": trole,
-                            "class_teacher_of": tcto if trole == "Class Teacher" else None,
-                            "subject": tsubj,
-                            "is_teacher": is_teacher if is_teacher is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
-                        })
+                        is_teacher_flag = is_teacher if is_teacher is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
+                        
+                        if include_all or is_teacher_flag == 1:
+                            teachers_list.append({
+                                "id": tid,
+                                "name": tname,
+                                "username": tuname,
+                                "teacher_code": tcode,
+                                "role": trole,
+                                "class_teacher_of": tcto if trole == "Class Teacher" else None,
+                                "subject": tsubj,
+                                "is_teacher": is_teacher_flag
+                            })
                     
                     result = {"success": True, "data": teachers_list}
 
@@ -7304,12 +7321,39 @@ if __name__ == "__main__":
                 elif action == "verify_session":
                     tid = data.get("teacher_id")
                     session_id = data.get("sessionId")
-                    c.execute("SELECT active_session_token FROM teachers WHERE id=?", (tid,))
-                    row = c.fetchone()
-                    if row and row[0] == session_id:
+                    
+                    # Always allow universal guest account without single session invalidation
+                    c.execute("SELECT username FROM teachers WHERE id=?", (tid,))
+                    u_row = c.fetchone()
+                    if u_row and str(u_row[0] or "").lower() == "guest":
                         result = {"success": True}
                     else:
-                        result = {"success": False, "error": "Session invalidated"}
+                        c.execute("SELECT value FROM system_settings WHERE key='single_session_enforcement'")
+                        setting_row = c.fetchone()
+                        enforce_single = (setting_row[0] if setting_row else "1") != "0"
+                        
+                        if not enforce_single:
+                            result = {"success": True}
+                        else:
+                            c.execute("SELECT active_session_token FROM teachers WHERE id=?", (tid,))
+                            row = c.fetchone()
+                            if row and row[0] == session_id:
+                                result = {"success": True}
+                            else:
+                                result = {"success": False, "error": "Session invalidated"}
+
+                elif action == "get_single_session_setting":
+                    c.execute("SELECT value FROM system_settings WHERE key='single_session_enforcement'")
+                    setting_row = c.fetchone()
+                    enabled = (setting_row[0] if setting_row else "1") != "0"
+                    result = {"success": True, "enabled": enabled}
+
+                elif action == "save_single_session_setting":
+                    enabled = data.get("enabled")
+                    val = "1" if enabled in (True, "true", 1, "1") else "0"
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('single_session_enforcement', ?)", (val,))
+                    conn.commit()
+                    result = {"success": True, "enabled": val == "1", "message": "Single session setting updated."}
 
                 # ── Teacher Attendance Actions ──
                 elif action == "mark_teacher_attendance":

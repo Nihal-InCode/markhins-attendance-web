@@ -523,8 +523,8 @@ const authenticateToken = (req, res, next) => {
         if (err) return res.status(403).json({ message: 'Invalid or expired token.' });
 
         // --- SINGLE ACTIVE SESSION CHECK ---
-        // Skip for system admin and majlis (they don't have a DB record)
-        if (user.id !== 'system-admin' && user.role !== 'admin' && user.id !== 'majlis-user') {
+        // Skip for system admin, majlis, and universal guest account (all students share guest login)
+        if (user.id !== 'system-admin' && user.role !== 'admin' && user.id !== 'majlis-user' && String(user.username || '').toLowerCase() !== 'guest') {
             try {
                 // Verify session with Python helper
                 const result = await callPython({
@@ -1450,6 +1450,28 @@ app.post('/admin/reset-namaz-data', authenticateToken, async (req, res) => {
             className: className || "all",
             date: date || "all"
         });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Admin Route: Single Active Session Setting
+app.get('/admin/single-session-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const result = await callPython({ action: "get_single_session_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/single-session-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { enabled } = req.body;
+        const result = await callPython({ action: "save_single_session_setting", enabled });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

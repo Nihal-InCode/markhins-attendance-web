@@ -24,6 +24,8 @@ import {
     saveSubstituteCoordinators,
     getTimetableEditors,
     saveTimetableEditors,
+    getSingleSessionSetting,
+    updateSingleSessionSetting,
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
@@ -124,6 +126,8 @@ export default function SettingsPage() {
     const [announcementBusy, setAnnouncementBusy] = useState(false);
     const [subCoordinators, setSubCoordinators] = useState([]);
     const [timetableEditors, setTimetableEditors] = useState([]);
+    const [singleSessionEnabled, setSingleSessionEnabled] = useState(true);
+    const [singleSessionBusy, setSingleSessionBusy] = useState(false);
     const [announcementForm, setAnnouncementForm] = useState({
         id: null,
         heading: "A fresh semester begins",
@@ -148,7 +152,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -157,6 +161,7 @@ export default function SettingsPage() {
                 getNamazApiMonitor(),
                 getSubstituteCoordinators(),
                 getTimetableEditors(),
+                getSingleSessionSetting().catch(() => ({ enabled: true })),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -166,6 +171,7 @@ export default function SettingsPage() {
             setNamazApiMonitor(namazMonitorRes || null);
             setSubCoordinators(coordRes?.coordinators?.map(String) || []);
             setTimetableEditors(editorRes?.editors?.map(String) || []);
+            setSingleSessionEnabled(singleSessRes?.enabled !== false);
         } catch (err) {
             setError("Failed to load: " + err.message);
         } finally {
@@ -173,6 +179,23 @@ export default function SettingsPage() {
             hideLoaderRef.current();
         }
     }, [selectedWeekday]);
+
+    async function handleToggleSingleSession(checked) {
+        setSingleSessionBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const res = await updateSingleSessionSetting(checked);
+            setSingleSessionEnabled(res.enabled);
+            setMsg(res.enabled ? "Auto-logout of previous session enabled." : "Multi-device logins allowed (auto-logout disabled).");
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setSingleSessionBusy(false);
+        }
+    }
 
     useEffect(() => {
         if (!user || user.role !== 'admin') { router.push("/"); return; }
@@ -568,7 +591,7 @@ export default function SettingsPage() {
                                 <table className="w-full min-w-[800px] text-left">
                                     <thead className="bg-gray-50/80">
                                         <tr>
-                                            {["Photo", "Name", "Username", "Password", "Class", "Teacher Access", "Actions"].map(h => (
+                                            {["Photo", "Name", "Username", "Password", "Class", "Show in Teachers List", "Actions"].map(h => (
                                                 <th key={h} className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                             ))}
                                         </tr>
@@ -617,7 +640,7 @@ export default function SettingsPage() {
                                                             className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
                                                         />
                                                         <span className={`text-xs font-semibold ${teacher.is_teacher === 1 || teacher.is_teacher === true ? "text-emerald-700" : "text-amber-700"}`}>
-                                                            {teacher.is_teacher === 1 || teacher.is_teacher === true ? "Teacher (All Access)" : "Staff (Management Only)"}
+                                                            {teacher.is_teacher === 1 || teacher.is_teacher === true ? "Shown in Teachers List" : "Hidden from Teachers List"}
                                                         </span>
                                                     </label>
                                                 </td>
@@ -958,6 +981,35 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
+                        {/* Session & Device Security */}
+                        <div className="rounded-3xl border border-gray-100 bg-white p-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">📱</span>
+                                        <h2 className="text-lg font-black text-gray-900">Auto-Logout Previous Device on Login</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        {singleSessionEnabled 
+                                            ? "When a user logs in on a new device, their previous session on any other device is automatically logged out."
+                                            : "Multi-device login is allowed. Users can remain logged in on multiple devices concurrently."}
+                                    </p>
+                                </div>
+                                <label className="inline-flex items-center gap-3 cursor-pointer select-none self-start sm:self-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={singleSessionEnabled}
+                                        disabled={singleSessionBusy}
+                                        onChange={(e) => handleToggleSingleSession(e.target.checked)}
+                                        className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
+                                    />
+                                    <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${singleSessionEnabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                                        {singleSessionEnabled ? "Auto-Logout Enabled" : "Multi-Device Allowed"}
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
                         {/* Password + DB */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="rounded-3xl border border-gray-100 bg-white p-6">
@@ -1011,8 +1063,8 @@ export default function SettingsPage() {
                                         className="h-4 w-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
                                     />
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-semibold text-gray-800">Is Teacher (Full Access)</span>
-                                        <span className="text-[10px] text-gray-400">Uncheck if user should only access the Management Page.</span>
+                                        <span className="text-sm font-semibold text-gray-800">Show in Teachers List (Teacher Access)</span>
+                                        <span className="text-[10px] text-gray-400">When checked, this user appears in teacher lists and dropdowns across the app.</span>
                                     </div>
                                 </label>
                                 <div className="flex gap-2 pt-2">

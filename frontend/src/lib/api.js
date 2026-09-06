@@ -449,3 +449,10 @@ export const updateStaffMember = (id, data) => apiRequest(`/api/teachers/${id}`,
 export const deleteStaffMember = (id) => apiRequest(`/api/teachers/${id}`, { method: 'DELETE' });
 export const clearAllTeacherAttendance = () => apiRequest('/api/teacher-attendance/clear-all', { method: 'POST' });
 
+// ── Single Active Session Setting ──
+export const getSingleSessionSetting = () => apiRequest('/admin/single-session-setting');
+export const updateSingleSessionSetting = (enabled) => apiRequest('/admin/single-session-setting', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+});
+

@@ -38,12 +38,18 @@ export default function TeachersPage() {
         fetchTeachers();
     }, []);
 
-    const filteredTeachers = teachers.filter(t =>
-        t.name?.toLowerCase().includes(search.toLowerCase()) ||
-        t.role?.toLowerCase().includes(search.toLowerCase()) ||
-        t.class_teacher_of?.toLowerCase().includes(search.toLowerCase()) ||
-        t.subject?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredTeachers = teachers.filter(t => {
+        const isTeacher = t.is_teacher === 1 || t.is_teacher === true || t.is_teacher === undefined || t.is_teacher === null;
+        if (!isTeacher) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+            t.name?.toLowerCase().includes(q) ||
+            t.role?.toLowerCase().includes(q) ||
+            t.class_teacher_of?.toLowerCase().includes(q) ||
+            t.subject?.toLowerCase().includes(q)
+        );
+    });
 
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {
