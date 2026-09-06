@@ -299,6 +299,17 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS guest_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_token TEXT UNIQUE NOT NULL,
+                guest_name TEXT NOT NULL,
+                ip_address TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_active DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         c.execute("SELECT 1 FROM system_settings WHERE key='authorized_substitute_coordinators'")
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('authorized_substitute_coordinators', '')")
@@ -5200,6 +5211,7 @@ if __name__ == "__main__":
                 elif action == "login":
                     username = data.get("username", "").lower().strip()
                     password = str(data.get("password", ""))  # phone number entered by user
+                    raw_guest_name = str(data.get("guest_name") or "").strip()
 
                     # Query teacher by username
                     c.execute("SELECT id, name, phone, class_teacher_of, subject, is_teacher FROM teachers WHERE LOWER(username)=?", (username,))
@@ -5230,8 +5242,9 @@ if __name__ == "__main__":
                         is_teacher = is_teacher_val if is_teacher_val is not None else 1
                         
                         # ── Role Detection ──
-                        # Hardcoded: id=3 = Principal (JAFAR NURANI), id=1 = VP (JUNAID NURANI)
-                        if tid == 3:
+                        if username == "guest":
+                            role = "Guest"
+                        elif tid == 3:
                             role = "Principal"
                         elif tid == 1:
                             role = "Vice Principal"
@@ -5251,6 +5264,19 @@ if __name__ == "__main__":
                         session_id = secrets.token_hex(16)
                         now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         
+                        guest_token = None
+                        if username == "guest":
+                            guest_token = f"gst_{secrets.token_hex(12)}"
+                            display_gname = raw_guest_name if raw_guest_name else "Guest Student"
+                            tname = f"Guest ({display_gname})"
+                            try:
+                                c.execute("""
+                                    INSERT INTO guest_sessions (session_token, guest_name, ip_address, created_at, last_active)
+                                    VALUES (?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
+                                """, (guest_token, display_gname, str(data.get("ip_address") or "Local")))
+                            except Exception as g_err:
+                                print(f"[DEBUG] Error inserting guest session: {g_err}")
+
                         c.execute("UPDATE teachers SET active_session_token=?, last_login=? WHERE id=?", 
                                 (session_id, now_str, tid))
                         conn.commit()
@@ -5260,17 +5286,76 @@ if __name__ == "__main__":
                             "user": {
                                 "id": tid,
                                 "name": tname,
+                                "guest_name": raw_guest_name or "Guest Student",
                                 "username": username,
                                 "role": role,
                                 "class_teacher_of": tcto if role in ("Class Teacher", "Vice Principal", "Urdu Principal") else None,
                                 "subject": tsubj,
                                 "is_teacher": is_teacher,
-                                "sessionId": session_id
+                                "sessionId": session_id,
+                                "guest_session_token": guest_token
                             }
                         }
-                    # ── HARDCODED ADMIN BYPASS REMOVED (Handled in server.js via Env Vars) ──
                     else:
                         result = {"success": False, "error": "Invalid username or password"}
+
+                elif action == "touch_guest_session":
+                    token = data.get("guest_session_token")
+                    if token:
+                        c.execute("UPDATE guest_sessions SET last_active=datetime('now', 'localtime') WHERE session_token=?", (token,))
+                        conn.commit()
+                    result = {"success": True}
+
+                elif action == "get_guest_sessions":
+                    c.execute("""
+                        SELECT id, session_token, guest_name, ip_address, created_at, last_active
+                        FROM guest_sessions
+                        ORDER BY id DESC
+                    """)
+                    rows = c.fetchall()
+                    sessions = []
+                    now_ist = get_ist_now()
+                    active_online_count = 0
+                    for r in rows:
+                        sid, stoken, gname, ip, created, last_act = r
+                        is_online = False
+                        if last_act:
+                            try:
+                                act_dt = dt.strptime(str(last_act).split('.')[0], "%Y-%m-%d %H:%M:%S")
+                                diff_sec = (now_ist - act_dt).total_seconds()
+                                if 0 <= diff_sec <= 900:  # 15 mins active
+                                    is_online = True
+                            except Exception:
+                                pass
+                        if is_online:
+                            active_online_count += 1
+
+                        sessions.append({
+                            "id": sid,
+                            "session_token": stoken,
+                            "guest_name": gname,
+                            "ip_address": ip or "Local",
+                            "created_at": created,
+                            "last_active": last_act,
+                            "is_online": is_online
+                        })
+                    result = {
+                        "success": True,
+                        "data": sessions,
+                        "active_online_count": active_online_count,
+                        "total_sessions": len(sessions)
+                    }
+
+                elif action == "revoke_guest_session":
+                    sid = data.get("session_id")
+                    c.execute("DELETE FROM guest_sessions WHERE id=?", (sid,))
+                    conn.commit()
+                    result = {"success": True, "message": "Guest session removed successfully."}
+
+                elif action == "clear_guest_sessions":
+                    c.execute("DELETE FROM guest_sessions")
+                    conn.commit()
+                    result = {"success": True, "message": "All guest session logs cleared."}
 
                 elif action == "get_classes":
                     # Comprehensive class list from all relevant tables

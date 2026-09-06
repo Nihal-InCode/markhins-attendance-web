@@ -644,7 +644,7 @@ app.get('/health', (req, res) => {
 // --- Auth Routes ---
 app.post('/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, guest_name } = req.body;
 
         // ── MAJLIS LOGIN (reports-only access) ──
         if (username === 'majlis' && password === 'admin') {
@@ -672,7 +672,7 @@ app.post('/login', async (req, res) => {
             return res.json({ success: true, user: majlisUser, token });
         }
 
-                // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
+        // ── SYSTEM ADMIN CHECK (Railway Env Vars & DB) ──
         const sysAdminUser = process.env.WEB_ADMIN_USERNAME || "admin";
         let sysAdminPass = process.env.WEB_ADMIN_PASSWORD || "admin";
 
@@ -702,7 +702,7 @@ app.post('/login', async (req, res) => {
                 epochMs: Date.now(),
                 actor: adminUser.name,
                 username: adminUser.username,
-                role: 'Admin',
+                role: "Admin",
                 type: 'Login',
                 summary: 'Logged into the admin console',
                 meta: 'System administrator login',
@@ -711,9 +711,10 @@ app.post('/login', async (req, res) => {
             return res.json({ success: true, user: adminUser, token });
         }
 
-        // ── Normal Teacher Login ──
+        // ── Normal Teacher / Guest Login ──
         console.log(`[Login Attempt] User: ${username}`);
-        const result = await callPython({ action: "login", username, password });
+        const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Local';
+        const result = await callPython({ action: "login", username, password, guest_name, ip_address: clientIp });
 
         if (result.success) {
             const token = jwt.sign(result.user, JWT_SECRET, { expiresIn: '7d' });
@@ -725,8 +726,8 @@ app.post('/login', async (req, res) => {
                 actor: result.user?.name || username,
                 username: result.user?.username || username,
                 role: getUserRoleLabel(result.user || {}),
-                type: 'Login',
-                summary: 'Logged into the web app',
+                type: username.toLowerCase() === 'guest' ? 'Guest Login' : 'Login',
+                summary: username.toLowerCase() === 'guest' ? `Student guest login: ${result.user?.guest_name || 'Guest'}` : 'Logged into the web app',
                 meta: 'Successful login',
             });
             res.json({ ...result, token });
@@ -748,9 +749,43 @@ app.get('/validate-token', authenticateToken, async (req, res) => {
                 user = { ...user, is_teacher: dbCheck.teacher.is_teacher };
             }
         }
+        if (user && user.username === 'guest' && user.guest_session_token) {
+            callPython({ action: "touch_guest_session", guest_session_token: user.guest_session_token }).catch(() => {});
+        }
         res.json({ success: true, user });
     } catch (e) {
         res.json({ success: true, user: req.user });
+    }
+});
+
+// ── Admin Guest Sessions Endpoints ──
+app.get('/admin/guest-sessions', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_guest_sessions" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/admin/guest-sessions/:id', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "revoke_guest_session", session_id: req.params.id });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.delete('/admin/guest-sessions', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "clear_guest_sessions" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

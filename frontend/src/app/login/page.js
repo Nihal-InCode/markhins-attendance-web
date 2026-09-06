@@ -9,20 +9,29 @@ import { isWebAuthnSupported, startAuthentication } from '@/lib/webauthn';
 export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [guestName, setGuestName] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [passkeyLoading, setPasskeyLoading] = useState(false);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
 
+    const isGuestLogin = username.trim().toLowerCase() === "guest";
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+
+        if (isGuestLogin && !guestName.trim()) {
+            setError("Please enter your name to proceed with Guest Login.");
+            return;
+        }
+
         setLoading(true);
         showLoader("Verifying credentials...");
 
         try {
-            const response = await loginApi(username, password);
+            const response = await loginApi(username, password, isGuestLogin ? guestName.trim() : "");
             if (response.token) {
                 playSound('loginSuccess');
                 login(response.token, response.user);
@@ -123,6 +132,30 @@ export default function LoginPage() {
                                     onChange={(e) => setUsername(e.target.value)}
                                 />
                             </div>
+
+                            {isGuestLogin && (
+                                <div className="space-y-2 p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex justify-between items-center px-1">
+                                        <label className="block text-[10px] font-black text-indigo-700 uppercase tracking-widest">
+                                            Student / Your Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className="text-[9px] font-extrabold text-indigo-600 bg-white px-2 py-0.5 rounded-md border border-indigo-100 shadow-xs">
+                                            Required for Guest
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-4 py-3 rounded-xl border border-indigo-200 bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-gray-800 text-xs placeholder:text-indigo-300"
+                                        placeholder="e.g. Muhammed Ali - Class 10"
+                                        value={guestName}
+                                        onChange={(e) => setGuestName(e.target.value)}
+                                    />
+                                    <p className="text-[9.5px] text-indigo-600/80 font-medium px-1">
+                                        Please enter your name so admin can identify active guest sessions.
+                                    </p>
+                                </div>
+                            )}
 
                             <div>
                                 <div className="flex justify-between items-center mb-2 px-1">

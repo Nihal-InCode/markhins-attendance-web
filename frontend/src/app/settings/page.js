@@ -26,6 +26,9 @@ import {
     saveTimetableEditors,
     getSingleSessionSetting,
     updateSingleSessionSetting,
+    getGuestSessions,
+    revokeGuestSession,
+    clearGuestSessions,
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
@@ -128,6 +131,10 @@ export default function SettingsPage() {
     const [timetableEditors, setTimetableEditors] = useState([]);
     const [singleSessionEnabled, setSingleSessionEnabled] = useState(true);
     const [singleSessionBusy, setSingleSessionBusy] = useState(false);
+    const [guestSessions, setGuestSessions] = useState([]);
+    const [guestSessionStats, setGuestSessionStats] = useState({ active_online_count: 0, total_sessions: 0 });
+    const [loadingGuestSessions, setLoadingGuestSessions] = useState(false);
+    const [guestSearch, setGuestSearch] = useState("");
     const [announcementForm, setAnnouncementForm] = useState({
         id: null,
         heading: "A fresh semester begins",
@@ -146,13 +153,31 @@ export default function SettingsPage() {
         hideLoaderRef.current = hideLoader;
     }, [showLoader, hideLoader]);
 
+    const refreshGuestSessions = useCallback(async () => {
+        setLoadingGuestSessions(true);
+        try {
+            const res = await getGuestSessions();
+            if (res && res.success) {
+                setGuestSessions(Array.isArray(res.data) ? res.data : []);
+                setGuestSessionStats({
+                    active_online_count: res.active_online_count || 0,
+                    total_sessions: res.total_sessions || 0
+                });
+            }
+        } catch (err) {
+            console.error("Failed to load guest sessions:", err);
+        } finally {
+            setLoadingGuestSessions(false);
+        }
+    }, []);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         setMsg("");
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, guestSessRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -162,6 +187,7 @@ export default function SettingsPage() {
                 getSubstituteCoordinators(),
                 getTimetableEditors(),
                 getSingleSessionSetting().catch(() => ({ enabled: true })),
+                getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -172,6 +198,13 @@ export default function SettingsPage() {
             setSubCoordinators(coordRes?.coordinators?.map(String) || []);
             setTimetableEditors(editorRes?.editors?.map(String) || []);
             setSingleSessionEnabled(singleSessRes?.enabled !== false);
+            if (guestSessRes && guestSessRes.success) {
+                setGuestSessions(Array.isArray(guestSessRes.data) ? guestSessRes.data : []);
+                setGuestSessionStats({
+                    active_online_count: guestSessRes.active_online_count || 0,
+                    total_sessions: guestSessRes.total_sessions || 0
+                });
+            }
         } catch (err) {
             setError("Failed to load: " + err.message);
         } finally {
@@ -179,6 +212,41 @@ export default function SettingsPage() {
             hideLoaderRef.current();
         }
     }, [selectedWeekday]);
+
+    async function handleRevokeGuestSession(id) {
+        try {
+            await revokeGuestSession(id);
+            setMsg("Guest session record removed.");
+            playSound('success');
+            await refreshGuestSessions();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        }
+    }
+
+    async function handleClearAllGuestSessions() {
+        if (!confirm("Are you sure you want to clear all guest student session history logs?")) return;
+        try {
+            await clearGuestSessions();
+            setMsg("All guest session logs cleared.");
+            playSound('success');
+            await refreshGuestSessions();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        }
+    }
+
+    const filteredGuestSessions = useMemo(() => {
+        if (!guestSearch) return guestSessions;
+        const q = guestSearch.toLowerCase();
+        return guestSessions.filter(gs =>
+            (gs.guest_name || "").toLowerCase().includes(q) ||
+            (gs.ip_address || "").toLowerCase().includes(q) ||
+            (gs.created_at || "").toLowerCase().includes(q)
+        );
+    }, [guestSearch, guestSessions]);
 
     async function handleToggleSingleSession(checked) {
         setSingleSessionBusy(true);
@@ -569,6 +637,136 @@ export default function SettingsPage() {
                                                 </td>
                                             </tr>
                                         ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Student Guest Sessions Tracker Card */}
+                        <div className="rounded-3xl border border-indigo-100 bg-white overflow-hidden shadow-sm space-y-0">
+                            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50/60 to-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🎓</span>
+                                        <h2 className="text-lg font-black text-indigo-950">Student Guest Portal Logins</h2>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800">
+                                            Universal Guest Account
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                        Shows all students who logged in using the universal guest account along with their entered names.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={refreshGuestSessions}
+                                        disabled={loadingGuestSessions}
+                                        className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-100 active:scale-95 disabled:opacity-50"
+                                        title="Refresh sessions list"
+                                    >
+                                        <span>🔄</span>
+                                        <span>{loadingGuestSessions ? "Refreshing..." : "Refresh"}</span>
+                                    </button>
+                                    {guestSessions.length > 0 && (
+                                        <button
+                                            onClick={handleClearAllGuestSessions}
+                                            className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all border border-rose-100 active:scale-95"
+                                            title="Clear guest login history log"
+                                        >
+                                            Clear Logs
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Live KPI Header */}
+                            <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4 bg-gray-50/50 border-b border-gray-100">
+                                <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Currently Active / Online</span>
+                                    <p className="text-2xl font-black text-emerald-600 mt-1 flex items-center gap-2">
+                                        {guestSessionStats.active_online_count}
+                                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                                    </p>
+                                    <p className="text-[10px] text-emerald-700 font-medium mt-0.5">Active in last 15 mins</p>
+                                </div>
+                                <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700">Total Recorded Logins</span>
+                                    <p className="text-2xl font-black text-indigo-900 mt-1">{guestSessionStats.total_sessions}</p>
+                                    <p className="text-[10px] text-indigo-700 font-medium mt-0.5">Logged student sessions</p>
+                                </div>
+                                <div className="col-span-2 sm:col-span-1 bg-white border border-gray-100 rounded-2xl p-3 flex items-center">
+                                    <input
+                                        type="text"
+                                        placeholder="Search student name..."
+                                        value={guestSearch}
+                                        onChange={(e) => setGuestSearch(e.target.value)}
+                                        className="w-full text-xs font-bold text-gray-800 placeholder:text-gray-400 bg-gray-50 border border-gray-150 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Table View */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50/80 border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student / Guest Name</th>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Login Time</th>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Active</th>
+                                            <th className="px-6 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {filteredGuestSessions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-8 text-center text-xs text-gray-400 font-bold uppercase tracking-wider">
+                                                    No guest student logins recorded yet.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredGuestSessions.map((gs) => (
+                                                <tr key={gs.id} className="hover:bg-indigo-50/20 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`h-8.5 w-8.5 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${gs.is_online ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-slate-400 to-gray-500'}`}>
+                                                                🎓
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-extrabold text-gray-900 text-xs">{gs.guest_name}</p>
+                                                                <p className="text-[9.5px] font-bold text-gray-400">Guest User • IP: {gs.ip_address}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {gs.is_online ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                ONLINE NOW
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
+                                                                OFFLINE
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">
+                                                        {gs.created_at || "—"}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-semibold text-gray-600">
+                                                        {gs.last_active || "—"}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button
+                                                            onClick={() => handleRevokeGuestSession(gs.id)}
+                                                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase text-rose-500 hover:bg-rose-50 border border-rose-100 transition-all active:scale-95"
+                                                        >
+                                                            Remove Log
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
