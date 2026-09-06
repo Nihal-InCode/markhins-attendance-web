@@ -147,7 +147,7 @@ export default function LoginPage() {
                                         type="text"
                                         required
                                         className="w-full px-4 py-3 rounded-xl border border-indigo-200 bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-gray-800 text-xs placeholder:text-indigo-300"
-                                        placeholder="NIHAL CH"
+                                        placeholder="eg : HIDAYATHULLAH"
                                         value={guestName}
                                         onChange={(e) => setGuestName(e.target.value)}
                                     />

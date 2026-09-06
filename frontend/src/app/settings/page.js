@@ -158,11 +158,17 @@ export default function SettingsPage() {
         setLoadingGuestSessions(true);
         try {
             const res = await getGuestSessions();
-            if (res && res.success) {
-                setGuestSessions(Array.isArray(res.data) ? res.data : []);
+            if (res) {
+                let list = [];
+                if (Array.isArray(res)) {
+                    list = res;
+                } else if (typeof res === 'object') {
+                    list = Array.isArray(res.data) ? res.data : [];
+                }
+                setGuestSessions(list);
                 setGuestSessionStats({
-                    active_online_count: res.active_online_count || 0,
-                    total_sessions: res.total_sessions || 0
+                    active_online_count: Array.isArray(res) ? list.filter(s => s.is_online).length : (res.active_online_count !== undefined ? res.active_online_count : list.filter(s => s.is_online).length),
+                    total_sessions: Array.isArray(res) ? list.length : (res.total_sessions !== undefined ? res.total_sessions : list.length)
                 });
             }
         } catch (err) {
@@ -199,11 +205,17 @@ export default function SettingsPage() {
             setSubCoordinators(coordRes?.coordinators?.map(String) || []);
             setTimetableEditors(editorRes?.editors?.map(String) || []);
             setSingleSessionEnabled(singleSessRes?.enabled !== false);
-            if (guestSessRes && guestSessRes.success) {
-                setGuestSessions(Array.isArray(guestSessRes.data) ? guestSessRes.data : []);
+            if (guestSessRes) {
+                let list = [];
+                if (Array.isArray(guestSessRes)) {
+                    list = guestSessRes;
+                } else if (typeof guestSessRes === 'object') {
+                    list = Array.isArray(guestSessRes.data) ? guestSessRes.data : [];
+                }
+                setGuestSessions(list);
                 setGuestSessionStats({
-                    active_online_count: guestSessRes.active_online_count || 0,
-                    total_sessions: guestSessRes.total_sessions || 0
+                    active_online_count: Array.isArray(guestSessRes) ? list.filter(s => s.is_online).length : (guestSessRes.active_online_count !== undefined ? guestSessRes.active_online_count : list.filter(s => s.is_online).length),
+                    total_sessions: Array.isArray(guestSessRes) ? list.length : (guestSessRes.total_sessions !== undefined ? guestSessRes.total_sessions : list.length)
                 });
             }
         } catch (err) {

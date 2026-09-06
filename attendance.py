@@ -5337,9 +5337,10 @@ if __name__ == "__main__":
                         is_online = False
                         if last_act:
                             try:
-                                act_dt = dt.strptime(str(last_act).split('.')[0], "%Y-%m-%d %H:%M:%S")
-                                diff_sec = (now_ist - act_dt).total_seconds()
-                                if 0 <= diff_sec <= 900:  # 15 mins active
+                                clean_act = str(last_act).replace('T', ' ').split('.')[0].strip()
+                                act_dt = dt.strptime(clean_act, "%Y-%m-%d %H:%M:%S")
+                                diff_sec = abs((now_ist - act_dt).total_seconds())
+                                if diff_sec <= 900:  # 15 mins active
                                     is_online = True
                             except Exception:
                                 pass
