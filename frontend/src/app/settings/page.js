@@ -262,6 +262,16 @@ export default function SettingsPage() {
         );
     }, [guestSearch, guestSessions]);
 
+    useEffect(() => {
+        if (activeTab === "system") {
+            refreshGuestSessions();
+            const interval = setInterval(() => {
+                refreshGuestSessions();
+            }, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [activeTab, refreshGuestSessions]);
+
     async function handleToggleSingleSession(checked) {
         setSingleSessionBusy(true);
         setMsg("");

@@ -774,6 +774,17 @@ app.get('/validate-token', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/logout', authenticateToken, async (req, res) => {
+    try {
+        if (req.user && String(req.user.username || '').toLowerCase() === 'guest' && req.user.guest_session_token) {
+            await callPython({ action: "logout_guest_session", guest_session_token: req.user.guest_session_token });
+        }
+        res.json({ success: true, message: 'Logged out successfully.' });
+    } catch (error) {
+        res.json({ success: true });
+    }
+});
+
 // ── Admin Guest Sessions Endpoints ──
 app.get('/admin/guest-sessions', authenticateToken, async (req, res) => {
     try {

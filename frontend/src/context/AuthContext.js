@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { validateToken as validateTokenApi, startActivityTracker } from "@/lib/api";
+import { validateToken as validateTokenApi, startActivityTracker, logoutApi } from "@/lib/api";
 
 const AuthContext = createContext();
 
@@ -73,6 +73,7 @@ export function AuthProvider({ children }) {
      * Logout clears storage and redirects
      */
     const logout = () => {
+        logoutApi().catch(() => {});
         localStorage.removeItem("token");
         setUser(null);
         router.push("/login");

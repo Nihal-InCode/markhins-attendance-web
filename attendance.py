@@ -63,25 +63,18 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 # === Database Path Configuration ===
 def resolve_db_path():
     configured = (os.environ.get("ATTENDANCE_DB_PATH") or "").strip()
-    if configured:
-        candidates = [
-            configured,
-            os.path.join(os.getcwd(), "attendance.db"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db"),
-            "/data/web_attendance.db",
-        ]
-    else:
-        candidates = [
-            os.path.join(os.getcwd(), "attendance.db"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db"),
-            "/data/web_attendance.db",
-        ]
+    if configured and os.path.exists(configured):
+        return configured
 
-    for candidate in candidates:
-        if candidate and os.path.exists(candidate):
-            return candidate
+    file_dir_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db")
+    if os.path.exists(file_dir_db):
+        return file_dir_db
 
-    return configured or os.path.join(os.path.dirname(os.path.abspath(__file__)), "attendance.db")
+    cwd_db = os.path.join(os.getcwd(), "attendance.db")
+    if os.path.exists(cwd_db):
+        return cwd_db
+
+    return configured or file_dir_db
 
 
 DB_NAME = resolve_db_path()
@@ -5272,8 +5265,8 @@ if __name__ == "__main__":
                             try:
                                 c.execute("""
                                     INSERT INTO guest_sessions (session_token, guest_name, ip_address, created_at, last_active)
-                                    VALUES (?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))
-                                """, (guest_token, display_gname, str(data.get("ip_address") or "Local")))
+                                    VALUES (?, ?, ?, ?, ?)
+                                """, (guest_token, display_gname, str(data.get("ip_address") or "Local"), now_str, now_str))
                             except Exception as g_err:
                                 print(f"[DEBUG] Error inserting guest session: {g_err}")
 
@@ -5307,7 +5300,8 @@ if __name__ == "__main__":
                         c.execute("SELECT id FROM guest_sessions WHERE session_token=?", (token,))
                         row = c.fetchone()
                         if row:
-                            c.execute("UPDATE guest_sessions SET last_active=datetime('now', 'localtime') WHERE session_token=?", (token,))
+                            now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                            c.execute("UPDATE guest_sessions SET last_active=? WHERE session_token=?", (now_str, token))
                             conn.commit()
                             result = {"success": True}
                         else:
@@ -5316,7 +5310,15 @@ if __name__ == "__main__":
                 elif action == "touch_guest_session":
                     token = data.get("guest_session_token")
                     if token:
-                        c.execute("UPDATE guest_sessions SET last_active=datetime('now', 'localtime') WHERE session_token=?", (token,))
+                        now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+                        c.execute("UPDATE guest_sessions SET last_active=? WHERE session_token=?", (now_str, token))
+                        conn.commit()
+                    result = {"success": True}
+
+                elif action == "logout_guest_session":
+                    token = data.get("guest_session_token")
+                    if token:
+                        c.execute("DELETE FROM guest_sessions WHERE session_token=?", (token,))
                         conn.commit()
                     result = {"success": True}
 
