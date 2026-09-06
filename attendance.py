@@ -155,6 +155,21 @@ def run_migrations():
             )
         """)
 
+        # Ensure all columns exist on teachers table before any queries or seeds
+        for col_def in [
+            ("active_session_token", "TEXT"),
+            ("last_login", "TEXT"),
+            ("role", "TEXT DEFAULT 'Faculty'"),
+            ("subject", "TEXT DEFAULT 'General'"),
+            ("class_teacher_of", "TEXT"),
+            ("is_teacher", "INTEGER DEFAULT 1")
+        ]:
+            try:
+                c.execute(f"ALTER TABLE teachers ADD COLUMN {col_def[0]} {col_def[1]}")
+            except sqlite3.OperationalError:
+                pass
+
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS attendance (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

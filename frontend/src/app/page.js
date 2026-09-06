@@ -892,10 +892,24 @@ export default function DashboardPage() {
       const isSystemAccount = (t) => {
         const name = String(t?.name || "").trim().toUpperCase();
         const user = String(t?.username || "").trim().toLowerCase();
-        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
       };
 
-      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isSystemAccount(t));
+      const rawFacultyList = teachersList.length > 0 
+        ? teachersList 
+        : (todayTeacherScans.length > 0 
+            ? todayTeacherScans.map(s => ({
+                id: s.teacher_id,
+                name: s.teacher_name,
+                username: s.username,
+                role: s.role,
+                subject: s.subject,
+                class_teacher_of: s.class_teacher_of,
+                is_teacher: s.is_teacher
+              }))
+            : teachers);
+
+      const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
       if (allFaculty.length === 0) {
         alert("No staff members found to export.");
         return;
@@ -7518,10 +7532,24 @@ export default function DashboardPage() {
                       const isSystemAccount = (t) => {
                         const name = String(t?.name || "").trim().toUpperCase();
                         const user = String(t?.username || "").trim().toLowerCase();
-                        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin";
+                        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
                       };
 
-                      const allFaculty = (teachersList.length > 0 ? teachersList : teachers).filter(t => !isSystemAccount(t));
+                      const rawFacultyList = teachersList.length > 0 
+                        ? teachersList 
+                        : (todayTeacherScans.length > 0 
+                            ? todayTeacherScans.map(s => ({
+                                id: s.teacher_id,
+                                name: s.teacher_name,
+                                username: s.username,
+                                role: s.role,
+                                subject: s.subject,
+                                class_teacher_of: s.class_teacher_of,
+                                is_teacher: s.is_teacher
+                              }))
+                            : teachers);
+
+                      const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
                       const totalCount = allFaculty.length;
                       
                       const scanMap = new Map();
