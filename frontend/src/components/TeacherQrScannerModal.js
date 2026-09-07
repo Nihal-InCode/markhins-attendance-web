@@ -109,11 +109,31 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                     }
                 };
 
+                const applyHardwareZoom = async () => {
+                    try {
+                        const videoEl = document.querySelector("#teacher-qr-reader video");
+                        if (videoEl && videoEl.srcObject) {
+                            const track = videoEl.srcObject.getVideoTracks()[0];
+                            if (track && typeof track.getCapabilities === "function") {
+                                const caps = track.getCapabilities();
+                                if (caps.zoom) {
+                                    const targetZoom = Math.min(caps.zoom.max || 3.0, Math.max(caps.zoom.min || 1.0, 2.0));
+                                    await track.applyConstraints({ advanced: [{ zoom: targetZoom }] });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Hardware zoom error:", e);
+                    }
+                };
+
                 try {
                     await html5Qrcode.start(cameraConfig, config, onScanSuccess, () => {});
+                    setTimeout(applyHardwareZoom, 300);
                 } catch (startErr) {
                     if (cameraConfig.deviceId) {
                         await html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
+                        setTimeout(applyHardwareZoom, 300);
                     } else {
                         throw startErr;
                     }
@@ -239,10 +259,28 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                     }
                 };
 
+                const applyHardwareZoom = async () => {
+                    try {
+                        const videoEl = document.querySelector("#teacher-qr-reader video");
+                        if (videoEl && videoEl.srcObject) {
+                            const track = videoEl.srcObject.getVideoTracks()[0];
+                            if (track && typeof track.getCapabilities === "function") {
+                                const caps = track.getCapabilities();
+                                if (caps.zoom) {
+                                    const targetZoom = Math.min(caps.zoom.max || 3.0, Math.max(caps.zoom.min || 1.0, 2.0));
+                                    await track.applyConstraints({ advanced: [{ zoom: targetZoom }] });
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                };
+
                 try {
                     await html5Qrcode.start(cameraConfig, config, onScanSuccess, () => {});
+                    setTimeout(applyHardwareZoom, 300);
                 } catch (err) {
                     await html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
+                    setTimeout(applyHardwareZoom, 300);
                 }
             } catch (err) {
                 setStatus("CAMERA_ERROR");
@@ -263,6 +301,19 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 }
                 .animate-paytm-laser {
                     animation: paytmLaserSweep 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+                #teacher-qr-reader {
+                    width: 100% !important;
+                    height: 100% !important;
+                    overflow: hidden !important;
+                    border: none !important;
+                }
+                #teacher-qr-reader video {
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: cover !important;
+                    transform: scale(1.45) !important;
+                    transform-origin: center center !important;
                 }
             `}</style>
             
