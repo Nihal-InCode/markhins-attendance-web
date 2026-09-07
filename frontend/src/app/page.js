@@ -1701,10 +1701,7 @@ export default function DashboardPage() {
     if (session && editEntries.length > 0) {
       setSavingNamazEdits(true);
       try {
-        const userObj = (() => {
-          try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch(e) { return {}; }
-        })();
-        const editorName = userObj.name || userObj.username || "Teacher";
+        const editorName = user?.name || user?.username || "";
         const updates = editEntries.map(([studentId, status]) => ({ studentId, status }));
         const res = await updateNamazStatus({ sessionId: session.sessionId, updates, editedBy: editorName });
         if (res?.success) {

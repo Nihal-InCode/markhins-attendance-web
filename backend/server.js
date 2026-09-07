@@ -1325,7 +1325,7 @@ app.get('/namaz-analytics', authenticateToken, async (req, res) => {
 app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
     try {
         const { sessionId, studentId, status, updates, editedBy } = req.body;
-        const editorName = editedBy || req.user?.name || req.user?.username || 'Teacher';
+        const editorName = req.user?.name || req.user?.username || editedBy || 'Teacher';
         const result = await callPython({
             action: "update_namaz_attendance",
             sessionId,
