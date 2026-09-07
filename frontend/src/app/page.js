@@ -604,6 +604,82 @@ export default function DashboardPage() {
   const [teacherAttFilter, setTeacherAttFilter] = useState("all");
   const [staffViewMode, setStaffViewMode] = useState("cards");
 
+  // Memoized staff attendance datasets & analytics to prevent lag & re-render bottlenecks
+  const staffAttData = useMemo(() => {
+    const isSystemAccount = (t) => {
+      const name = String(t?.name || "").trim().toUpperCase();
+      const user = String(t?.username || "").trim().toLowerCase();
+      return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
+    };
+
+    const rawFacultyList = teachersList.length > 0 
+      ? teachersList 
+      : (todayTeacherScans.length > 0 
+          ? todayTeacherScans.map(s => ({
+              id: s.teacher_id,
+              name: s.teacher_name,
+              username: s.username,
+              role: s.role,
+              subject: s.subject,
+              class_teacher_of: s.class_teacher_of,
+              is_teacher: s.is_teacher
+            }))
+          : teachers);
+
+    const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
+    
+    const scanMap = new Map();
+    todayTeacherScans.forEach(s => {
+      scanMap.set(String(s.teacher_id), s);
+      if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s);
+    });
+
+    let fullPresentCount = 0;
+    let halfDayCount = 0;
+    let absentCount = 0;
+
+    allFaculty.forEach(t => {
+      const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+      const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
+      if (st === "FULL PRESENT") {
+        fullPresentCount++;
+      } else if (st.includes("HALF DAY")) {
+        halfDayCount++;
+      } else {
+        absentCount++;
+      }
+    });
+
+    const searchLower = teacherAttSearch.toLowerCase().trim();
+    const filtered = allFaculty.filter(t => {
+      const nameMatch = !searchLower || (t.name || "").toLowerCase().includes(searchLower) ||
+        (t.username || "").toLowerCase().includes(searchLower) ||
+        (t.role || "").toLowerCase().includes(searchLower) ||
+        (t.subject || "").toLowerCase().includes(searchLower);
+      
+      if (!nameMatch) return false;
+
+      const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+      const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
+
+      if (teacherAttFilter === "full" && st !== "FULL PRESENT") return false;
+      if (teacherAttFilter === "half" && !st.includes("HALF DAY")) return false;
+      if (teacherAttFilter === "absent" && st !== "ABSENT") return false;
+
+      return true;
+    });
+
+    return {
+      allFaculty,
+      totalCount: allFaculty.length,
+      scanMap,
+      fullPresentCount,
+      halfDayCount,
+      absentCount,
+      filtered
+    };
+  }, [teachersList, todayTeacherScans, teachers, teacherAttSearch, teacherAttFilter]);
+
   useEffect(() => {
     if (user && user.role !== 'admin' && user.role !== 'Majlis') {
       getTodayTeacherAttendanceStatus()
@@ -2239,8 +2315,9 @@ export default function DashboardPage() {
 
     fetchAdminLog(selectedDate, true);
     const monitorInterval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchAdminLog(selectedDate, true);
-    }, 5000);
+    }, 10000);
 
     return () => window.clearInterval(monitorInterval);
   }, [activeTab, reportType, selectedDate, user?.role]);
@@ -2256,6 +2333,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activeTab !== "reports") return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setDailyRefreshTs(Date.now());
     }, 30000);
     return () => clearInterval(interval);
@@ -7831,50 +7909,7 @@ export default function DashboardPage() {
 
                     {/* Analytics KPI Cards */}
                     {(() => {
-                      const isSystemAccount = (t) => {
-                        const name = String(t?.name || "").trim().toUpperCase();
-                        const user = String(t?.username || "").trim().toLowerCase();
-                        return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
-                      };
-
-                      const rawFacultyList = teachersList.length > 0 
-                        ? teachersList 
-                        : (todayTeacherScans.length > 0 
-                            ? todayTeacherScans.map(s => ({
-                                id: s.teacher_id,
-                                name: s.teacher_name,
-                                username: s.username,
-                                role: s.role,
-                                subject: s.subject,
-                                class_teacher_of: s.class_teacher_of,
-                                is_teacher: s.is_teacher
-                              }))
-                            : teachers);
-
-                      const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
-                      const totalCount = allFaculty.length;
-                      
-                      const scanMap = new Map();
-                      todayTeacherScans.forEach(s => {
-                        scanMap.set(String(s.teacher_id), s);
-                        if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s);
-                      });
-
-                      let fullPresentCount = 0;
-                      let halfDayCount = 0;
-                      let absentCount = 0;
-
-                      allFaculty.forEach(t => {
-                        const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-                        const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
-                        if (st === "FULL PRESENT") {
-                          fullPresentCount++;
-                        } else if (st.includes("HALF DAY")) {
-                          halfDayCount++;
-                        } else {
-                          absentCount++;
-                        }
-                      });
+                      const { totalCount, scanMap, fullPresentCount, halfDayCount, absentCount, filtered } = staffAttData;
 
                       return (
                         <div className="space-y-6">
@@ -7972,22 +8007,6 @@ export default function DashboardPage() {
                             </div>
                           ) : (
                             (() => {
-                              const filtered = allFaculty.filter(t => {
-                                const nameMatch = (t.name || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
-                                  (t.username || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
-                                  (t.role || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
-                                  (t.subject || "").toLowerCase().includes(teacherAttSearch.toLowerCase());
-                                
-                                const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-                                const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
-
-                                if (teacherAttFilter === "full" && st !== "FULL PRESENT") return false;
-                                if (teacherAttFilter === "half" && !st.includes("HALF DAY")) return false;
-                                if (teacherAttFilter === "absent" && st !== "ABSENT") return false;
-
-                                return nameMatch;
-                              });
-
                               if (filtered.length === 0) {
                                 return (
                                   <div className="bg-gray-50 border border-dashed border-gray-200 rounded-3xl p-12 text-center">
