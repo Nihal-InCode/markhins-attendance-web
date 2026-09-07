@@ -1122,7 +1122,6 @@ def build_namaz_analytics(c, data):
     for c_item in class_totals.values():
         c_item["percent"] = _pct(c_item["present"], c_item["total"])
         class_summaries.append(c_item)
-        class_summaries.append(c_item)
     class_summaries.sort(key=lambda x: x["percent"], reverse=True)
 
     return {
