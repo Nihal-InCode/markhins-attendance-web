@@ -397,9 +397,20 @@ def run_migrations():
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS namaz_edit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessionId TEXT NOT NULL,
+                editorName TEXT NOT NULL,
+                editedAt TEXT NOT NULL,
+                FOREIGN KEY (sessionId) REFERENCES namaz_sessions(sessionId)
+            )
+        """)
+
         c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_sessions_date_class ON namaz_sessions(date, className)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_attendance_session ON namaz_attendance(sessionId)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_attendance_student ON namaz_attendance(studentId)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_namaz_edit_logs_session ON namaz_edit_logs(sessionId)")
 
         now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("""
@@ -810,6 +821,14 @@ def _filtered_namaz_sessions(c, filters):
             {"rollNo": r[0], "status": r[1], "name": r[2] or r[0]}
             for r in c2.fetchall()
         ]
+        c2.execute("""
+            SELECT DISTINCT editorName
+            FROM namaz_edit_logs
+            WHERE sessionId = ?
+            ORDER BY id ASC
+        """, (s_id,))
+        editors = [r[0] for r in c2.fetchall() if r[0]]
+
         sessions_list.append({
             "sessionId": row[0],
             "sessionName": row[1],
@@ -817,6 +836,7 @@ def _filtered_namaz_sessions(c, filters):
             "source": row[3],
             "date": row[4],
             "createdAt": row[5],
+            "editors": editors,
             "students": students
         })
     return sessions_list
@@ -1225,6 +1245,8 @@ def handle_update_namaz_attendance(c, data):
     if session_date != today_ist:
         return {"success": False, "message": "Editing attendance is only permitted on the same day"}
 
+    edited_by = str(data.get("editedBy") or data.get("editorName") or "Admin").strip()
+
     valid_statuses = {"present", "absent", "namaz_special_leave"}
 
     updates = data.get("updates")
@@ -1240,6 +1262,14 @@ def handle_update_namaz_attendance(c, data):
                 else:
                     c.execute("INSERT INTO namaz_attendance (sessionId, studentId, status) VALUES (?, ?, ?)", (session_id, st_id, st_status))
                 count += 1
+
+        if count > 0:
+            now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("""
+                INSERT INTO namaz_edit_logs (sessionId, editorName, editedAt)
+                VALUES (?, ?, ?)
+            """, (session_id, edited_by, now_str))
+
         return {
             "success": True,
             "message": f"Updated {count} student statuses successfully",
@@ -1261,6 +1291,12 @@ def handle_update_namaz_attendance(c, data):
         c.execute("UPDATE namaz_attendance SET status=? WHERE sessionId=? AND studentId=?", (status, session_id, student_id))
     else:
         c.execute("INSERT INTO namaz_attendance (sessionId, studentId, status) VALUES (?, ?, ?)", (session_id, student_id, status))
+
+    now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute("""
+        INSERT INTO namaz_edit_logs (sessionId, editorName, editedAt)
+        VALUES (?, ?, ?)
+    """, (session_id, edited_by, now_str))
 
     return {
         "success": True,

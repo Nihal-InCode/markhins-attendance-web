@@ -763,6 +763,7 @@ export default function DashboardPage() {
   const [namazStudentSearchQuery, setNamazStudentSearchQuery] = useState("");
   const [selectedStudentDetailModal, setSelectedStudentDetailModal] = useState(null);
   const [copiedPrayerState, setCopiedPrayerState] = useState(null);
+  const [activeEditorPopover, setActiveEditorPopover] = useState(null);
 
   const fetchTeacherAttData = useCallback(() => {
     if (activeTab === "reports" && reportType === "teacher_att") {
@@ -1700,8 +1701,12 @@ export default function DashboardPage() {
     if (session && editEntries.length > 0) {
       setSavingNamazEdits(true);
       try {
+        const userObj = (() => {
+          try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch(e) { return {}; }
+        })();
+        const editorName = userObj.name || userObj.username || "Teacher";
         const updates = editEntries.map(([studentId, status]) => ({ studentId, status }));
-        const res = await updateNamazStatus({ sessionId: session.sessionId, updates });
+        const res = await updateNamazStatus({ sessionId: session.sessionId, updates, editedBy: editorName });
         if (res?.success) {
           setNamazAnalytics((prev) => {
             if (!prev || !prev.sessions) return prev;
@@ -5901,6 +5906,7 @@ export default function DashboardPage() {
                                                   const pSessions = dailySessions.filter(s => s.sessionName === p.name);
                                                   const hasData = pSessions.length > 0;
                                                   const isSelected = selectedTodayPrayer === p.name;
+                                                  const pEditors = Array.from(new Set(pSessions.flatMap(s => s.editors || [])));
 
                                                   const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
                                                   const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length : 0), 0);
@@ -5932,6 +5938,52 @@ export default function DashboardPage() {
                                                             </div>
                                                           </div>
                                                           <div className="flex items-center gap-1.5">
+                                                            {pEditors.length > 0 && (
+                                                              <div className="relative">
+                                                                <button
+                                                                  type="button"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveEditorPopover(activeEditorPopover?.id === p.name ? null : { id: p.name, editors: pEditors });
+                                                                  }}
+                                                                  className="w-7 h-7 rounded-full bg-amber-100/90 hover:bg-amber-200 text-amber-700 flex items-center justify-center text-xs shadow-xs transition-all hover:scale-110 active:scale-95 border border-amber-300/80"
+                                                                  title="Edited session logs"
+                                                                >
+                                                                  ✨
+                                                                </button>
+                                                                {activeEditorPopover?.id === p.name && (
+                                                                  <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="absolute right-0 top-8 z-30 w-52 p-3 bg-gray-900 text-white text-xs rounded-2xl shadow-2xl border border-gray-700 animate-in fade-in zoom-in-95 duration-150"
+                                                                  >
+                                                                    <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-gray-800">
+                                                                      <span className="font-black text-[10px] text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                                                                        <span>✨</span> Edit History
+                                                                      </span>
+                                                                      <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          setActiveEditorPopover(null);
+                                                                        }}
+                                                                        className="text-gray-400 hover:text-white font-bold text-xs"
+                                                                      >
+                                                                        ✕
+                                                                      </button>
+                                                                    </div>
+                                                                    <p className="text-[10px] font-bold text-gray-400 mb-1.5">Edited by:</p>
+                                                                    <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                                                                      {pEditors.map((ed, idx) => (
+                                                                        <div key={idx} className="flex items-center gap-1.5 text-xs font-bold text-amber-300 bg-gray-800/90 px-2.5 py-1 rounded-xl">
+                                                                          <span>👤</span>
+                                                                          <span className="truncate">{ed}</span>
+                                                                        </div>
+                                                                      ))}
+                                                                    </div>
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )}
                                                             {isSelected && (
                                                               <span className="text-teal-600 font-black text-xs bg-teal-100/80 px-2 py-0.5 rounded-lg">
                                                                 Selected
@@ -6105,6 +6157,7 @@ export default function DashboardPage() {
                                             const totalCount = sList.length;
                                             const absentCount = Math.max(0, totalCount - presentCount);
                                             const classPct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+                                            const bEditors = session.editors || [];
 
                                             const timeStr = (() => {
                                               const src = session.createdAt || session.date;
