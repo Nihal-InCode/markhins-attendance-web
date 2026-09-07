@@ -5722,139 +5722,149 @@ export default function DashboardPage() {
                     ) : (
                       <>
                         {/* TODAY'S DAILY NAMAZ VIEW */}
-                        <div className="bg-white p-4 sm:p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-lg shadow-md shadow-teal-200 shrink-0">
-                            🕌
-                          </div>
-                          <div>
-                            <h3 className="font-black text-gray-900 text-lg leading-tight">Namaz Attendance</h3>
-                          </div>
-                        </div>
-
-                        {/* Top Controls: Refresh Control */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={fetchNamazAnalytics}
-                            disabled={loadingNamaz}
-                            className="rounded-xl bg-teal-50 border border-teal-100 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
-                            title="Refresh attendance records"
-                          >
-                            <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
-                            <span className="hidden sm:inline">Refresh</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Daily Date Navigation Row */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-gray-100/80">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center bg-gray-50 border border-gray-200/80 rounded-2xl p-1 shadow-inner">
-                            <button
-                              onClick={() => {
-                                const d = new Date(namazDailyDate);
-                                d.setDate(d.getDate() - 1);
-                                const dateStr = d.toISOString().split("T")[0];
-                                setNamazDailyDate(dateStr);
-                                if (!showAdvancedNamaz) {
-                                  setNamazFromDate(dateStr);
-                                  setNamazToDate(dateStr);
-                                }
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-sm transition-all"
-                              title="Previous Day"
-                            >
-                              ◀
-                            </button>
-
-                            <input
-                              type="date"
-                              max={getIstDateString()}
-                              value={namazDailyDate}
-                              onChange={(e) => {
-                                const dateStr = e.target.value;
-                                if (!dateStr || dateStr > getIstDateString()) return;
-                                setNamazDailyDate(dateStr);
-                                if (!showAdvancedNamaz) {
-                                  setNamazFromDate(dateStr);
-                                  setNamazToDate(dateStr);
-                                }
-                              }}
-                              className="bg-transparent border-0 px-2 py-1 text-xs font-black text-gray-800 outline-none cursor-pointer"
-                            />
-
-                            {namazDailyDate < getIstDateString() && (
-                              <button
-                                onClick={() => {
-                                  const d = new Date(namazDailyDate);
-                                  d.setDate(d.getDate() + 1);
-                                  const dateStr = d.toISOString().split("T")[0];
-                                  setNamazDailyDate(dateStr);
-                                  if (!showAdvancedNamaz) {
-                                    setNamazFromDate(dateStr);
-                                    setNamazToDate(dateStr);
-                                  }
-                                }}
-                                className="px-2.5 py-1.5 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-sm transition-all"
-                                title="Next Day"
-                              >
-                                ▶
-                              </button>
-                            )}
-                          </div>
-
-                          <span className="text-xs font-black text-gray-700 bg-gray-100 px-3 py-1.5 rounded-xl">
-                            {(() => {
-                              if (!namazDailyDate) return "";
-                              try {
-                                const parts = namazDailyDate.split("-");
-                                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                                return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).format(d);
-                              } catch (e) {
-                                return namazDailyDate;
-                              }
-                            })()}
-                          </span>
-
-                          {namazDailyDate === getIstDateString() ? (
-                            <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                              Today
-                            </span>
-                          ) : (
-                            <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl uppercase tracking-wider flex items-center gap-2">
-                              Past
-                              <button
-                                onClick={() => {
-                                  const todayStr = getIstDateString();
-                                  setNamazDailyDate(todayStr);
-                                  if (!showAdvancedNamaz) {
-                                    setNamazFromDate(todayStr);
-                                    setNamazToDate(todayStr);
-                                  }
-                                }}
-                                className="text-[10px] text-teal-700 underline font-bold"
-                              >
-                                (Go to Today)
-                              </button>
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Summary Pill for Selected Date */}
-                        {(() => {
-                          const dailySessions = (namazAnalytics?.sessions || []).filter(s => s.date === namazDailyDate);
-                          return (
-                            <div className="flex items-center gap-2 text-xs font-bold">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                              <span className="text-gray-500">
-                                {dailySessions.length} recorded {dailySessions.length === 1 ? "session" : "sessions"}
-                              </span>
+                        <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            {/* Left Header Title & Subtitle */}
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-xl shadow-md shadow-teal-200 shrink-0">
+                                🕌
+                              </div>
+                              <div>
+                                <h3 className="font-black text-gray-900 text-xl leading-tight">Namaz Attendance</h3>
+                                <p className="text-xs font-bold text-gray-400 mt-0.5">
+                                  Daily Prayer Sessions & Attendance Tracking
+                                </p>
+                              </div>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
+
+                            {/* Right Symmetrical Action Toolbar */}
+                            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap justify-start lg:justify-end">
+                              {/* Date Stepper */}
+                              <div className="flex items-center bg-gray-50 border border-gray-200/80 rounded-2xl p-1 shadow-inner">
+                                <button
+                                  onClick={() => {
+                                    const d = new Date(namazDailyDate);
+                                    d.setDate(d.getDate() - 1);
+                                    const dateStr = d.toISOString().split("T")[0];
+                                    setNamazDailyDate(dateStr);
+                                    if (!showAdvancedNamaz) {
+                                      setNamazFromDate(dateStr);
+                                      setNamazToDate(dateStr);
+                                    }
+                                  }}
+                                  className="w-8 h-8 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-xs transition-all flex items-center justify-center"
+                                  title="Previous Day"
+                                >
+                                  ◀
+                                </button>
+
+                                <input
+                                  type="date"
+                                  max={getIstDateString()}
+                                  value={namazDailyDate}
+                                  onChange={(e) => {
+                                    const dateStr = e.target.value;
+                                    if (!dateStr || dateStr > getIstDateString()) return;
+                                    setNamazDailyDate(dateStr);
+                                    if (!showAdvancedNamaz) {
+                                      setNamazFromDate(dateStr);
+                                      setNamazToDate(dateStr);
+                                    }
+                                  }}
+                                  className="bg-transparent border-0 px-2 py-1 text-xs font-black text-gray-800 outline-none cursor-pointer"
+                                />
+
+                                {namazDailyDate < getIstDateString() ? (
+                                  <button
+                                    onClick={() => {
+                                      const d = new Date(namazDailyDate);
+                                      d.setDate(d.getDate() + 1);
+                                      const dateStr = d.toISOString().split("T")[0];
+                                      setNamazDailyDate(dateStr);
+                                      if (!showAdvancedNamaz) {
+                                        setNamazFromDate(dateStr);
+                                        setNamazToDate(dateStr);
+                                      }
+                                    }}
+                                    className="w-8 h-8 rounded-xl hover:bg-white text-xs font-black text-gray-600 hover:shadow-xs transition-all flex items-center justify-center"
+                                    title="Next Day"
+                                  >
+                                    ▶
+                                  </button>
+                                ) : (
+                                  <div className="w-1" />
+                                )}
+                              </div>
+
+                              {/* Formatted Date Pill */}
+                              <span className="text-xs font-black text-gray-700 bg-gray-100/90 border border-gray-200/60 px-3 py-2 rounded-2xl whitespace-nowrap">
+                                {(() => {
+                                  if (!namazDailyDate) return "";
+                                  try {
+                                    const parts = namazDailyDate.split("-");
+                                    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                                    return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).format(d);
+                                  } catch (e) {
+                                    return namazDailyDate;
+                                  }
+                                })()}
+                              </span>
+
+                              {/* Today / Past Badge */}
+                              {namazDailyDate === getIstDateString() ? (
+                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3.5 py-2 rounded-2xl uppercase tracking-wider">
+                                  Today
+                                </span>
+                              ) : (
+                                <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200/80 px-3 py-2 rounded-2xl uppercase tracking-wider flex items-center gap-1.5">
+                                  Past
+                                  <button
+                                    onClick={() => {
+                                      const todayStr = getIstDateString();
+                                      setNamazDailyDate(todayStr);
+                                      if (!showAdvancedNamaz) {
+                                        setNamazFromDate(todayStr);
+                                        setNamazToDate(todayStr);
+                                      }
+                                    }}
+                                    className="text-[10px] text-teal-700 underline font-black hover:text-teal-900"
+                                  >
+                                    (Go Today)
+                                  </button>
+                                </span>
+                              )}
+
+                              {/* Refresh Button */}
+                              <button
+                                onClick={fetchNamazAnalytics}
+                                disabled={loadingNamaz}
+                                className="rounded-2xl bg-teal-50 border border-teal-200/80 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-teal-700 hover:bg-teal-100 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 shrink-0 shadow-2xs"
+                                title="Refresh attendance records"
+                              >
+                                <span className={loadingNamaz ? "animate-spin" : ""}>🔄</span>
+                                <span className="hidden sm:inline">Refresh</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Footer Info Row */}
+                          {(() => {
+                            const dailySessions = (namazAnalytics?.sessions || []).filter(s => s.date === namazDailyDate);
+                            return (
+                              <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs font-bold">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span className="text-gray-600 font-bold">
+                                    {dailySessions.length} recorded {dailySessions.length === 1 ? "session batch" : "session batches"} for selected date
+                                  </span>
+                                </div>
+                                <span className="text-[11px] font-bold text-gray-400 hidden sm:inline">
+                                  {namazDailyDate === getIstDateString() ? "Live Attendance Monitoring" : "Historical Attendance Record"}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
 
                     {loadingNamaz ? (
                       <div className="flex justify-center p-16">
