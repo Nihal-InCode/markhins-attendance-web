@@ -802,41 +802,58 @@ export default function DashboardPage() {
   // Memoized staff attendance datasets & analytics to prevent lag & re-render bottlenecks
   const staffAttData = useMemo(() => {
     const isSystemAccount = (t) => {
+      if (!t) return true;
       const name = String(t?.name || "").trim().toUpperCase();
       const user = String(t?.username || "").trim().toLowerCase();
       return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
     };
 
+    const safeTeachersList = Array.isArray(teachersList) ? teachersList : [];
+    const safeScans = Array.isArray(todayTeacherScans) ? todayTeacherScans : [];
     const safeTeachers = Array.isArray(teachers) ? teachers : [];
-    const rawFacultyList = teachersList.length > 0 
-      ? teachersList 
-      : (todayTeacherScans.length > 0 
-          ? todayTeacherScans.map(s => ({
-              id: s.teacher_id,
-              name: s.teacher_name,
-              username: s.username,
-              role: s.role,
-              subject: s.subject,
-              class_teacher_of: s.class_teacher_of,
-              is_teacher: s.is_teacher
+
+    const rawFacultyList = safeTeachersList.length > 0 
+      ? safeTeachersList 
+      : (safeScans.length > 0 
+          ? safeScans.map(s => ({
+              id: s?.teacher_id || s?.id,
+              name: s?.teacher_name || s?.name,
+              username: s?.username,
+              role: s?.role,
+              subject: s?.subject,
+              class_teacher_of: s?.class_teacher_of,
+              is_teacher: s?.is_teacher
             }))
           : safeTeachers);
 
     const allFaculty = rawFacultyList.filter(t => !isSystemAccount(t));
     
     const scanMap = new Map();
-    todayTeacherScans.forEach(s => {
-      scanMap.set(String(s.teacher_id), s);
+    safeScans.forEach(s => {
+      if (!s) return;
+      if (s.teacher_id) scanMap.set(String(s.teacher_id), s);
       if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s);
     });
+
+    const resolveStatus = (scanRec) => {
+      if (!scanRec) return "ABSENT";
+      const raw = scanRec.status;
+      if (typeof raw === "string" && raw.trim().length > 0) {
+        return raw.toUpperCase();
+      }
+      if (scanRec.scan_time_fn && scanRec.scan_time_an) return "FULL PRESENT";
+      if (scanRec.scan_time || scanRec.scan_time_fn || scanRec.scan_time_an) return "HALF DAY";
+      return "ABSENT";
+    };
 
     let fullPresentCount = 0;
     let halfDayCount = 0;
     let absentCount = 0;
 
     allFaculty.forEach(t => {
+      if (!t) return;
       const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-      const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
+      const st = resolveStatus(scanRec);
       if (st === "FULL PRESENT") {
         fullPresentCount++;
       } else if (st.includes("HALF DAY")) {
@@ -846,8 +863,9 @@ export default function DashboardPage() {
       }
     });
 
-    const searchLower = teacherAttSearch.toLowerCase().trim();
+    const searchLower = String(teacherAttSearch || "").toLowerCase().trim();
     const filtered = allFaculty.filter(t => {
+      if (!t) return false;
       const nameMatch = !searchLower || (t.name || "").toLowerCase().includes(searchLower) ||
         (t.username || "").toLowerCase().includes(searchLower) ||
         (t.role || "").toLowerCase().includes(searchLower) ||
@@ -856,7 +874,7 @@ export default function DashboardPage() {
       if (!nameMatch) return false;
 
       const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-      const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
+      const st = resolveStatus(scanRec);
 
       if (teacherAttFilter === "full" && st !== "FULL PRESENT") return false;
       if (teacherAttFilter === "half" && !st.includes("HALF DAY")) return false;
@@ -869,6 +887,7 @@ export default function DashboardPage() {
       allFaculty,
       totalCount: allFaculty.length,
       scanMap,
+      resolveStatus,
       fullPresentCount,
       halfDayCount,
       absentCount,
@@ -8026,7 +8045,7 @@ export default function DashboardPage() {
                                       const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
                                       const fnTime = scanRec?.scan_time_fn || (scanRec?.scan_time && !scanRec?.scan_time_an ? scanRec.scan_time : null);
                                       const anTime = scanRec?.scan_time_an || null;
-                                      const st = scanRec?.status || (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
+                                      const st = staffAttData?.resolveStatus ? staffAttData.resolveStatus(scanRec) : (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
 
                                       const initials = (t.name || t.username || "?")
                                         .split(" ")
