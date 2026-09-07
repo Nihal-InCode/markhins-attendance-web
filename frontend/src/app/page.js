@@ -6408,11 +6408,11 @@ export default function DashboardPage() {
                                                       title="Click to toggle status (Absent ↔ Special Leave)"
                                                     >
                                                       {isAbsent ? (
-                                                        <><span>✗</span> ABSENT <span className="text-[9px] font-normal opacity-80">(Click to Special Leave)</span></>
+                                                        <><span>✗</span> ABSENT</>
                                                       ) : isSpecialLeave ? (
-                                                        <><span>⭐</span> SPECIAL LEAVE <span className="text-[9px] font-normal opacity-80">(Click to Absent)</span></>
+                                                        <><span>⭐</span> SPECIAL LEAVE</>
                                                       ) : (
-                                                        <><span>✓</span> PRESENT <span className="text-[9px] font-normal opacity-80">(Click to Absent)</span></>
+                                                        <><span>✓</span> PRESENT</>
                                                       )}
                                                     </button>
                                                   ) : (
