@@ -602,6 +602,7 @@ export default function DashboardPage() {
   const [loadingTeacherAtt, setLoadingTeacherAtt] = useState(false);
   const [teacherAttSearch, setTeacherAttSearch] = useState("");
   const [teacherAttFilter, setTeacherAttFilter] = useState("all");
+  const [staffViewMode, setStaffViewMode] = useState("cards");
 
   useEffect(() => {
     if (user && user.role !== 'admin' && user.role !== 'Majlis') {
@@ -7900,9 +7901,9 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Search & Filter Controls */}
+                          {/* Search, Filter & View Controls */}
                           <div className="bg-white rounded-3xl border border-gray-100 p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-                            <div className="relative w-full md:w-80">
+                            <div className="relative w-full md:w-72">
                               <input
                                 type="text"
                                 placeholder="Search staff by name, role or subject..."
@@ -7913,29 +7914,58 @@ export default function DashboardPage() {
                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
                             </div>
 
-                            <div className="flex gap-1.5 bg-gray-50 p-1 rounded-2xl border border-gray-100 w-full md:w-auto overflow-x-auto">
-                              {[
-                                { id: "all", label: `All (${totalCount})` },
-                                { id: "full", label: `Full (${fullPresentCount})` },
-                                { id: "half", label: `Half Day (${halfDayCount})` },
-                                { id: "absent", label: `Not Scanned (${absentCount})` }
-                              ].map((tab) => (
+                            <div className="flex flex-wrap md:flex-nowrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+                              <div className="flex gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100 overflow-x-auto">
+                                {[
+                                  { id: "all", label: `All (${totalCount})` },
+                                  { id: "full", label: `Full (${fullPresentCount})` },
+                                  { id: "half", label: `Half Day (${halfDayCount})` },
+                                  { id: "absent", label: `Not Scanned (${absentCount})` }
+                                ].map((tab) => (
+                                  <button
+                                    key={tab.id}
+                                    onClick={() => setTeacherAttFilter(tab.id)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                                      teacherAttFilter === tab.id
+                                        ? "bg-white text-indigo-900 shadow-xs border border-gray-100"
+                                        : "text-gray-500 hover:text-gray-800"
+                                    }`}
+                                  >
+                                    {tab.label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div className="flex gap-1 bg-gray-100/80 p-1 rounded-2xl border border-gray-200 shrink-0">
                                 <button
-                                  key={tab.id}
-                                  onClick={() => setTeacherAttFilter(tab.id)}
-                                  className={`flex-1 md:flex-initial px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
-                                    teacherAttFilter === tab.id
-                                      ? "bg-white text-indigo-900 shadow-sm border border-gray-100"
+                                  onClick={() => setStaffViewMode("cards")}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                                    staffViewMode === "cards"
+                                      ? "bg-white text-indigo-900 shadow-xs border border-gray-200/50"
                                       : "text-gray-500 hover:text-gray-800"
                                   }`}
+                                  title="Staff Cards View (Mobile Friendly)"
                                 >
-                                  {tab.label}
+                                  <span>🎴</span>
+                                  <span>Cards</span>
                                 </button>
-                              ))}
+                                <button
+                                  onClick={() => setStaffViewMode("table")}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                                    staffViewMode === "table"
+                                      ? "bg-white text-indigo-900 shadow-xs border border-gray-200/50"
+                                      : "text-gray-500 hover:text-gray-800"
+                                  }`}
+                                  title="Table View"
+                                >
+                                  <span>📊</span>
+                                  <span>Table</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Faculty & Staff Table / List View */}
+                          {/* Faculty & Staff Attendance Cards / Table View */}
                           {loadingTeacherAtt ? (
                             <div className="flex justify-center p-16">
                               <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-indigo-600 border-t-transparent" />
@@ -7969,8 +7999,130 @@ export default function DashboardPage() {
                                 );
                               }
 
+                              if (staffViewMode === "cards") {
+                                return (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 w-full">
+                                    {filtered.map((t, idx) => {
+                                      const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+                                      const fnTime = scanRec?.scan_time_fn || (scanRec?.scan_time && !scanRec?.scan_time_an ? scanRec.scan_time : null);
+                                      const anTime = scanRec?.scan_time_an || null;
+                                      const st = scanRec?.status || (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
+
+                                      const initials = (t.name || t.username || "?")
+                                        .split(" ")
+                                        .map(w => w[0])
+                                        .join("")
+                                        .slice(0, 2)
+                                        .toUpperCase();
+
+                                      return (
+                                        <div 
+                                          key={t.id || idx} 
+                                          onClick={() => handleViewStaffHistory(t)}
+                                          className="bg-white rounded-3xl border border-gray-150/80 p-4 shadow-xs hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer flex flex-col justify-between gap-3 relative group"
+                                        >
+                                          {/* Card Top Header: Avatar, Name, Role & Status Badge */}
+                                          <div className="flex items-start justify-between gap-2.5">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm ${
+                                                st === "FULL PRESENT"
+                                                  ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200"
+                                                  : st.includes("HALF DAY")
+                                                  ? "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-200"
+                                                  : "bg-gradient-to-br from-slate-400 to-gray-500 shadow-gray-200"
+                                              }`}>
+                                                {initials}
+                                              </div>
+                                              <div className="min-w-0 flex-1">
+                                                <h4 className="font-black text-gray-900 text-xs sm:text-sm group-hover:text-indigo-600 transition-colors truncate">
+                                                  {t.name}
+                                                </h4>
+                                                <p className="text-[10px] font-semibold text-gray-400 truncate mt-0.5">
+                                                  {t.role || (t.is_teacher === 0 ? "Staff" : "Faculty")} {t.subject && t.subject !== 'General' ? `• ${t.subject}` : ""}
+                                                </p>
+                                              </div>
+                                            </div>
+
+                                            {/* Status Badge */}
+                                            <div className="shrink-0">
+                                              {st === "FULL PRESENT" && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                  <span>✅</span>
+                                                  <span>Full Present</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY (FN)" && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day (FN)</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY (AN)" && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day (AN)</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY" && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day</span>
+                                                </span>
+                                              )}
+                                              {st === "ABSENT" && (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
+                                                  <span>⏳</span>
+                                                  <span>Not Scanned</span>
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Card Footer: Timings & Admin Controls */}
+                                          <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap text-[10.5px]">
+                                              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl font-extrabold border ${
+                                                fnTime ? "bg-indigo-50/80 text-indigo-700 border-indigo-100" : "bg-gray-50 text-gray-300 border-gray-100"
+                                              }`}>
+                                                <span>🌅</span>
+                                                <span>{fnTime || "FN: —"}</span>
+                                              </div>
+                                              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl font-extrabold border ${
+                                                anTime ? "bg-amber-50/80 text-amber-700 border-amber-100" : "bg-gray-50 text-gray-300 border-gray-100"
+                                              }`}>
+                                                <span>☀️</span>
+                                                <span>{anTime || "AN: —"}</span>
+                                              </div>
+                                            </div>
+
+                                            {user?.role === 'admin' && (
+                                              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                  onClick={() => handleOpenEditStaff(t)}
+                                                  className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs"
+                                                  title="Edit Staff"
+                                                >
+                                                  ✏️
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteStaff(t)}
+                                                  className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all text-xs"
+                                                  title="Delete Staff"
+                                                >
+                                                  🗑️
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
+
                               return (
-                                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden w-full">
+                                <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-x-auto w-full">
                                   <table className="w-full text-left border-collapse table-auto">
                                     <thead className="bg-gray-50/80 border-b border-gray-100">
                                       <tr>
