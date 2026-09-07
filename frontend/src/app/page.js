@@ -754,6 +754,8 @@ export default function DashboardPage() {
   const [selectedClassModalSession, setSelectedClassModalSession] = useState(null);
   const [classRosterSearch, setClassRosterSearch] = useState("");
   const [classRosterFilter, setClassRosterFilter] = useState("all");
+  const [pendingNamazEdits, setPendingNamazEdits] = useState({});
+  const [savingNamazEdits, setSavingNamazEdits] = useState(false);
   const [showAdvancedNamaz, setShowAdvancedNamaz] = useState(false);
   const [showAdvancedNamazModal, setShowAdvancedNamazModal] = useState(false);
   const [namazViewMode, setNamazViewMode] = useState("daily");
@@ -1641,12 +1643,14 @@ export default function DashboardPage() {
 
   const openClassModalSession = (session) => {
     setSelectedClassModalSession(session);
+    setPendingNamazEdits({});
     if (session) {
       window.history.pushState({ namazStep: "classModalSession" }, "");
     }
   };
 
   const closeClassModalSession = () => {
+    setPendingNamazEdits({});
     if (window.history.state?.namazStep === "classModalSession") {
       window.history.back();
     } else {
@@ -1654,46 +1658,75 @@ export default function DashboardPage() {
     }
   };
 
-  const handleToggleStudentNamazStatus = async (sessionId, studentId, targetStatus) => {
+  const handleToggleStudentNamazStatus = (studentId) => {
     const session = selectedClassModalSession;
-    if (session && session.date !== getIstDateString()) {
+    if (!session) return;
+    if (session.date !== getIstDateString()) {
       alert("Editing attendance is only permitted for today's sessions.");
       return;
     }
 
-    // Optimistically update selectedClassModalSession
+    const currentStudent = (session.students || []).find((st) => st.rollNo === studentId);
+    if (!currentStudent) return;
+
+    const currStatus = currentStudent.status;
+    let nextStatus = "namaz_special_leave";
+    if (currStatus === "absent") {
+      nextStatus = "namaz_special_leave";
+    } else if (currStatus === "namaz_special_leave" || currStatus === "special_leave") {
+      nextStatus = "absent";
+    } else if (currStatus === "present") {
+      nextStatus = "absent";
+    }
+
+    setPendingNamazEdits((prev) => ({
+      ...prev,
+      [studentId]: nextStatus,
+    }));
+
     setSelectedClassModalSession((prev) => {
-      if (!prev || prev.sessionId !== sessionId) return prev;
+      if (!prev) return prev;
       const updatedStudents = (prev.students || []).map((st) =>
-        st.rollNo === studentId ? { ...st, status: targetStatus } : st
+        st.rollNo === studentId ? { ...st, status: nextStatus } : st
       );
       return { ...prev, students: updatedStudents };
     });
+  };
 
-    // Optimistically update namazAnalytics state
-    setNamazAnalytics((prev) => {
-      if (!prev || !prev.sessions) return prev;
-      const updatedSessions = prev.sessions.map((s) => {
-        if (s.sessionId !== sessionId) return s;
-        const updatedStudents = (s.students || []).map((st) =>
-          st.rollNo === studentId ? { ...st, status: targetStatus } : st
-        );
-        return { ...s, students: updatedStudents };
-      });
-      return { ...prev, sessions: updatedSessions };
-    });
+  const handleSaveAndCloseClassModalSession = async () => {
+    const session = selectedClassModalSession;
+    const editEntries = Object.entries(pendingNamazEdits);
 
-    try {
-      const res = await updateNamazStatus({ sessionId, studentId, status: targetStatus });
-      if (!res?.success) {
-        alert(res?.message || "Failed to update status");
+    if (session && editEntries.length > 0) {
+      setSavingNamazEdits(true);
+      try {
+        const updates = editEntries.map(([studentId, status]) => ({ studentId, status }));
+        const res = await updateNamazStatus({ sessionId: session.sessionId, updates });
+        if (res?.success) {
+          setNamazAnalytics((prev) => {
+            if (!prev || !prev.sessions) return prev;
+            const edMap = pendingNamazEdits;
+            const updatedSessions = prev.sessions.map((s) => {
+              if (s.sessionId !== session.sessionId) return s;
+              const updatedStudents = (s.students || []).map((st) =>
+                edMap[st.rollNo] ? { ...st, status: edMap[st.rollNo] } : st
+              );
+              return { ...s, students: updatedStudents };
+            });
+            return { ...prev, sessions: updatedSessions };
+          });
+        }
+        fetchNamazAnalytics({ className: selectedNamazClass });
+      } catch (err) {
+        console.error("Failed to save edits", err);
+        alert("Error saving edits: " + (err.message || "Server error"));
+      } finally {
+        setSavingNamazEdits(false);
+        setPendingNamazEdits({});
       }
-      fetchNamazAnalytics({ className: selectedNamazClass });
-    } catch (err) {
-      console.error("Failed to update status", err);
-      alert("Error updating status: " + (err.message || "Server error"));
-      fetchNamazAnalytics({ className: selectedNamazClass });
     }
+
+    closeClassModalSession();
   };
 
   const openNamazAnalyticsView = () => {
@@ -6235,11 +6268,16 @@ export default function DashboardPage() {
                                             <span className="text-xs font-black text-red-700 bg-red-50 border border-red-100 px-3 py-1 rounded-xl">
                                               Absent: {absentCount}
                                             </span>
+                                            {Object.keys(pendingNamazEdits).length > 0 && (
+                                              <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl animate-pulse">
+                                                ✏️ {Object.keys(pendingNamazEdits).length} Unsaved {Object.keys(pendingNamazEdits).length === 1 ? "Edit" : "Edits"}
+                                              </span>
+                                            )}
                                           </div>
                                         </div>
 
                                         <button
-                                          onClick={() => closeClassModalSession()}
+                                          onClick={() => handleSaveAndCloseClassModalSession()}
                                           className="w-9 h-9 rounded-2xl bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500 text-sm font-black transition-all shrink-0"
                                         >
                                           ✕
@@ -6317,7 +6355,7 @@ export default function DashboardPage() {
                                             return (
                                               <div
                                                 key={student.rollNo}
-                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:px-4 sm:py-3 rounded-2xl border transition-all gap-2 ${
+                                                className={`flex items-center justify-between p-3.5 sm:px-4 sm:py-3 rounded-2xl border transition-all gap-2 ${
                                                   isAbsent
                                                     ? "bg-red-50/80 border-red-200 shadow-sm"
                                                     : isSpecialLeave
@@ -6355,57 +6393,34 @@ export default function DashboardPage() {
                                                   </div>
                                                 </div>
 
-                                                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                                                  {/* Status Badge */}
-                                                  {isAbsent ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-red-100 text-red-700 border border-red-200 text-xs font-black uppercase tracking-wider">
-                                                      <span>✗</span> ABSENT
-                                                    </span>
-                                                  ) : isSpecialLeave ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black uppercase tracking-wider">
-                                                      <span>⭐</span> SPECIAL LEAVE
-                                                    </span>
-                                                  ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold uppercase tracking-wider">
-                                                      <span>✓</span> PRESENT
-                                                    </span>
-                                                  )}
-
-                                                  {/* Interactive Action Controls (Only available for Today's sessions) */}
+                                                <div className="shrink-0">
                                                   {isTodaySession ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                      {isAbsent && (
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, "namaz_special_leave")}
-                                                          className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-black transition-all shadow-xs flex items-center gap-1 cursor-pointer"
-                                                          title="Convert Absent to Special Leave"
-                                                        >
-                                                          <span>⭐</span> Mark Special Leave
-                                                        </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleToggleStudentNamazStatus(student.rollNo)}
+                                                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs select-none active:scale-95 ${
+                                                        isAbsent
+                                                          ? "bg-red-100 text-red-700 border border-red-200 hover:bg-purple-600 hover:text-white hover:border-purple-600"
+                                                          : isSpecialLeave
+                                                          ? "bg-purple-600 text-white shadow-md hover:bg-red-500"
+                                                          : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-100 hover:text-red-700 hover:border-red-200"
+                                                      }`}
+                                                      title="Click to toggle status (Absent ↔ Special Leave)"
+                                                    >
+                                                      {isAbsent ? (
+                                                        <><span>✗</span> ABSENT <span className="text-[9px] font-normal opacity-80">(Click to Special Leave)</span></>
+                                                      ) : isSpecialLeave ? (
+                                                        <><span>⭐</span> SPECIAL LEAVE <span className="text-[9px] font-normal opacity-80">(Click to Absent)</span></>
+                                                      ) : (
+                                                        <><span>✓</span> PRESENT <span className="text-[9px] font-normal opacity-80">(Click to Absent)</span></>
                                                       )}
-                                                      {isSpecialLeave && (
-                                                        <button
-                                                          type="button"
-                                                          onClick={() => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, "absent")}
-                                                          className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-red-100 active:scale-95 text-red-600 border border-gray-200 text-xs font-bold transition-all cursor-pointer"
-                                                          title="Revert to Absent"
-                                                        >
-                                                          Revert to Absent
-                                                        </button>
-                                                      )}
-                                                      <select
-                                                        value={isSpecialLeave ? "namaz_special_leave" : student.status}
-                                                        onChange={(e) => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, e.target.value)}
-                                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold py-1 px-1.5 rounded-xl border border-gray-200 outline-none cursor-pointer"
-                                                      >
-                                                        <option value="present">Present</option>
-                                                        <option value="namaz_special_leave">Special Leave</option>
-                                                        <option value="absent">Absent</option>
-                                                      </select>
-                                                    </div>
+                                                    </button>
                                                   ) : (
-                                                    <span className="text-[10px] font-bold text-gray-400 italic">Today only</span>
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider ${
+                                                      isAbsent ? "bg-red-100 text-red-700 border border-red-200" : isSpecialLeave ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                                    }`}>
+                                                      {isAbsent ? "✗ ABSENT" : isSpecialLeave ? "⭐ SPECIAL LEAVE" : "✓ PRESENT"}
+                                                    </span>
                                                   )}
                                                 </div>
                                               </div>
@@ -6414,12 +6429,21 @@ export default function DashboardPage() {
                                         )}
                                       </div>
                                       {/* Modal Footer */}
-                                      <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                                      <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-2 items-center">
                                         <button
-                                          onClick={() => closeClassModalSession()}
-                                          className="px-5 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-black uppercase tracking-wider transition-all"
+                                          onClick={() => handleSaveAndCloseClassModalSession()}
+                                          disabled={savingNamazEdits}
+                                          className={`px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 ${
+                                            Object.keys(pendingNamazEdits).length > 0
+                                              ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400"
+                                              : "bg-gray-900 hover:bg-gray-800 text-white"
+                                          }`}
                                         >
-                                          Done / Close
+                                          {savingNamazEdits
+                                            ? "Saving Edits..."
+                                            : Object.keys(pendingNamazEdits).length > 0
+                                            ? `Save ${Object.keys(pendingNamazEdits).length} Edits & Close ✓`
+                                            : "Done / Close"}
                                         </button>
                                       </div>
                                     </div>

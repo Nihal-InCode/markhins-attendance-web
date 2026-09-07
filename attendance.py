@@ -1212,15 +1212,8 @@ def get_event_attendance(c):
 
 def handle_update_namaz_attendance(c, data):
     session_id = str(data.get("sessionId") or "").strip()
-    student_id = str(data.get("studentId") or "").strip()
-    status = str(data.get("status") or "").strip()
-
-    if not session_id or not student_id or not status:
-        return {"success": False, "message": "Missing required fields: sessionId, studentId, status"}
-
-    valid_statuses = {"present", "absent", "namaz_special_leave"}
-    if status not in valid_statuses:
-        return {"success": False, "message": f"Invalid status. Allowed: {', '.join(valid_statuses)}"}
+    if not session_id:
+        return {"success": False, "message": "Missing required field: sessionId"}
 
     c.execute("SELECT date FROM namaz_sessions WHERE sessionId=?", (session_id,))
     session_row = c.fetchone()
@@ -1231,6 +1224,37 @@ def handle_update_namaz_attendance(c, data):
     today_ist = get_ist_now().strftime("%Y-%m-%d")
     if session_date != today_ist:
         return {"success": False, "message": "Editing attendance is only permitted on the same day"}
+
+    valid_statuses = {"present", "absent", "namaz_special_leave"}
+
+    updates = data.get("updates")
+    if isinstance(updates, list):
+        count = 0
+        for item in updates:
+            st_id = str(item.get("studentId") or "").strip()
+            st_status = str(item.get("status") or "").strip()
+            if st_id and st_status in valid_statuses:
+                c.execute("SELECT 1 FROM namaz_attendance WHERE sessionId=? AND studentId=?", (session_id, st_id))
+                if c.fetchone():
+                    c.execute("UPDATE namaz_attendance SET status=? WHERE sessionId=? AND studentId=?", (st_status, session_id, st_id))
+                else:
+                    c.execute("INSERT INTO namaz_attendance (sessionId, studentId, status) VALUES (?, ?, ?)", (session_id, st_id, st_status))
+                count += 1
+        return {
+            "success": True,
+            "message": f"Updated {count} student statuses successfully",
+            "sessionId": session_id,
+            "updatedCount": count
+        }
+
+    student_id = str(data.get("studentId") or "").strip()
+    status = str(data.get("status") or "").strip()
+
+    if not student_id or not status:
+        return {"success": False, "message": "Missing required fields: studentId, status"}
+
+    if status not in valid_statuses:
+        return {"success": False, "message": f"Invalid status. Allowed: {', '.join(valid_statuses)}"}
 
     c.execute("SELECT 1 FROM namaz_attendance WHERE sessionId=? AND studentId=?", (session_id, student_id))
     if c.fetchone():

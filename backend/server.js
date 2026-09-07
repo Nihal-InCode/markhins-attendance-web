@@ -1324,12 +1324,13 @@ app.get('/namaz-analytics', authenticateToken, async (req, res) => {
 
 app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
     try {
-        const { sessionId, studentId, status } = req.body;
+        const { sessionId, studentId, status, updates } = req.body;
         const result = await callPython({
             action: "update_namaz_attendance",
             sessionId,
             studentId,
             status,
+            updates,
         });
         res.json(result);
     } catch (error) {
