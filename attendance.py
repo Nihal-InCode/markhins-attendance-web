@@ -668,6 +668,16 @@ def run_migrations():
         c.execute("CREATE INDEX IF NOT EXISTS idx_teacher_att_date ON teacher_attendance(date)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_teacher_att_teacher_date ON teacher_attendance(teacher_id, date)")
 
+        # Column migrations for teacher_attendance (FN / AN 2-scans per day)
+        c.execute("PRAGMA table_info(teacher_attendance)")
+        ta_cols = [c_info[1] for c_info in c.fetchall()]
+        if "scan_time_fn" not in ta_cols:
+            c.execute("ALTER TABLE teacher_attendance ADD COLUMN scan_time_fn TEXT")
+        if "scan_time_an" not in ta_cols:
+            c.execute("ALTER TABLE teacher_attendance ADD COLUMN scan_time_an TEXT")
+        if "status" not in ta_cols:
+            c.execute("ALTER TABLE teacher_attendance ADD COLUMN status TEXT")
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -7459,18 +7469,17 @@ if __name__ == "__main__":
                             else:
                                 result = {"success": False, "error": "Session invalidated"}
 
-                elif action == "get_single_session_setting":
-                    c.execute("SELECT value FROM system_settings WHERE key='single_session_enforcement'")
+                elif action == "get_staff_cutoff_setting":
+                    c.execute("SELECT value FROM system_settings WHERE key='staff_attendance_cutoff_time'")
                     setting_row = c.fetchone()
-                    enabled = (setting_row[0] if setting_row else "1") != "0"
-                    result = {"success": True, "enabled": enabled}
+                    cutoff = setting_row[0] if setting_row else "13:00"
+                    result = {"success": True, "cutoff_time": cutoff}
 
-                elif action == "save_single_session_setting":
-                    enabled = data.get("enabled")
-                    val = "1" if enabled in (True, "true", 1, "1") else "0"
-                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('single_session_enforcement', ?)", (val,))
+                elif action == "save_staff_cutoff_setting":
+                    cutoff = str(data.get("cutoff_time") or "13:00").strip()
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('staff_attendance_cutoff_time', ?)", (cutoff,))
                     conn.commit()
-                    result = {"success": True, "enabled": val == "1", "message": "Single session setting updated."}
+                    result = {"success": True, "cutoff_time": cutoff, "message": "Staff attendance cutoff time updated."}
 
                 # ── Teacher Attendance Actions ──
                 elif action == "mark_teacher_attendance":
@@ -7490,47 +7499,100 @@ if __name__ == "__main__":
                         today_date = now_ist.strftime("%Y-%m-%d")
                         scan_time_str = now_ist.strftime("%I:%M:%S %p")
                         scanned_at_str = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+                        now_hm = now_ist.strftime("%H:%M")
 
-                        c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                        # Get cutoff time setting
+                        c.execute("SELECT value FROM system_settings WHERE key='staff_attendance_cutoff_time'")
+                        setting_row = c.fetchone()
+                        cutoff_str = setting_row[0] if setting_row else "13:00"
+
+                        is_morning = now_hm < cutoff_str
+                        session_tag = "FN" if is_morning else "AN"
+
+                        c.execute("SELECT id, scan_time, scan_time_fn, scan_time_an, status FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
                         existing = c.fetchone()
-                        if existing:
+
+                        if not existing:
+                            status_val = "HALF DAY (FN)" if is_morning else "HALF DAY (AN)"
+                            fn_val = scan_time_str if is_morning else None
+                            an_val = scan_time_str if not is_morning else None
+                            c.execute(
+                                "INSERT INTO teacher_attendance (teacher_id, date, scan_time, scan_time_fn, scan_time_an, status, scanned_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (teacher_id, today_date, scan_time_str, fn_val, an_val, status_val, scanned_at_str)
+                            )
+                            conn.commit()
+                            msg = f"Morning attendance marked ({scan_time_str}). Remember to scan after afternoon cutoff for Full Present!" if is_morning else f"Afternoon attendance marked ({scan_time_str})."
                             result = {
                                 "success": True,
-                                "status": "ALREADY_MARKED",
-                                "message": "Attendance already marked for today.",
+                                "status": "MARKED_PRESENT",
+                                "message": msg,
                                 "record": {
                                     "date": today_date,
-                                    "scanTime": existing[0]
+                                    "scanTime": scan_time_str,
+                                    "session": session_tag,
+                                    "status": status_val
                                 }
                             }
                         else:
-                            try:
-                                c.execute(
-                                    "INSERT INTO teacher_attendance (teacher_id, date, scan_time, scanned_at) VALUES (?, ?, ?, ?)",
-                                    (teacher_id, today_date, scan_time_str, scanned_at_str)
-                                )
-                                conn.commit()
-                                result = {
-                                    "success": True,
-                                    "status": "MARKED_PRESENT",
-                                    "message": "Teacher attendance marked successfully.",
-                                    "record": {
-                                        "date": today_date,
-                                        "scanTime": scan_time_str
+                            rec_id, old_scan, old_fn, old_an, old_status = existing
+                            if is_morning:
+                                if old_fn or (old_status in ("HALF DAY (FN)", "FULL PRESENT") and old_fn):
+                                    result = {
+                                        "success": True,
+                                        "status": "ALREADY_MARKED",
+                                        "message": f"Morning attendance already marked for today at {old_fn or old_scan}.",
+                                        "record": {
+                                            "date": today_date,
+                                            "scanTime": old_fn or old_scan,
+                                            "session": "FN",
+                                            "status": old_status or "HALF DAY (FN)"
+                                        }
                                     }
-                                }
-                            except sqlite3.IntegrityError:
-                                c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
-                                row_after = c.fetchone()
-                                result = {
-                                    "success": True,
-                                    "status": "ALREADY_MARKED",
-                                    "message": "Attendance already marked for today.",
-                                    "record": {
-                                        "date": today_date,
-                                        "scanTime": row_after[0] if row_after else scan_time_str
+                                else:
+                                    # Second scan of the day!
+                                    new_status = "FULL PRESENT"
+                                    c.execute("UPDATE teacher_attendance SET scan_time_fn=?, status=? WHERE id=?", (scan_time_str, new_status, rec_id))
+                                    conn.commit()
+                                    result = {
+                                        "success": True,
+                                        "status": "MARKED_PRESENT",
+                                        "message": f"Morning scan recorded ({scan_time_str})! Daily status updated to FULL PRESENT.",
+                                        "record": {
+                                            "date": today_date,
+                                            "scanTime": scan_time_str,
+                                            "session": "FN",
+                                            "status": new_status
+                                        }
                                     }
-                                }
+                            else: # Afternoon session
+                                if old_an or (old_status in ("HALF DAY (AN)", "FULL PRESENT") and old_an):
+                                    result = {
+                                        "success": True,
+                                        "status": "ALREADY_MARKED",
+                                        "message": f"Afternoon attendance already marked for today at {old_an or old_scan}.",
+                                        "record": {
+                                            "date": today_date,
+                                            "scanTime": old_an or old_scan,
+                                            "session": "AN",
+                                            "status": old_status or "HALF DAY (AN)"
+                                        }
+                                    }
+                                else:
+                                    # Second scan of the day!
+                                    new_status = "FULL PRESENT"
+                                    c.execute("UPDATE teacher_attendance SET scan_time_an=?, status=? WHERE id=?", (scan_time_str, new_status, rec_id))
+                                    conn.commit()
+                                    result = {
+                                        "success": True,
+                                        "status": "MARKED_PRESENT",
+                                        "message": f"Afternoon scan recorded ({scan_time_str})! Daily status updated to FULL PRESENT.",
+                                        "record": {
+                                            "date": today_date,
+                                            "scanTime": scan_time_str,
+                                            "session": "AN",
+                                            "status": new_status
+                                        }
+                                    }
 
                 elif action == "get_today_teacher_attendance_status":
                     teacher_id = data.get("teacher_id")
@@ -7540,12 +7602,15 @@ if __name__ == "__main__":
                     if not teacher_id:
                         result = {"success": False, "message": "Teacher ID is required."}
                     else:
-                        c.execute("SELECT scan_time FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                        c.execute("SELECT scan_time, scan_time_fn, scan_time_an, status FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
                         row = c.fetchone()
                         result = {
                             "success": True,
                             "markedToday": row is not None,
                             "scanTime": row[0] if row else None,
+                            "scanTimeFn": row[1] if row else None,
+                            "scanTimeAn": row[2] if row else None,
+                            "status": row[3] if row else "ABSENT",
                             "date": today_date
                         }
 
@@ -7561,6 +7626,9 @@ if __name__ == "__main__":
                             t.subject, 
                             t.class_teacher_of, 
                             ta.scan_time, 
+                            ta.scan_time_fn,
+                            ta.scan_time_an,
+                            ta.status,
                             ta.date,
                             t.is_teacher 
                         FROM teachers t 
@@ -7571,6 +7639,19 @@ if __name__ == "__main__":
                     rows = c.fetchall()
                     records = []
                     for r in rows:
+                        scan_main, scan_fn, scan_an, status_val = r[6], r[7], r[8], r[9]
+                        if not status_val and (scan_main or scan_fn or scan_an):
+                            if scan_fn and scan_an:
+                                status_val = "FULL PRESENT"
+                            elif scan_fn:
+                                status_val = "HALF DAY (FN)"
+                            elif scan_an:
+                                status_val = "HALF DAY (AN)"
+                            else:
+                                status_val = "FULL PRESENT"
+                        elif not status_val:
+                            status_val = "ABSENT"
+
                         records.append({
                             "teacher_id": str(r[0]),
                             "teacher_name": r[1],
@@ -7578,10 +7659,13 @@ if __name__ == "__main__":
                             "role": r[3] or "Faculty",
                             "subject": r[4] or "General",
                             "class_teacher_of": r[5] or "",
-                            "scan_time": r[6],
+                            "scan_time": scan_main or scan_fn or scan_an,
+                            "scan_time_fn": scan_fn or (scan_main if status_val == "HALF DAY (FN)" else None),
+                            "scan_time_an": scan_an or (scan_main if status_val in ("HALF DAY (AN)", "FULL PRESENT") and not scan_fn else None),
+                            "status": status_val,
                             "date": target_date,
-                            "marked_today": r[6] is not None,
-                            "is_teacher": r[8] if r[8] is not None else (0 if str(r[3] or '').lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
+                            "marked_today": (scan_main is not None or scan_fn is not None or scan_an is not None),
+                            "is_teacher": r[11] if r[11] is not None else (0 if str(r[3] or '').lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin"] else 1)
                         })
                     result = {
                         "success": True,
@@ -7595,7 +7679,7 @@ if __name__ == "__main__":
                         result = {"success": False, "message": "Teacher ID required."}
                     else:
                         c.execute("""
-                            SELECT date, scan_time, scanned_at 
+                            SELECT date, scan_time, scan_time_fn, scan_time_an, status, scanned_at 
                             FROM teacher_attendance 
                             WHERE teacher_id=? 
                             ORDER BY date DESC, scan_time DESC
@@ -7603,10 +7687,16 @@ if __name__ == "__main__":
                         rows = c.fetchall()
                         history = []
                         for r in rows:
+                            scan_main, scan_fn, scan_an, status_val = r[1], r[2], r[3], r[4]
+                            if not status_val and (scan_main or scan_fn or scan_an):
+                                status_val = "FULL PRESENT"
                             history.append({
                                 "date": r[0],
-                                "scanTime": r[1],
-                                "scannedAt": r[2]
+                                "scanTime": scan_main or scan_fn or scan_an,
+                                "scanTimeFn": scan_fn,
+                                "scanTimeAn": scan_an,
+                                "status": status_val or "FULL PRESENT",
+                                "scannedAt": r[5]
                             })
                         
                         c.execute("SELECT id, name, role, username, subject, class_teacher_of, is_teacher FROM teachers WHERE id=?", (target_tid,))
@@ -7643,6 +7733,9 @@ if __name__ == "__main__":
                             t.is_teacher,
                             ta.date,
                             ta.scan_time,
+                            ta.scan_time_fn,
+                            ta.scan_time_an,
+                            ta.status,
                             ta.scanned_at
                         FROM teacher_attendance ta
                         JOIN teachers t ON ta.teacher_id = t.id
@@ -7651,6 +7744,17 @@ if __name__ == "__main__":
                     rows = c.fetchall()
                     records = []
                     for r in rows:
+                        scan_main, scan_fn, scan_an, status_val = r[9], r[10], r[11], r[12]
+                        if not status_val:
+                            if scan_fn and scan_an:
+                                status_val = "FULL PRESENT"
+                            elif scan_fn:
+                                status_val = "HALF DAY (FN)"
+                            elif scan_an:
+                                status_val = "HALF DAY (AN)"
+                            else:
+                                status_val = "FULL PRESENT"
+
                         records.append({
                             "id": r[0],
                             "teacher_id": str(r[1]),
@@ -7661,8 +7765,11 @@ if __name__ == "__main__":
                             "class_teacher_of": r[6] or "",
                             "is_teacher": r[7] if r[7] is not None else 1,
                             "date": r[8],
-                            "scan_time": r[9],
-                            "scanned_at": r[10]
+                            "scan_time": scan_main or scan_fn or scan_an,
+                            "scan_time_fn": scan_fn or (scan_main if status_val == "HALF DAY (FN)" else None),
+                            "scan_time_an": scan_an or (scan_main if status_val in ("HALF DAY (AN)", "FULL PRESENT") and not scan_fn else None),
+                            "status": status_val,
+                            "scanned_at": r[13]
                         })
 
                     c.execute("SELECT id, name, username, role, subject, class_teacher_of, is_teacher FROM teachers ORDER BY name ASC")

@@ -1049,7 +1049,8 @@ export default function DashboardPage() {
         "Subject",
         "Class Teacher Of",
         "Status",
-        "Scan Time"
+        "Morning Scan (FN)",
+        "Afternoon Scan (AN)"
       ]);
       masterHeader.font = { bold: true, color: { argb: "FFFFFF" } };
       masterHeader.eachCell((cell) => {
@@ -1062,6 +1063,10 @@ export default function DashboardPage() {
         const group = monthMap.get(mKey);
         group.records.forEach(r => {
           const isTeacher = r.is_teacher === 1 || r.is_teacher === undefined || r.is_teacher === null;
+          const fnTime = r.scan_time_fn || (r.scan_time && !r.scan_time_an ? r.scan_time : "—");
+          const anTime = r.scan_time_an || "—";
+          const statusVal = r.status || (fnTime !== "—" && anTime !== "—" ? "FULL PRESENT" : fnTime !== "—" ? "HALF DAY (FN)" : anTime !== "—" ? "HALF DAY (AN)" : "FULL PRESENT");
+
           const row = masterSheet.addRow([
             group.monthLabel,
             r.date,
@@ -1073,11 +1078,18 @@ export default function DashboardPage() {
             r.role || "Faculty",
             r.subject || "General",
             r.class_teacher_of || "—",
-            "PRESENT",
-            r.scan_time || "—"
+            statusVal,
+            fnTime,
+            anTime
           ]);
           const statusCell = row.getCell(11);
-          statusCell.font = { color: { argb: "047857" }, bold: true };
+          if (statusVal === "FULL PRESENT") {
+            statusCell.font = { color: { argb: "047857" }, bold: true };
+          } else if (statusVal.includes("HALF DAY")) {
+            statusCell.font = { color: { argb: "D97706" }, bold: true };
+          } else {
+            statusCell.font = { color: { argb: "DC2626" }, bold: true };
+          }
         });
       });
       masterSheet.columns.forEach(col => { col.width = 20; });
@@ -1106,7 +1118,8 @@ export default function DashboardPage() {
           "Subject",
           "Class Teacher Of",
           "Status",
-          "Scan Time"
+          "Morning Scan (FN)",
+          "Afternoon Scan (AN)"
         ]);
         logHeader.font = { bold: true, color: { argb: "FFFFFF" } };
         logHeader.eachCell(cell => {
@@ -1116,6 +1129,10 @@ export default function DashboardPage() {
 
         records.forEach(r => {
           const isTeacher = r.is_teacher === 1 || r.is_teacher === undefined || r.is_teacher === null;
+          const fnTime = r.scan_time_fn || (r.scan_time && !r.scan_time_an ? r.scan_time : "—");
+          const anTime = r.scan_time_an || "—";
+          const statusVal = r.status || (fnTime !== "—" && anTime !== "—" ? "FULL PRESENT" : fnTime !== "—" ? "HALF DAY (FN)" : anTime !== "—" ? "HALF DAY (AN)" : "FULL PRESENT");
+
           const row = logSheet.addRow([
             r.date,
             getDayName(r.date),
@@ -1126,11 +1143,18 @@ export default function DashboardPage() {
             r.role || "Faculty",
             r.subject || "General",
             r.class_teacher_of || "—",
-            "PRESENT",
-            r.scan_time || "—"
+            statusVal,
+            fnTime,
+            anTime
           ]);
           const statusCell = row.getCell(10);
-          statusCell.font = { color: { argb: "047857" }, bold: true };
+          if (statusVal === "FULL PRESENT") {
+            statusCell.font = { color: { argb: "047857" }, bold: true };
+          } else if (statusVal.includes("HALF DAY")) {
+            statusCell.font = { color: { argb: "D97706" }, bold: true };
+          } else {
+            statusCell.font = { color: { argb: "DC2626" }, bold: true };
+          }
         });
         logSheet.columns.forEach(col => { col.width = 20; });
 
@@ -1144,21 +1168,21 @@ export default function DashboardPage() {
         const monthNum = parseInt(parts[1], 10);
         const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
-        // Map: teacher_id -> Set of present date strings ("YYYY-MM-DD")
-        const teacherPresentDates = new Map();
+        // Map: teacher_id -> Map(date -> record)
+        const teacherDateMap = new Map();
         records.forEach(r => {
           const tid = String(r.teacher_id);
-          if (!teacherPresentDates.has(tid)) {
-            teacherPresentDates.set(tid, new Set());
+          if (!teacherDateMap.has(tid)) {
+            teacherDateMap.set(tid, new Map());
           }
-          teacherPresentDates.get(tid).add(r.date);
+          teacherDateMap.get(tid).set(r.date, r);
         });
 
         matrixSheet.addRow([`Monthly Attendance Matrix Register — ${group.monthLabel}`]);
-        matrixSheet.addRow([`Enrolled Staff: ${allFaculty.length}`, `Month: ${group.monthLabel}`]);
+        matrixSheet.addRow([`Enrolled Staff: ${allFaculty.length}`, `Month: ${group.monthLabel}`, `Legend: P = Full Present, HD = Half Day, — = Absent`]);
         matrixSheet.addRow([]);
 
-        // Build header row: Staff Details + Day 1..N + Total Present
+        // Build header row: Staff Details + Day 1..N + Full Days + Half Days + Credit Days
         const dayHeaders = [];
         for (let d = 1; d <= daysInMonth; d++) {
           dayHeaders.push(`Day ${d}`);
@@ -1169,7 +1193,9 @@ export default function DashboardPage() {
           "Role",
           "Subject",
           ...dayHeaders,
-          "Total Present"
+          "Full Days",
+          "Half Days",
+          "Credit Days"
         ]);
         matrixHeader.font = { bold: true, color: { argb: "FFFFFF" } };
         matrixHeader.eachCell(cell => {
@@ -1180,20 +1206,33 @@ export default function DashboardPage() {
         // Add staff rows for matrix
         allFaculty.forEach(t => {
           const tid = String(t.id);
-          const presentSet = teacherPresentDates.get(tid) || new Set();
+          const dateMap = teacherDateMap.get(tid) || new Map();
           const dayCells = [];
-          let totalPresentCount = 0;
+          let fullDaysCount = 0;
+          let halfDaysCount = 0;
 
           for (let d = 1; d <= daysInMonth; d++) {
             const dayStr = String(d).padStart(2, '0');
             const fullDateStr = `${mKey}-${dayStr}`;
-            if (presentSet.has(fullDateStr)) {
-              dayCells.push("P");
-              totalPresentCount++;
+            const r = dateMap.get(fullDateStr);
+            if (r) {
+              const st = r.status || (r.scan_time_fn && r.scan_time_an ? "FULL PRESENT" : "HALF DAY");
+              if (st === "FULL PRESENT") {
+                dayCells.push("P");
+                fullDaysCount++;
+              } else if (st.includes("HALF DAY")) {
+                dayCells.push("HD");
+                halfDaysCount++;
+              } else {
+                dayCells.push("P");
+                fullDaysCount++;
+              }
             } else {
               dayCells.push("—");
             }
           }
+
+          const creditDays = fullDaysCount + (halfDaysCount * 0.5);
 
           const mRow = matrixSheet.addRow([
             t.id,
@@ -1201,10 +1240,12 @@ export default function DashboardPage() {
             t.role || "Faculty",
             t.subject || "General",
             ...dayCells,
-            totalPresentCount
+            fullDaysCount,
+            halfDaysCount,
+            creditDays
           ]);
 
-          // Style P cells green
+          // Style day cells
           for (let d = 1; d <= daysInMonth; d++) {
             const cell = mRow.getCell(4 + d);
             const val = cell.value;
@@ -1212,19 +1253,31 @@ export default function DashboardPage() {
             if (val === "P") {
               cell.font = { bold: true, color: { argb: "047857" } };
               cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D1FAE5" } };
+            } else if (val === "HD") {
+              cell.font = { bold: true, color: { argb: "D97706" } };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } };
             } else {
               cell.font = { color: { argb: "9CA3AF" } };
             }
           }
-          const totalCell = mRow.getCell(4 + daysInMonth + 1);
-          totalCell.font = { bold: true, color: { argb: "0369A1" } };
-          totalCell.alignment = { vertical: "middle", horizontal: "center" };
+          
+          const fullCell = mRow.getCell(4 + daysInMonth + 1);
+          fullCell.font = { bold: true, color: { argb: "047857" } };
+          fullCell.alignment = { vertical: "middle", horizontal: "center" };
+
+          const halfCell = mRow.getCell(4 + daysInMonth + 2);
+          halfCell.font = { bold: true, color: { argb: "D97706" } };
+          halfCell.alignment = { vertical: "middle", horizontal: "center" };
+
+          const creditCell = mRow.getCell(4 + daysInMonth + 3);
+          creditCell.font = { bold: true, color: { argb: "0369A1" } };
+          creditCell.alignment = { vertical: "middle", horizontal: "center" };
         });
 
         matrixSheet.columns.forEach((col, idx) => {
           if (idx < 4) col.width = 18;
-          else if (idx === 4 + daysInMonth) col.width = 15;
-          else col.width = 7;
+          else if (idx >= 4 + daysInMonth) col.width = 14;
+          else col.width = 6;
         });
       });
 
@@ -7802,38 +7855,48 @@ export default function DashboardPage() {
                       
                       const scanMap = new Map();
                       todayTeacherScans.forEach(s => {
-                        if (s.scan_time) {
-                          scanMap.set(String(s.teacher_id), s.scan_time);
-                          if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s.scan_time);
-                        }
+                        scanMap.set(String(s.teacher_id), s);
+                        if (s.teacher_name) scanMap.set(String(s.teacher_name).toLowerCase().trim(), s);
                       });
 
-                      let presentCount = 0;
+                      let fullPresentCount = 0;
+                      let halfDayCount = 0;
+                      let absentCount = 0;
+
                       allFaculty.forEach(t => {
-                        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-                        if (scanTime) {
-                          presentCount++;
+                        const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+                        const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
+                        if (st === "FULL PRESENT") {
+                          fullPresentCount++;
+                        } else if (st.includes("HALF DAY")) {
+                          halfDayCount++;
+                        } else {
+                          absentCount++;
                         }
                       });
-                      const absentCount = Math.max(0, totalCount - presentCount);
 
                       return (
                         <div className="space-y-6">
-                          <div className="grid grid-cols-3 gap-3.5">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
                             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Staff</span>
                               <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
                               <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled faculty & staff</p>
                             </div>
                             <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present Today</span>
-                              <p className="text-2xl font-black text-emerald-600 mt-1">{presentCount}</p>
-                              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Scanned today</p>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Full Present</span>
+                              <p className="text-2xl font-black text-emerald-600 mt-1">{fullPresentCount}</p>
+                              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Both FN & AN scanned</p>
                             </div>
                             <div className="bg-amber-50/70 rounded-2xl border border-amber-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Not Scanned</span>
-                              <p className="text-2xl font-black text-amber-600 mt-1">{absentCount}</p>
-                              <p className="text-[10px] font-bold text-amber-600 mt-0.5">Pending scan</p>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Half Day</span>
+                              <p className="text-2xl font-black text-amber-600 mt-1">{halfDayCount}</p>
+                              <p className="text-[10px] font-bold text-amber-600 mt-0.5">Single scan completed</p>
+                            </div>
+                            <div className="bg-gray-50/80 rounded-2xl border border-gray-200 p-4 shadow-sm">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Not Scanned</span>
+                              <p className="text-2xl font-black text-gray-600 mt-1">{absentCount}</p>
+                              <p className="text-[10px] font-bold text-gray-400 mt-0.5">Pending scans</p>
                             </div>
                           </div>
 
@@ -7850,16 +7913,17 @@ export default function DashboardPage() {
                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
                             </div>
 
-                            <div className="flex gap-1.5 bg-gray-50 p-1 rounded-2xl border border-gray-100 w-full md:w-auto">
+                            <div className="flex gap-1.5 bg-gray-50 p-1 rounded-2xl border border-gray-100 w-full md:w-auto overflow-x-auto">
                               {[
                                 { id: "all", label: `All (${totalCount})` },
-                                { id: "present", label: `Present (${presentCount})` },
+                                { id: "full", label: `Full (${fullPresentCount})` },
+                                { id: "half", label: `Half Day (${halfDayCount})` },
                                 { id: "absent", label: `Not Scanned (${absentCount})` }
                               ].map((tab) => (
                                 <button
                                   key={tab.id}
                                   onClick={() => setTeacherAttFilter(tab.id)}
-                                  className={`flex-1 md:flex-initial px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                  className={`flex-1 md:flex-initial px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                                     teacherAttFilter === tab.id
                                       ? "bg-white text-indigo-900 shadow-sm border border-gray-100"
                                       : "text-gray-500 hover:text-gray-800"
@@ -7884,11 +7948,12 @@ export default function DashboardPage() {
                                   (t.role || "").toLowerCase().includes(teacherAttSearch.toLowerCase()) ||
                                   (t.subject || "").toLowerCase().includes(teacherAttSearch.toLowerCase());
                                 
-                                const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
-                                const isPresent = !!scanTime;
+                                const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+                                const st = scanRec?.status || (scanRec?.scan_time_fn && scanRec?.scan_time_an ? "FULL PRESENT" : scanRec?.scan_time ? "HALF DAY" : "ABSENT");
 
-                                if (teacherAttFilter === "present" && !isPresent) return false;
-                                if (teacherAttFilter === "absent" && isPresent) return false;
+                                if (teacherAttFilter === "full" && st !== "FULL PRESENT") return false;
+                                if (teacherAttFilter === "half" && !st.includes("HALF DAY")) return false;
+                                if (teacherAttFilter === "absent" && st !== "ABSENT") return false;
 
                                 return nameMatch;
                               });
@@ -7910,13 +7975,18 @@ export default function DashboardPage() {
                                     <thead className="bg-gray-50/80 border-b border-gray-100">
                                       <tr>
                                         <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Member</th>
+                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Morning Scan (FN)</th>
+                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Afternoon Scan (AN)</th>
                                         <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Today's Status</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50 text-xs">
                                       {filtered.map((t, idx) => {
-                                        const scanTime = scanMap.get(String(t.id)) || scanMap.get(String(t.name).toLowerCase().trim());
-                                        const isPresent = !!scanTime;
+                                        const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
+                                        const fnTime = scanRec?.scan_time_fn || (scanRec?.scan_time && !scanRec?.scan_time_an ? scanRec.scan_time : null);
+                                        const anTime = scanRec?.scan_time_an || null;
+                                        const st = scanRec?.status || (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
+
                                         const initials = (t.name || t.username || "?")
                                           .split(" ")
                                           .map(w => w[0])
@@ -7934,7 +8004,11 @@ export default function DashboardPage() {
                                             <td className="px-4 py-3.5">
                                               <div className="flex items-center gap-3">
                                                 <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center font-black text-[11px] text-white shrink-0 shadow-xs ${
-                                                  isPresent ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-gray-400 to-slate-500"
+                                                  st === "FULL PRESENT"
+                                                    ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                                                    : st.includes("HALF DAY")
+                                                    ? "bg-gradient-to-br from-amber-500 to-orange-600"
+                                                    : "bg-gradient-to-br from-gray-400 to-slate-500"
                                                 }`}>
                                                   {initials}
                                                 </div>
@@ -7967,16 +8041,62 @@ export default function DashboardPage() {
                                               </div>
                                             </td>
 
+                                            {/* Morning Scan (FN) Column */}
+                                            <td className="px-4 py-3.5 whitespace-nowrap">
+                                              {fnTime ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                  <span>🌅</span>
+                                                  <span>{fnTime}</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[11px] font-medium text-gray-300">—</span>
+                                              )}
+                                            </td>
+
+                                            {/* Afternoon Scan (AN) Column */}
+                                            <td className="px-4 py-3.5 whitespace-nowrap">
+                                              {anTime ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                                  <span>☀️</span>
+                                                  <span>{anTime}</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[11px] font-medium text-gray-300">—</span>
+                                              )}
+                                            </td>
+
                                             {/* Today's Status Column */}
                                             <td className="px-4 py-3.5 text-right shrink-0">
-                                              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
-                                                isPresent
-                                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                  : "bg-gray-50 text-gray-500 border-gray-200"
-                                              }`}>
-                                                <span>{isPresent ? "✅" : "⏳"}</span>
-                                                <span>{isPresent ? "Present" : "Not Scanned"}</span>
-                                              </span>
+                                              {st === "FULL PRESENT" && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                  <span>✅</span>
+                                                  <span>Full Present</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY (FN)" && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day (FN)</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY (AN)" && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day (AN)</span>
+                                                </span>
+                                              )}
+                                              {st === "HALF DAY" && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                                  <span>⛅</span>
+                                                  <span>Half Day</span>
+                                                </span>
+                                              )}
+                                              {st === "ABSENT" && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
+                                                  <span>⏳</span>
+                                                  <span>Not Scanned</span>
+                                                </span>
+                                              )}
                                             </td>
                                           </tr>
                                         );

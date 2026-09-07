@@ -466,3 +466,10 @@ export const updateSingleSessionSetting = (enabled) => apiRequest('/admin/single
     body: JSON.stringify({ enabled }),
 });
 
+// ── Staff Attendance Afternoon Cutoff Setting ──
+export const getStaffCutoffSetting = () => apiRequest('/admin/staff-cutoff-setting');
+export const updateStaffCutoffSetting = (cutoff_time) => apiRequest('/admin/staff-cutoff-setting', {
+    method: 'POST',
+    body: JSON.stringify({ cutoff_time }),
+});
+

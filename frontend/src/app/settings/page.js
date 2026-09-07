@@ -26,6 +26,8 @@ import {
     saveTimetableEditors,
     getSingleSessionSetting,
     updateSingleSessionSetting,
+    getStaffCutoffSetting,
+    updateStaffCutoffSetting,
     getGuestSessions,
     revokeGuestSession,
     clearGuestSessions,
@@ -132,6 +134,8 @@ export default function SettingsPage() {
     const [timetableEditors, setTimetableEditors] = useState([]);
     const [singleSessionEnabled, setSingleSessionEnabled] = useState(true);
     const [singleSessionBusy, setSingleSessionBusy] = useState(false);
+    const [staffCutoffTime, setStaffCutoffTime] = useState("13:00");
+    const [staffCutoffBusy, setStaffCutoffBusy] = useState(false);
     const [guestSessions, setGuestSessions] = useState([]);
     const [guestSessionStats, setGuestSessionStats] = useState({ active_online_count: 0, total_sessions: 0 });
     const [loadingGuestSessions, setLoadingGuestSessions] = useState(false);
@@ -184,7 +188,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, guestSessRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, guestSessRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -194,6 +198,7 @@ export default function SettingsPage() {
                 getSubstituteCoordinators(),
                 getTimetableEditors(),
                 getSingleSessionSetting().catch(() => ({ enabled: true })),
+                getStaffCutoffSetting().catch(() => ({ cutoff_time: "13:00" })),
                 getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
             ]);
             setSessions(sessRes.sessions || []);
@@ -205,6 +210,7 @@ export default function SettingsPage() {
             setSubCoordinators(coordRes?.coordinators?.map(String) || []);
             setTimetableEditors(editorRes?.editors?.map(String) || []);
             setSingleSessionEnabled(singleSessRes?.enabled !== false);
+            setStaffCutoffTime(cutoffRes?.cutoff_time || "13:00");
             if (guestSessRes) {
                 let list = [];
                 if (Array.isArray(guestSessRes)) {
@@ -298,6 +304,23 @@ export default function SettingsPage() {
             setError(err.message);
         } finally {
             setSingleSessionBusy(false);
+        }
+    }
+
+    async function handleSaveStaffCutoff(timeVal) {
+        setStaffCutoffBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const res = await updateStaffCutoffSetting(timeVal);
+            setStaffCutoffTime(res.cutoff_time || timeVal);
+            setMsg(`Staff attendance afternoon cutoff time updated to ${res.cutoff_time || timeVal}.`);
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setStaffCutoffBusy(false);
         }
     }
 
@@ -1267,6 +1290,37 @@ export default function SettingsPage() {
                                         {singleSessionEnabled ? "Auto-Logout Enabled" : "Multi-Device Allowed"}
                                     </span>
                                 </label>
+                            </div>
+                        </div>
+
+                        {/* Staff Attendance Afternoon Cutoff Setting */}
+                        <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">⏰</span>
+                                        <h2 className="text-lg font-black text-indigo-950">Staff Attendance Afternoon Cutoff Time</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        Scans recorded before this cutoff time are saved as <b>Morning Scan (FN)</b>. Scans recorded at or after this time are saved as <b>Afternoon Scan (AN)</b>. Staff members scanning in both sessions achieve <b>FULL PRESENT</b>.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3 self-start sm:self-center">
+                                    <input
+                                        type="time"
+                                        value={staffCutoffTime}
+                                        disabled={staffCutoffBusy}
+                                        onChange={(e) => setStaffCutoffTime(e.target.value)}
+                                        className="rounded-xl border border-indigo-200 bg-indigo-50/50 px-4 py-2.5 text-sm font-black text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    />
+                                    <button
+                                        onClick={() => handleSaveStaffCutoff(staffCutoffTime)}
+                                        disabled={staffCutoffBusy}
+                                        className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-indigo-100"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

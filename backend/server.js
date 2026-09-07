@@ -1540,6 +1540,28 @@ app.post('/admin/single-session-setting', authenticateToken, async (req, res) =>
     }
 });
 
+// Admin Route: Staff Attendance Afternoon Cutoff Time Setting
+app.get('/admin/staff-cutoff-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const result = await callPython({ action: "get_staff_cutoff_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/staff-cutoff-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { cutoff_time } = req.body;
+        const result = await callPython({ action: "save_staff_cutoff_setting", cutoff_time });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({
