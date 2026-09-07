@@ -28,6 +28,7 @@ import {
   getPendingAnnouncement,
   dismissAnnouncement,
   getNamazAnalytics,
+  updateNamazStatus,
   getEventAttendance,
   getSyllabusConfigs,
   saveSyllabusConfig,
@@ -501,7 +502,8 @@ function NamazSessionRow({ s, isExpanded, onToggle }) {
   const prayerEmojis = { Fajr: "🌅", Dhuhr: "☀️", Asr: "🌇", Maghrib: "🌆", Isha: "🌙" };
   const emoji = prayerEmojis[s.sessionName] || "🕌";
 
-  const presentCount = (s.students || []).filter(st => st.status === "present").length;
+  const presentCount = (s.students || []).filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length;
+  const specialLeaveCount = (s.students || []).filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length;
   const totalCount = (s.students || []).length;
   const absentCount = Math.max(0, totalCount - presentCount);
   const percent = totalCount > 0 ? Number(((presentCount / totalCount) * 100).toFixed(2)) : 0;
@@ -1457,7 +1459,7 @@ export default function DashboardPage() {
   const buildNamazWhatsappReport = (prayerName, pSessions, dateStr) => {
     const arabicName = getArabicPrayerName(prayerName);
     const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
-    const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present").length : 0), 0);
+    const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length : 0), 0);
     const totalAbsent = Math.max(0, totalStudents - totalPresent);
     const overallPct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
 
@@ -1512,9 +1514,20 @@ export default function DashboardPage() {
       const rawClassName = session.className || "Class";
       const cleanClassName = rawClassName.replace(/^class\s+/i, "");
       const sList = session.students || [];
-      const classAbsent = sList.filter(st => st.status !== "present");
+      const classAbsent = sList.filter(st => st.status === "absent");
+      const classSpecialLeave = sList.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave");
 
       text += `─── *${cleanClassName}* ───\n`;
+
+      if (classSpecialLeave.length > 0) {
+        text += `🟡 *${classSpecialLeave.length} Special Leave*\n`;
+        classSpecialLeave.forEach((st) => {
+          const roll = st.rollNo || st.roll_no || "-";
+          const name = st.name || "Student";
+          text += `• \`${roll}\` — _${name}_ (Special Leave)\n`;
+        });
+        text += `\n`;
+      }
 
       if (classAbsent.length > 0) {
         text += `🔴 *${classAbsent.length} Absent*\n\n`;
@@ -1523,7 +1536,7 @@ export default function DashboardPage() {
           const name = st.name || "Student";
           text += `• \`${roll}\` — _${name}_\n`;
         });
-      } else {
+      } else if (classSpecialLeave.length === 0) {
         text += `🟢 *All Present* 🎉\n`;
       }
 
@@ -1638,6 +1651,48 @@ export default function DashboardPage() {
       window.history.back();
     } else {
       setSelectedClassModalSession(null);
+    }
+  };
+
+  const handleToggleStudentNamazStatus = async (sessionId, studentId, targetStatus) => {
+    const session = selectedClassModalSession;
+    if (session && session.date !== getIstDateString()) {
+      alert("Editing attendance is only permitted for today's sessions.");
+      return;
+    }
+
+    // Optimistically update selectedClassModalSession
+    setSelectedClassModalSession((prev) => {
+      if (!prev || prev.sessionId !== sessionId) return prev;
+      const updatedStudents = (prev.students || []).map((st) =>
+        st.rollNo === studentId ? { ...st, status: targetStatus } : st
+      );
+      return { ...prev, students: updatedStudents };
+    });
+
+    // Optimistically update namazAnalytics state
+    setNamazAnalytics((prev) => {
+      if (!prev || !prev.sessions) return prev;
+      const updatedSessions = prev.sessions.map((s) => {
+        if (s.sessionId !== sessionId) return s;
+        const updatedStudents = (s.students || []).map((st) =>
+          st.rollNo === studentId ? { ...st, status: targetStatus } : st
+        );
+        return { ...s, students: updatedStudents };
+      });
+      return { ...prev, sessions: updatedSessions };
+    });
+
+    try {
+      const res = await updateNamazStatus({ sessionId, studentId, status: targetStatus });
+      if (!res?.success) {
+        alert(res?.message || "Failed to update status");
+      }
+      fetchNamazAnalytics({ className: selectedNamazClass });
+    } catch (err) {
+      console.error("Failed to update status", err);
+      alert("Error updating status: " + (err.message || "Server error"));
+      fetchNamazAnalytics({ className: selectedNamazClass });
     }
   };
 
@@ -5799,134 +5854,132 @@ export default function DashboardPage() {
 
                           return (
                             <div className="space-y-5">
-                              <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                                    Prayer Sessions ({namazDailyDate === getIstDateString() ? "Today" : "Past"})
-                                  </h4>
-                                  <span className="text-[10px] font-bold text-gray-400">
-                                    Click any active card to view data in full screen
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
-                                  {prayerConfigs.map((p) => {
-                                    const pSessions = dailySessions.filter(s => s.sessionName === p.name);
-                                    const hasData = pSessions.length > 0;
-                                    const isSelected = selectedTodayPrayer === p.name;
-
-                                    const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
-                                    const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present").length : 0), 0);
-                                    const totalAbsent = Math.max(0, totalStudents - totalPresent);
-                                    const pct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
-
-                                    if (hasData) {
-                                      return (
-                                        <button
-                                          key={p.name}
-                                          type="button"
-                                          onClick={() => isSelected ? closeTodayPrayer() : openTodayPrayer(p.name)}
-                                          className={`relative text-left rounded-2xl bg-white p-4 border transition-all cursor-pointer flex flex-col justify-between h-44 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
-                                            isSelected
-                                              ? `border-teal-500 ring-2 ring-teal-500 shadow-md ${p.lightBg}`
-                                              : "border-gray-100 hover:border-gray-200"
-                                          }`}
-                                        >
-                                          {/* Top Badge & Prayer Title */}
-                                          <div className="flex items-start justify-between w-full">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-2xl">{p.emoji}</span>
-                                              <div>
-                                                <h5 className="font-black text-gray-900 text-base leading-tight">{p.name}</h5>
-                                                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-emerald-100 mt-0.5">
-                                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                  {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}
+                                              <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                                                  Prayer Sessions ({namazDailyDate === getIstDateString() ? "Today" : "Past"})
+                                                </h4>
+                                                <span className="text-[10px] font-bold text-gray-400">
+                                                  Click any active card to view data in full screen
                                                 </span>
                                               </div>
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                              {isSelected && (
-                                                <span className="text-teal-600 font-black text-xs bg-teal-100/80 px-2 py-0.5 rounded-lg">
-                                                  Selected
-                                                </span>
-                                              )}
-                                              <button
-                                                type="button"
-                                                onClick={(e) => handleCopyNamazWhatsApp(p.name, pSessions, e)}
-                                                className="p-1.5 rounded-xl bg-gray-100 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 transition-all text-xs font-bold border border-gray-200 hover:border-emerald-300 shadow-xs flex items-center gap-1"
-                                                title="Copy WhatsApp Attendance Report"
-                                              >
-                                                {copiedPrayerState === p.name ? (
-                                                  <span className="text-[10px] text-emerald-700 font-black px-1">Copied! ✅</span>
-                                                ) : (
-                                                  <span className="text-sm">📋</span>
-                                                )}
-                                              </button>
-                                            </div>
-                                          </div>
 
-                                          {/* Main Stat Display */}
-                                          <div className="my-2">
-                                            <div className="flex items-baseline justify-between">
-                                              <span className="text-2xl font-black text-gray-900">{pct}%</span>
-                                              <span className="text-[10px] font-bold text-gray-400">
-                                                {totalPresent}/{totalStudents} Present
-                                              </span>
-                                            </div>
-                                            <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                              <div
-                                                className={`h-full bg-gradient-to-r ${p.bgGradient} rounded-full transition-all duration-300`}
-                                                style={{ width: `${pct}%` }}
-                                              />
-                                            </div>
-                                          </div>
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                                                {prayerConfigs.map((p) => {
+                                                  const pSessions = dailySessions.filter(s => s.sessionName === p.name);
+                                                  const hasData = pSessions.length > 0;
+                                                  const isSelected = selectedTodayPrayer === p.name;
 
-                                          {/* Bottom Details Pill */}
-                                          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px] font-bold">
-                                            <div className="flex gap-2">
-                                              <span className="text-emerald-600">P: {totalPresent}</span>
-                                              <span className="text-red-500 font-bold">A: {totalAbsent}</span>
-                                            </div>
-                                            <span className="text-teal-600 font-black flex items-center gap-0.5">
-                                              View Data ➔
-                                            </span>
-                                          </div>
-                                        </button>
-                                      );
-                                    }
+                                                  const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
+                                                  const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length : 0), 0);
+                                                  const totalAbsent = Math.max(0, totalStudents - totalPresent);
+                                                  const pct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
 
-                                    // FADED / NOT RECORDED YET CARD
-                                    return (
-                                      <div
-                                        key={p.name}
-                                        className="relative text-left rounded-2xl bg-gray-50/70 p-4 border border-dashed border-gray-200/90 opacity-65 flex flex-col justify-between h-44 select-none"
-                                      >
-                                        <div className="flex items-start justify-between w-full">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-2xl opacity-60">{p.emoji}</span>
-                                            <div>
-                                              <h5 className="font-black text-gray-500 text-base leading-tight">{p.name}</h5>
-                                              <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                                                Not recorded
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </div>
+                                                  if (hasData) {
+                                                    return (
+                                                      <button
+                                                        key={p.name}
+                                                        type="button"
+                                                        onClick={() => isSelected ? closeTodayPrayer() : openTodayPrayer(p.name)}
+                                                        className={`relative text-left rounded-2xl bg-white p-4 border transition-all cursor-pointer flex flex-col justify-between h-44 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                                                          isSelected
+                                                            ? `border-teal-500 ring-2 ring-teal-500 shadow-md ${p.lightBg}`
+                                                            : "border-gray-100 hover:border-gray-200"
+                                                        }`}
+                                                      >
+                                                        {/* Top Badge & Prayer Title */}
+                                                        <div className="flex items-start justify-between w-full">
+                                                          <div className="flex items-center gap-2">
+                                                            <span className="text-2xl">{p.emoji}</span>
+                                                            <div>
+                                                              <h5 className="font-black text-gray-900 text-base leading-tight">{p.name}</h5>
+                                                              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center gap-1 border border-emerald-100 mt-0.5">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                {pSessions.length} {pSessions.length === 1 ? "Batch" : "Batches"}
+                                                              </span>
+                                                            </div>
+                                                          </div>
+                                                          <div className="flex items-center gap-1.5">
+                                                            {isSelected && (
+                                                              <span className="text-teal-600 font-black text-xs bg-teal-100/80 px-2 py-0.5 rounded-lg">
+                                                                Selected
+                                                              </span>
+                                                            )}
+                                                            <button
+                                                              type="button"
+                                                              onClick={(e) => handleCopyNamazWhatsApp(p.name, pSessions, e)}
+                                                              className="p-1.5 rounded-xl bg-gray-100 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 transition-all text-xs font-bold border border-gray-200 hover:border-emerald-300 shadow-xs flex items-center gap-1"
+                                                              title="Copy WhatsApp Attendance Report"
+                                                            >
+                                                              {copiedPrayerState === p.name ? (
+                                                                <span className="text-[10px] text-emerald-700 font-black px-1">Copied! ✅</span>
+                                                              ) : (
+                                                                <span className="text-sm">📋</span>
+                                                              )}
+                                                            </button>
+                                                          </div>
+                                                        </div>
 
-                                        <div className="my-auto py-2 text-center">
-                                          <p className="text-xs font-black text-gray-400 uppercase tracking-wider">
-                                            Data not yet recorded
-                                          </p>
-                                        </div>
+                                                        {/* Main Stat Display */}
+                                                        <div className="my-2">
+                                                          <div className="flex items-baseline justify-between">
+                                                            <span className="text-2xl font-black text-gray-900">{pct}%</span>
+                                                            <span className="text-[10px] font-bold text-gray-400">
+                                                              {totalPresent}/{totalStudents} Present
+                                                            </span>
+                                                          </div>
+                                                          <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                                            <div
+                                                              className={`h-full bg-gradient-to-r ${p.bgGradient} rounded-full transition-all duration-300`}
+                                                              style={{ width: `${pct}%` }}
+                                                            />
+                                                          </div>
+                                                        </div>
 
-                                        <div className="pt-2 border-t border-gray-200/60 text-[9px] font-bold text-gray-400 text-center">
-                                          Waiting for submission
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                                                        {/* Bottom Details Pill */}
+                                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px] font-bold">
+                                                          <div className="flex gap-2">
+                                                            <span className="text-emerald-600">P: {totalPresent}</span>
+                                                            <span className="text-red-500 font-bold">A: {totalAbsent}</span>
+                                                          </div>
+                                                          <span className="text-teal-600 font-black flex items-center gap-0.5">
+                                                            View Data ➔
+                                                          </span>
+                                                        </div>
+                                                      </button>
+                                                    );
+                                                  }
+
+                                                  // FADED / NOT RECORDED YET CARD
+                                                  return (
+                                                    <div
+                                                      key={p.name}
+                                                      className="relative text-left rounded-2xl bg-gray-50/70 p-4 border border-dashed border-gray-200/90 opacity-65 flex flex-col justify-between h-44 select-none"
+                                                    >
+                                                      <div className="flex items-start justify-between w-full">
+                                                        <div className="flex items-center gap-2">
+                                                          <span className="text-2xl opacity-60">{p.emoji}</span>
+                                                          <div>
+                                                            <h5 className="font-black text-gray-500 text-base leading-tight">{p.name}</h5>
+                                                            <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                                                              Not recorded
+                                                            </span>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+
+                                                      <div className="my-auto py-2 text-center">
+                                                        <p className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                                                          Data not yet recorded
+                                                        </p>
+                                                      </div>
+
+                                                      <div className="pt-2 border-t border-gray-200/60 text-[9px] font-bold text-gray-400 text-center">
+                                                        Waiting for submission
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
 
                               {/* DRILLDOWN 1: FULLSCREEN OVERLAY MODAL FOR SELECTED PRAYER */}
                               {selectedTodayPrayer && (() => {
@@ -5934,7 +5987,8 @@ export default function DashboardPage() {
                                 const selectedConfig = prayerConfigs.find(p => p.name === selectedTodayPrayer);
 
                                 const totalStudents = pSessions.reduce((sum, s) => sum + (s.students ? s.students.length : 0), 0);
-                                const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present").length : 0), 0);
+                                const totalPresent = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length : 0), 0);
+                                const totalSpecialLeave = pSessions.reduce((sum, s) => sum + (s.students ? s.students.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length : 0), 0);
                                 const totalAbsent = Math.max(0, totalStudents - totalPresent);
                                 const overallPct = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0;
 
@@ -5979,6 +6033,11 @@ export default function DashboardPage() {
                                             <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-xl">
                                               Present: {totalPresent} ({overallPct}%)
                                             </span>
+                                            {totalSpecialLeave > 0 && (
+                                              <span className="bg-purple-50 text-purple-700 border border-purple-100 px-3 py-1.5 rounded-xl">
+                                                Special Leave: {totalSpecialLeave}
+                                              </span>
+                                            )}
                                             <span className="bg-red-50 text-red-700 border border-red-100 px-3 py-1.5 rounded-xl">
                                               Absent: {totalAbsent}
                                             </span>
@@ -6008,7 +6067,8 @@ export default function DashboardPage() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                           {pSessions.map((session) => {
                                             const sList = session.students || [];
-                                            const presentCount = sList.filter(st => st.status === "present").length;
+                                            const presentCount = sList.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length;
+                                            const specialLeaveCount = sList.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length;
                                             const totalCount = sList.length;
                                             const absentCount = Math.max(0, totalCount - presentCount);
                                             const classPct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
@@ -6039,7 +6099,8 @@ export default function DashboardPage() {
                                                 <div className="flex items-center justify-between">
                                                   <div>
                                                     <h5 className="font-black text-gray-900 text-xl group-hover:text-teal-600 transition-colors">
-                                                      {session.className}                                                    </h5>
+                                                      {session.className}
+                                                    </h5>
                                                     {timeStr && (
                                                       <span className="text-xs font-bold text-gray-400">
                                                         🕒 {timeStr}
@@ -6065,6 +6126,12 @@ export default function DashboardPage() {
                                                     <p className="text-base font-black text-red-500">{absentCount}</p>
                                                   </div>
                                                 </div>
+
+                                                {specialLeaveCount > 0 && (
+                                                  <div className="text-[10px] font-black text-purple-700 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-xl text-center">
+                                                    ⭐ {specialLeaveCount} Special Leave
+                                                  </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between text-xs font-black text-teal-600 pt-1 group-hover:translate-x-1 transition-transform">
                                                   <span>View Student Data</span>
@@ -6095,17 +6162,22 @@ export default function DashboardPage() {
                                 const session = selectedClassModalSession;
                                 const sList = session.students || [];
                                 const totalCount = sList.length;
-                                const presentCount = sList.filter(st => st.status === "present").length;
-                                const absentCount = Math.max(0, totalCount - presentCount);
+                                const presentCount = sList.filter(st => st.status === "present" || st.status === "namaz_special_leave" || st.status === "special_leave").length;
+                                const specialLeaveCount = sList.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length;
+                                const absentCount = sList.filter(st => st.status === "absent").length;
+                                const isTodaySession = session.date === getIstDateString();
 
                                 // Filter students by search and status tab
                                 const filteredStudents = sList.filter((st) => {
+                                  const isStSpecial = st.status === "namaz_special_leave" || st.status === "special_leave";
                                   const matchesFilter =
                                     classRosterFilter === "all"
                                       ? true
                                       : classRosterFilter === "absent"
                                       ? st.status === "absent"
-                                      : st.status === "present";
+                                      : classRosterFilter === "special_leave"
+                                      ? isStSpecial
+                                      : (st.status === "present" || isStSpecial);
 
                                   const q = classRosterSearch.toLowerCase().trim();
                                   const matchesSearch =
@@ -6140,16 +6212,26 @@ export default function DashboardPage() {
                                           </div>
                                           <p className="text-xs font-bold text-gray-400">
                                             Date: {session.date} | Time Recorded: {session.createdAt || session.date}
+                                            {!isTodaySession && (
+                                              <span className="ml-2 text-amber-600 font-black bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
+                                                ReadOnly (Past Date)
+                                              </span>
+                                            )}
                                           </p>
 
                                           {/* Summary Stats Badges */}
-                                          <div className="flex items-center gap-2 pt-2">
+                                          <div className="flex flex-wrap items-center gap-2 pt-2">
                                             <span className="text-xs font-black text-gray-700 bg-white border border-gray-200 px-3 py-1 rounded-xl">
                                               Total: {totalCount}
                                             </span>
                                             <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl">
                                               Present: {presentCount}
                                             </span>
+                                            {specialLeaveCount > 0 && (
+                                              <span className="text-xs font-black text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1 rounded-xl">
+                                                Special Leave: {specialLeaveCount}
+                                              </span>
+                                            )}
                                             <span className="text-xs font-black text-red-700 bg-red-50 border border-red-100 px-3 py-1 rounded-xl">
                                               Absent: {absentCount}
                                             </span>
@@ -6185,10 +6267,10 @@ export default function DashboardPage() {
                                           )}
                                         </div>
 
-                                        <div className="flex items-center bg-gray-100 p-1 rounded-xl gap-1 shrink-0 text-xs font-black">
+                                        <div className="flex items-center bg-gray-100 p-1 rounded-xl gap-1 shrink-0 text-xs font-black overflow-x-auto">
                                           <button
                                             onClick={() => setClassRosterFilter("all")}
-                                            className={`px-3 py-1.5 rounded-lg transition-all ${
+                                            className={`px-2.5 py-1.5 rounded-lg transition-all ${
                                               classRosterFilter === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"
                                             }`}
                                           >
@@ -6196,15 +6278,23 @@ export default function DashboardPage() {
                                           </button>
                                           <button
                                             onClick={() => setClassRosterFilter("absent")}
-                                            className={`px-3 py-1.5 rounded-lg transition-all ${
+                                            className={`px-2.5 py-1.5 rounded-lg transition-all ${
                                               classRosterFilter === "absent" ? "bg-red-500 text-white shadow-sm" : "text-red-500 hover:bg-red-50"
                                             }`}
                                           >
                                             Absent ({absentCount})
                                           </button>
                                           <button
+                                            onClick={() => setClassRosterFilter("special_leave")}
+                                            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                                              classRosterFilter === "special_leave" ? "bg-purple-600 text-white shadow-sm" : "text-purple-600 hover:bg-purple-50"
+                                            }`}
+                                          >
+                                            Special Leave ({specialLeaveCount})
+                                          </button>
+                                          <button
                                             onClick={() => setClassRosterFilter("present")}
-                                            className={`px-3 py-1.5 rounded-lg transition-all ${
+                                            className={`px-2.5 py-1.5 rounded-lg transition-all ${
                                               classRosterFilter === "present" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-600 hover:bg-emerald-50"
                                             }`}
                                           >
@@ -6222,20 +6312,27 @@ export default function DashboardPage() {
                                         ) : (
                                           sortedStudents.map((student) => {
                                             const isAbsent = student.status === "absent";
+                                            const isSpecialLeave = student.status === "namaz_special_leave" || student.status === "special_leave";
 
                                             return (
                                               <div
                                                 key={student.rollNo}
-                                                className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:px-4 sm:py-3 rounded-2xl border transition-all gap-2 ${
                                                   isAbsent
                                                     ? "bg-red-50/80 border-red-200 shadow-sm"
+                                                    : isSpecialLeave
+                                                    ? "bg-purple-50/90 border-purple-200 shadow-sm"
                                                     : "bg-white border-gray-100 hover:border-gray-200"
                                                 }`}
                                               >
                                                 <div className="flex items-center gap-3 min-w-0">
                                                   <span
                                                     className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
-                                                      isAbsent ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
+                                                      isAbsent
+                                                        ? "bg-red-100 text-red-700"
+                                                        : isSpecialLeave
+                                                        ? "bg-purple-100 text-purple-700"
+                                                        : "bg-gray-100 text-gray-700"
                                                     }`}
                                                   >
                                                     #{student.rollNo}
@@ -6243,7 +6340,11 @@ export default function DashboardPage() {
                                                   <div className="min-w-0 flex-1">
                                                     <p
                                                       className={`text-sm leading-tight truncate ${
-                                                        isAbsent ? "text-red-600 font-black" : "text-gray-800 font-bold"
+                                                        isAbsent
+                                                          ? "text-red-600 font-black"
+                                                          : isSpecialLeave
+                                                          ? "text-purple-700 font-black"
+                                                          : "text-gray-800 font-bold"
                                                       }`}
                                                     >
                                                       {student.name}
@@ -6254,22 +6355,64 @@ export default function DashboardPage() {
                                                   </div>
                                                 </div>
 
-                                                <div className="shrink-0">
+                                                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                                                  {/* Status Badge */}
                                                   {isAbsent ? (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-red-100 text-red-700 border border-red-200 text-xs font-black uppercase tracking-wider">
                                                       <span>✗</span> ABSENT
+                                                    </span>
+                                                  ) : isSpecialLeave ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black uppercase tracking-wider">
+                                                      <span>⭐</span> SPECIAL LEAVE
                                                     </span>
                                                   ) : (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold uppercase tracking-wider">
                                                       <span>✓</span> PRESENT
                                                     </span>
                                                   )}
+
+                                                  {/* Interactive Action Controls (Only available for Today's sessions) */}
+                                                  {isTodaySession ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                      {isAbsent && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, "namaz_special_leave")}
+                                                          className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-black transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                                          title="Convert Absent to Special Leave"
+                                                        >
+                                                          <span>⭐</span> Mark Special Leave
+                                                        </button>
+                                                      )}
+                                                      {isSpecialLeave && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, "absent")}
+                                                          className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-red-100 active:scale-95 text-red-600 border border-gray-200 text-xs font-bold transition-all cursor-pointer"
+                                                          title="Revert to Absent"
+                                                        >
+                                                          Revert to Absent
+                                                        </button>
+                                                      )}
+                                                      <select
+                                                        value={isSpecialLeave ? "namaz_special_leave" : student.status}
+                                                        onChange={(e) => handleToggleStudentNamazStatus(session.sessionId, student.rollNo, e.target.value)}
+                                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold py-1 px-1.5 rounded-xl border border-gray-200 outline-none cursor-pointer"
+                                                      >
+                                                        <option value="present">Present</option>
+                                                        <option value="namaz_special_leave">Special Leave</option>
+                                                        <option value="absent">Absent</option>
+                                                      </select>
+                                                    </div>
+                                                  ) : (
+                                                    <span className="text-[10px] font-bold text-gray-400 italic">Today only</span>
+                                                  )}
                                                 </div>
                                               </div>
                                             );
                                           })
                                         )}
-</div>
+                                      </div>
                                       {/* Modal Footer */}
                                       <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
                                         <button

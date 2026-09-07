@@ -1322,6 +1322,21 @@ app.get('/namaz-analytics', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId, studentId, status } = req.body;
+        const result = await callPython({
+            action: "update_namaz_attendance",
+            sessionId,
+            studentId,
+            status,
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/event-attendance', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({

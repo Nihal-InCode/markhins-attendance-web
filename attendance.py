@@ -861,6 +861,8 @@ def handle_create_namaz_session(c, data):
 
     c.execute("SELECT 1 FROM namaz_sessions WHERE sessionId=?", (session_id,))
     if c.fetchone():
+        c.execute("SELECT studentId FROM namaz_attendance WHERE sessionId=? AND status='namaz_special_leave'", (session_id,))
+        existing_special_leave = {r[0] for r in c.fetchall()}
         c.execute("DELETE FROM namaz_attendance WHERE sessionId=?", (session_id,))
         c.execute("UPDATE namaz_sessions SET createdAt=? WHERE sessionId=?", (now_str, session_id))
         
@@ -877,7 +879,7 @@ def handle_create_namaz_session(c, data):
             return {"success": False, "message": f"No students found for class {class_name}"}
 
         rows = [
-            (session_id, roll, "present" if roll in present_students else "absent")
+            (session_id, roll, "present" if roll in present_students else ("namaz_special_leave" if roll in existing_special_leave else "absent"))
             for roll in class_rolls
         ]
         c.executemany("""
@@ -898,7 +900,7 @@ def handle_create_namaz_session(c, data):
             "data": {
                 "sessionId": session_id,
                 "totalStudents": len(class_rolls),
-                "presentCount": sum(1 for _, _, status in rows if status == "present"),
+                "presentCount": sum(1 for _, _, status in rows if status in ("present", "namaz_special_leave")),
                 "absentCount": sum(1 for _, _, status in rows if status == "absent"),
             }
         }
@@ -942,7 +944,7 @@ def handle_create_namaz_session(c, data):
         "data": {
             "sessionId": session_id,
             "totalStudents": len(class_rolls),
-            "presentCount": sum(1 for _, _, status in rows if status == "present"),
+            "presentCount": sum(1 for _, _, status in rows if status in ("present", "namaz_special_leave")),
             "absentCount": sum(1 for _, _, status in rows if status == "absent"),
         }
     }
@@ -990,14 +992,15 @@ def build_namaz_analytics(c, data):
         attendance_rows = c.fetchall()
 
     total_marked = len(attendance_rows)
-    total_present = sum(1 for row in attendance_rows if row[1] == "present")
+    total_present = sum(1 for row in attendance_rows if row[1] in ("present", "namaz_special_leave"))
     by_session_type = {}
     for session_type in NAMAZ_SESSION_TYPES:
         rows = [row for row in attendance_rows if row[2] == session_type]
         by_session_type[session_type] = {
-            "present": sum(1 for row in rows if row[1] == "present"),
+            "present": sum(1 for row in rows if row[1] in ("present", "namaz_special_leave")),
+            "specialLeave": sum(1 for row in rows if row[1] == "namaz_special_leave"),
             "total": len(rows),
-            "percent": _pct(sum(1 for row in rows if row[1] == "present"), len(rows)),
+            "percent": _pct(sum(1 for row in rows if row[1] in ("present", "namaz_special_leave")), len(rows)),
         }
 
     student_totals = {}
@@ -1016,11 +1019,11 @@ def build_namaz_analytics(c, data):
             }
         })
         item["total"] += 1
-        if status == "present":
+        if status in ("present", "namaz_special_leave"):
             item["present"] += 1
         if stype in item["prayers"]:
             item["prayers"][stype]["total"] += 1
-            if status == "present":
+            if status in ("present", "namaz_special_leave"):
                 item["prayers"][stype]["present"] += 1
 
     if filters["className"]:
@@ -1080,7 +1083,7 @@ def build_namaz_analytics(c, data):
             key = date[:7] if index == "month" else (stype if index == "session" else date)
             item = groups.setdefault(key, {"label": key, "present": 0, "total": 0})
             item["total"] += 1
-            if status == "present":
+            if status in ("present", "namaz_special_leave"):
                 item["present"] += 1
         return [
             {**item, "percent": _pct(item["present"], item["total"])}
@@ -1093,11 +1096,12 @@ def build_namaz_analytics(c, data):
         if cls_name:
             c_item = class_totals.setdefault(cls_name, {"className": cls_name, "present": 0, "total": 0})
             c_item["total"] += 1
-            if status == "present":
+            if status in ("present", "namaz_special_leave"):
                 c_item["present"] += 1
     class_summaries = []
     for c_item in class_totals.values():
         c_item["percent"] = _pct(c_item["present"], c_item["total"])
+        class_summaries.append(c_item)
         class_summaries.append(c_item)
     class_summaries.sort(key=lambda x: x["percent"], reverse=True)
 
@@ -1205,6 +1209,42 @@ def get_event_attendance(c):
     ]
     
     return {"success": True, "data": result_list}
+
+def handle_update_namaz_attendance(c, data):
+    session_id = str(data.get("sessionId") or "").strip()
+    student_id = str(data.get("studentId") or "").strip()
+    status = str(data.get("status") or "").strip()
+
+    if not session_id or not student_id or not status:
+        return {"success": False, "message": "Missing required fields: sessionId, studentId, status"}
+
+    valid_statuses = {"present", "absent", "namaz_special_leave"}
+    if status not in valid_statuses:
+        return {"success": False, "message": f"Invalid status. Allowed: {', '.join(valid_statuses)}"}
+
+    c.execute("SELECT date FROM namaz_sessions WHERE sessionId=?", (session_id,))
+    session_row = c.fetchone()
+    if not session_row:
+        return {"success": False, "message": "Namaz session not found"}
+
+    session_date = session_row[0]
+    today_ist = get_ist_now().strftime("%Y-%m-%d")
+    if session_date != today_ist:
+        return {"success": False, "message": "Editing attendance is only permitted on the same day"}
+
+    c.execute("SELECT 1 FROM namaz_attendance WHERE sessionId=? AND studentId=?", (session_id, student_id))
+    if c.fetchone():
+        c.execute("UPDATE namaz_attendance SET status=? WHERE sessionId=? AND studentId=?", (status, session_id, student_id))
+    else:
+        c.execute("INSERT INTO namaz_attendance (sessionId, studentId, status) VALUES (?, ?, ?)", (session_id, student_id, status))
+
+    return {
+        "success": True,
+        "message": "Namaz attendance status updated successfully",
+        "sessionId": session_id,
+        "studentId": student_id,
+        "status": status
+    }
 
 def handle_reset_namaz_data(c, data):
     category = str(data.get("category") or "all").strip().lower()
@@ -5209,6 +5249,10 @@ if __name__ == "__main__":
 
                 elif action == "reset_namaz_data":
                     result = handle_reset_namaz_data(c, data)
+                    conn.commit()
+
+                elif action == "update_namaz_attendance":
+                    result = handle_update_namaz_attendance(c, data)
                     conn.commit()
 
                 elif action == "login":
