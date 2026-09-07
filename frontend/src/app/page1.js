@@ -7940,17 +7940,17 @@ export default function DashboardPage() {
                               <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled faculty & staff</p>
                             </div>
                             <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Full Present</span>
                               <p className="text-2xl font-black text-emerald-600 mt-1">{fullPresentCount}</p>
                               <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Both FN & AN scanned</p>
                             </div>
                             <div className="bg-amber-50/70 rounded-2xl border border-amber-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Partial</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Half Day</span>
                               <p className="text-2xl font-black text-amber-600 mt-1">{halfDayCount}</p>
                               <p className="text-[10px] font-bold text-amber-600 mt-0.5">Single scan completed</p>
                             </div>
                             <div className="bg-gray-50/80 rounded-2xl border border-gray-200 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Pending</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Not Scanned</span>
                               <p className="text-2xl font-black text-gray-600 mt-1">{absentCount}</p>
                               <p className="text-[10px] font-bold text-gray-400 mt-0.5">Pending scans</p>
                             </div>
@@ -7974,8 +7974,8 @@ export default function DashboardPage() {
                                 {[
                                   { id: "all", label: `All (${totalCount})` },
                                   { id: "full", label: `Full (${fullPresentCount})` },
-                                  { id: "half", label: `Partial (${halfDayCount})` },
-                                  { id: "absent", label: `Pending (${absentCount})` }
+                                  { id: "half", label: `Half Day (${halfDayCount})` },
+                                  { id: "absent", label: `Not Scanned (${absentCount})` }
                                 ].map((tab) => (
                                   <button
                                     key={tab.id}
@@ -8087,31 +8087,31 @@ export default function DashboardPage() {
                                               {st === "FULL PRESENT" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                   <span>✅</span>
-                                                  <span>Present</span>
+                                                  <span>Full Present</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY (FN)" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial (Morning)</span>
+                                                  <span>Half Day (FN)</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY (AN)" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial (Afternoon)</span>
+                                                  <span>Half Day (AN)</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial</span>
+                                                  <span>Half Day</span>
                                                 </span>
                                               )}
                                               {st === "ABSENT" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
                                                   <span>⏳</span>
-                                                  <span>Pending</span>
+                                                  <span>Not Scanned</span>
                                                 </span>
                                               )}
                                             </div>
@@ -8261,31 +8261,31 @@ export default function DashboardPage() {
                                               {st === "FULL PRESENT" && (
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                   <span>✅</span>
-                                                  <span>Present</span>
+                                                  <span>Full Present</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY (FN)" && (
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial (Morning)</span>
+                                                  <span>Half Day (FN)</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY (AN)" && (
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial (Afternoon)</span>
+                                                  <span>Half Day (AN)</span>
                                                 </span>
                                               )}
                                               {st === "HALF DAY" && (
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                                                   <span>⛅</span>
-                                                  <span>Partial</span>
+                                                  <span>Half Day</span>
                                                 </span>
                                               )}
                                               {st === "ABSENT" && (
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
                                                   <span>⏳</span>
-                                                  <span>Pending</span>
+                                                  <span>Not Scanned</span>
                                                 </span>
                                               )}
                                             </td>
