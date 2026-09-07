@@ -6519,12 +6519,9 @@ export default function DashboardPage() {
                                 📊
                               </div>
                               <div className="text-left">
-                                <h4 className="text-base font-black text-white">
-                                  Open Advanced Analytics & Monthly Reports
+                                <h4 className="text-base font-black text-white uppercase tracking-wider">
+                                  ADVANCED ANALYTICS
                                 </h4>
-                                <p className="text-xs font-bold text-teal-100 mt-0.5">
-                                  Campus summaries, batch rankings, individual student percentage scorecards, and exports
-                                </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all">
