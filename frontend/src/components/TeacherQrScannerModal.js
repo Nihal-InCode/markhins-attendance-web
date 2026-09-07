@@ -101,10 +101,10 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         playSound('error');
                         if (err.message && err.message.toLowerCase().includes("network")) {
                             setStatus("NETWORK_ERROR");
-                            setMessage("Unable to connect to server. Please check your connection.");
+                            setMessage("We couldn't reach the server. Please check your internet connection and try again.");
                         } else {
                             setStatus("INVALID_QR");
-                            setMessage(err.message || "Invalid QR code.");
+                            setMessage(err.message || "QR Code Not Recognized.");
                         }
                     }
                 };
@@ -143,7 +143,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 console.error("Camera access error:", err);
                 if (isMounted) {
                     setStatus("CAMERA_ERROR");
-                    setMessage("Unable to access phone camera. Please grant camera permission in your browser settings.");
+                    setMessage("We couldn't access your camera. Please allow camera access in your browser settings to continue.");
                 }
             }
         };
@@ -251,10 +251,10 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         playSound('error');
                         if (err.message && err.message.toLowerCase().includes("network")) {
                             setStatus("NETWORK_ERROR");
-                            setMessage("Unable to connect to server. Please check your connection.");
+                            setMessage("We couldn't reach the server. Please check your internet connection and try again.");
                         } else {
                             setStatus("INVALID_QR");
-                            setMessage(err.message || "Invalid QR code.");
+                            setMessage(err.message || "QR Code Not Recognized.");
                         }
                     }
                 };
@@ -284,7 +284,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 }
             } catch (err) {
                 setStatus("CAMERA_ERROR");
-                setMessage("Unable to access phone camera. Please grant camera permission.");
+                setMessage("We couldn't access your camera. Please allow camera access in your browser settings to continue.");
             }
         }, 300);
     };
@@ -383,14 +383,14 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl shadow-lg shadow-emerald-100">
                             ✓
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Attendance Marked!</h3>
+                        <h3 className="text-lg font-black text-gray-800">Attendance Recorded</h3>
                         <p className="text-xs text-gray-600 font-medium px-2">{message}</p>
                         
                         {record && (
                             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 w-full text-center space-y-1">
                                 <div className="flex justify-between items-center text-xs font-bold text-emerald-800">
                                     <span>Session: {record.session || 'FN/AN'}</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-950 text-[10px] uppercase font-black">{record.status || 'PRESENT'}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-950 text-[10px] uppercase font-black">{record.status === 'FULL PRESENT' ? 'Present (Full Day)' : (record.status || 'PRESENT')}</span>
                                 </div>
                                 <p className="text-sm font-black text-emerald-950">Time Scanned: {record.scanTime}</p>
                             </div>
@@ -410,14 +410,14 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-3xl shadow-lg shadow-indigo-100">
                             ℹ️
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Session Marked</h3>
+                        <h3 className="text-lg font-black text-gray-800">Already Recorded</h3>
                         <p className="text-xs text-gray-600 font-medium px-2">{message}</p>
                         
                         {record && (
                             <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 w-full text-center space-y-1">
                                 <div className="flex justify-between items-center text-xs font-bold text-indigo-800">
                                     <span>Date: {record.date}</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-950 text-[10px] uppercase font-black">{record.status || 'MARKED'}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-950 text-[10px] uppercase font-black">{record.status === 'FULL PRESENT' ? 'Present (Full Day)' : (record.status || 'MARKED')}</span>
                                 </div>
                                 <p className="text-sm font-black text-indigo-950">Time Recorded: {record.scanTime}</p>
                             </div>
@@ -437,8 +437,8 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl shadow-lg shadow-red-100">
                             ⚠️
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Invalid Attendance QR</h3>
-                        <p className="text-xs text-red-600 font-medium px-2">{message || "The scanned QR code is not recognized as the official staff attendance QR."}</p>
+                        <h3 className="text-lg font-black text-gray-800">QR Code Not Recognized</h3>
+                        <p className="text-xs text-red-600 font-medium px-2">{message || "This QR code isn't a valid staff attendance code. Please scan the official code provided at your location."}</p>
 
                         <div className="flex gap-2 w-full pt-2">
                             <button
@@ -462,7 +462,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-100">
                             🚫
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Camera Access Blocked</h3>
+                        <h3 className="text-lg font-black text-gray-800">Camera Access Required</h3>
                         <p className="text-xs text-gray-600 font-medium leading-relaxed px-2">{message}</p>
 
                         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[11px] text-amber-800 text-left w-full space-y-1">
@@ -488,7 +488,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-3xl shadow-lg shadow-orange-100">
                             📡
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Connection Failed</h3>
+                        <h3 className="text-lg font-black text-gray-800">Unable to Connect</h3>
                         <p className="text-xs text-gray-600 font-medium px-2">{message}</p>
 
                         <div className="flex gap-2 w-full pt-2">

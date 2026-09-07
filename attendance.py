@@ -7493,7 +7493,7 @@ if __name__ == "__main__":
                     if not teacher_id:
                         result = {"success": False, "message": "Teacher ID is required."}
                     elif not qr_token or not clean_secret or clean_token != clean_secret:
-                        result = {"success": False, "message": "Invalid Office QR code."}
+                        result = {"success": False, "message": "This isn't a valid office QR code."}
                     else:
                         now_ist = get_ist_now()
                         today_date = now_ist.strftime("%Y-%m-%d")
@@ -7521,7 +7521,7 @@ if __name__ == "__main__":
                                 (teacher_id, today_date, scan_time_str, fn_val, an_val, status_val, scanned_at_str)
                             )
                             conn.commit()
-                            msg = f"Morning attendance marked ({scan_time_str}). Remember to scan after afternoon cutoff for Full Present!" if is_morning else f"Afternoon attendance marked ({scan_time_str})."
+                            msg = f"Morning attendance recorded at {scan_time_str}. Scan again after the afternoon cutoff." if is_morning else f"Afternoon attendance recorded at {scan_time_str}."
                             result = {
                                 "success": True,
                                 "status": "MARKED_PRESENT",
@@ -7540,7 +7540,7 @@ if __name__ == "__main__":
                                     result = {
                                         "success": True,
                                         "status": "ALREADY_MARKED",
-                                        "message": f"Morning attendance already marked for today at {old_fn or old_scan}.",
+                                        "message": f"Your morning attendance was already recorded today at {old_fn or old_scan}.",
                                         "record": {
                                             "date": today_date,
                                             "scanTime": old_fn or old_scan,
@@ -7556,7 +7556,7 @@ if __name__ == "__main__":
                                     result = {
                                         "success": True,
                                         "status": "MARKED_PRESENT",
-                                        "message": f"Morning scan recorded ({scan_time_str})! Daily status updated to FULL PRESENT.",
+                                        "message": f"Morning scan recorded at {scan_time_str}.  Daily status updated to FULL PRESENT.",
                                         "record": {
                                             "date": today_date,
                                             "scanTime": scan_time_str,
@@ -7569,7 +7569,7 @@ if __name__ == "__main__":
                                     result = {
                                         "success": True,
                                         "status": "ALREADY_MARKED",
-                                        "message": f"Afternoon attendance already marked for today at {old_an or old_scan}.",
+                                        "message": f"Your afternoon attendance was already recorded today at {old_an or old_scan}.",
                                         "record": {
                                             "date": today_date,
                                             "scanTime": old_an or old_scan,
@@ -7585,7 +7585,7 @@ if __name__ == "__main__":
                                     result = {
                                         "success": True,
                                         "status": "MARKED_PRESENT",
-                                        "message": f"Afternoon scan recorded ({scan_time_str})! Daily status updated to FULL PRESENT.",
+                                        "message": f"Afternoon scan recorded at {scan_time_str}.  Daily status updated to FULL PRESENT.",
                                         "record": {
                                             "date": today_date,
                                             "scanTime": scan_time_str,
