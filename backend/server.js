@@ -1166,6 +1166,16 @@ app.get('/students', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/search-students', async (req, res) => {
+    try {
+        const { q } = req.query;
+        const result = await callPython({ action: "search_students", query: q });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/timetable/:class', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({ action: "get_timetable", class: req.params.class });

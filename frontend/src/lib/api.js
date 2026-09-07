@@ -78,6 +78,9 @@ export const login = (username, password, guest_name = '') =>
         body: JSON.stringify({ username, password, guest_name }),
     });
 
+export const searchStudents = (query) =>
+    apiRequest(`/search-students?q=${encodeURIComponent(query)}`);
+
 export const getGuestSessions = () => apiRequest('/admin/guest-sessions');
 export const revokeGuestSession = (id) => apiRequest(`/admin/guest-sessions/${id}`, { method: 'DELETE' });
 export const clearGuestSessions = () => apiRequest('/admin/guest-sessions', { method: 'DELETE' });

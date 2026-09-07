@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin } from "@/lib/api";
+import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin, searchStudents } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import { isWebAuthnSupported, startAuthentication } from '@/lib/webauthn';
@@ -13,10 +13,67 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [passkeyLoading, setPasskeyLoading] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
+    const nameInputRef = useRef(null);
+    const wrapperRef = useRef(null);
+    const searchTimeoutRef = useRef(null);
 
     const isGuestLogin = username.trim().toLowerCase() === "guest";
+
+    const fetchSuggestions = useCallback((query) => {
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        if (!query || query.trim().length < 1) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        searchTimeoutRef.current = setTimeout(async () => {
+            try {
+                const results = await searchStudents(query.trim());
+                if (Array.isArray(results) && results.length > 0) {
+                    setSuggestions(results);
+                    setShowSuggestions(true);
+                } else {
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                }
+            } catch {
+                setSuggestions([]);
+                setShowSuggestions(false);
+            }
+        }, 300);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        };
+    }, []);
+
+    const handleNameChange = (e) => {
+        const value = e.target.value;
+        setGuestName(value);
+        fetchSuggestions(value);
+    };
+
+    const handleSelectName = (student) => {
+        setGuestName(student.name);
+        setShowSuggestions(false);
+        setSuggestions([]);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -143,14 +200,33 @@ export default function LoginPage() {
                                             MANDATORY
                                         </span>
                                     </div>
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full px-4 py-3 rounded-xl border border-indigo-200 bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-gray-800 text-xs placeholder:text-indigo-300"
-                                        placeholder="eg : HIDAYATHULLAH"
-                                        value={guestName}
-                                        onChange={(e) => setGuestName(e.target.value)}
-                                    />
+                                    <div className="relative" ref={wrapperRef}>
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-4 py-3 rounded-xl border border-indigo-200 bg-white focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-gray-800 text-xs placeholder:text-indigo-300"
+                                            placeholder="eg : HIDAYATHULLAH"
+                                            value={guestName}
+                                            onChange={handleNameChange}
+                                            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                                            ref={nameInputRef}
+                                            autoComplete="off"
+                                        />
+                                        {showSuggestions && suggestions.length > 0 && (
+                                            <ul className="absolute z-50 w-full mt-1 bg-white border border-indigo-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                                {suggestions.map((s) => (
+                                                    <li
+                                                        key={s.id}
+                                                        onClick={() => handleSelectName(s)}
+                                                        className="px-4 py-2.5 cursor-pointer hover:bg-indigo-50 transition-colors border-b border-indigo-50 last:border-0"
+                                                    >
+                                                        <span className="block text-xs font-bold text-gray-800">{s.name}</span>
+                                                        <span className="block text-[10px] text-indigo-500 font-semibold">{s.class} - {s.rollNo}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

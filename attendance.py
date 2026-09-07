@@ -5444,6 +5444,24 @@ if __name__ == "__main__":
                         })
                     result = {"success": True, "data": students}
 
+                elif action == "search_students":
+                    query = (data.get("query") or "").strip()
+                    if len(query) < 1:
+                        result = {"success": True, "data": []}
+                    else:
+                        c.execute(
+                            "SELECT id, name, class, roll_no FROM students WHERE name LIKE ? ORDER BY name LIMIT 3",
+                            (f"%{query}%",)
+                        )
+                        rows = c.fetchall()
+                        result = {
+                            "success": True,
+                            "data": [
+                                {"id": r[0], "name": r[1], "class": r[2], "rollNo": r[3]}
+                                for r in rows
+                            ]
+                        }
+
                 elif action == "get_timetable":
                     cls = data.get("class")
                     c.execute("""
