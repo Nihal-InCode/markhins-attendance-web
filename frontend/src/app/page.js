@@ -300,6 +300,35 @@ const canUsePermissionManager = (user) => {
 
 const canApprovePermissions = (user) => user?.role === 'Principal' || user?.role === 'Vice Principal' || user?.role === 'admin';
 
+const canEditNamaz = (user) => {
+  if (!user) return false;
+  const role = String(user.role || "").trim().toLowerCase();
+  const username = String(user.username || "").trim().toLowerCase();
+
+  // Guest & Majlis accounts are strictly read-only
+  if (role === "guest" || username === "guest" || role === "majlis" || username === "majlis") {
+    return false;
+  }
+
+  // System admin has full access
+  if (user.role === "admin" || username === "admin" || user.id === "system-admin") {
+    return true;
+  }
+
+  // Non-teaching staff (is_teacher === 0 or false or non-teacher role) have NO edit access
+  if (user.is_teacher === 0 || user.is_teacher === false || user.is_teacher === "0") {
+    return false;
+  }
+
+  const nonTeacherRoles = ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "peon"];
+  if (nonTeacherRoles.includes(role)) {
+    return false;
+  }
+
+  // Full access teachers
+  return true;
+};
+
 const getDashboardRoleBadge = (user) => {
   const role = user?.role || 'Teacher';
   const isMahroof = user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
@@ -1662,6 +1691,10 @@ export default function DashboardPage() {
   const handleToggleStudentNamazStatus = (studentId) => {
     const session = selectedClassModalSession;
     if (!session) return;
+    if (!canEditNamaz(user)) {
+      alert("Editing Namaz attendance is restricted to teachers with full access.");
+      return;
+    }
     if (session.date !== getIstDateString()) {
       alert("Editing attendance is only permitted for today's sessions.");
       return;
@@ -1699,6 +1732,12 @@ export default function DashboardPage() {
     const editEntries = Object.entries(pendingNamazEdits);
 
     if (session && editEntries.length > 0) {
+      if (!canEditNamaz(user)) {
+        alert("Editing Namaz attendance is restricted to teachers with full access.");
+        setPendingNamazEdits({});
+        closeClassModalSession();
+        return;
+      }
       setSavingNamazEdits(true);
       try {
         const editorName = user?.name || user?.username || "";
@@ -6246,6 +6285,7 @@ export default function DashboardPage() {
                                 const specialLeaveCount = sList.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length;
                                 const absentCount = sList.filter(st => st.status === "absent").length;
                                 const isTodaySession = session.date === getIstDateString();
+                                const isEditableSession = isTodaySession && canEditNamaz(user);
 
                                 // Filter students by search and status tab
                                 const filteredStudents = sList.filter((st) => {
@@ -6292,11 +6332,15 @@ export default function DashboardPage() {
                                           </div>
                                           <p className="text-xs font-bold text-gray-400">
                                             Date: {session.date} | Time Recorded: {session.createdAt || session.date}
-                                            {!isTodaySession && (
+                                            {!canEditNamaz(user) ? (
+                                              <span className="ml-2 text-gray-600 font-black bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-md text-[10px]">
+                                                ReadOnly (Teachers Only)
+                                              </span>
+                                            ) : !isTodaySession ? (
                                               <span className="ml-2 text-amber-600 font-black bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
                                                 ReadOnly (Past Date)
                                               </span>
-                                            )}
+                                            ) : null}
                                           </p>
 
                                           {/* Summary Stats Badges */}
@@ -6441,7 +6485,7 @@ export default function DashboardPage() {
                                                 </div>
 
                                                 <div className="shrink-0">
-                                                  {isTodaySession ? (
+                                                  {isEditableSession ? (
                                                     <button
                                                       type="button"
                                                       onClick={() => handleToggleStudentNamazStatus(student.rollNo)}

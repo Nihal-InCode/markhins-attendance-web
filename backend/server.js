@@ -1324,6 +1324,21 @@ app.get('/namaz-analytics', authenticateToken, async (req, res) => {
 
 app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
     try {
+        const uRole = String(req.user?.role || '').trim().toLowerCase();
+        const uName = String(req.user?.username || '').trim().toLowerCase();
+        const isGuest = uRole === 'guest' || uName === 'guest';
+        const isMajlis = uRole === 'majlis' || uName === 'majlis';
+        const isNonTeacher = req.user?.role !== 'admin' && (
+            req.user?.is_teacher === 0 || 
+            req.user?.is_teacher === false || 
+            req.user?.is_teacher === "0" ||
+            ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "peon"].includes(uRole)
+        );
+
+        if (isGuest || isMajlis || isNonTeacher) {
+            return res.status(403).json({ success: false, message: 'Access denied. Editing Namaz attendance is restricted to teachers with full access.' });
+        }
+
         const { sessionId, studentId, status, updates, editedBy } = req.body;
         const editorName = req.user?.name || req.user?.username || editedBy || 'Teacher';
         const result = await callPython({
