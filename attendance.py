@@ -1146,7 +1146,7 @@ def build_namaz_analytics(c, data):
             "trends": grouped_trend("date"),
             "monthlyTrends": grouped_trend("month"),
             "sessionComparison": grouped_trend("session"),
-            "sessions": sessions[:100],
+            "sessions": sessions,
             "students": sorted(student_rows, key=lambda x: x["rollNo"]),
         }
     }
