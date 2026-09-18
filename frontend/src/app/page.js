@@ -3608,8 +3608,8 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">MARKHINS HUB</h1>
                 
-                {/* Red Blinking QR Attendance Alert Icon Right After MARKHINS HUB */}
-                {(!teacherAttStatus?.markedToday || user?.role === 'admin') && (
+                {/* Red Blinking QR Attendance Alert Icon Right After MARKHINS HUB (Teachers Only, when unmarked) */}
+                {user && user.role !== 'admin' && user.role !== 'Majlis' && user.role !== 'Guest' && user.username?.toLowerCase() !== 'guest' && !teacherAttStatus?.markedToday && (
                   <button
                     onClick={() => setShowTeacherQrScanner(true)}
                     className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/60 bg-rose-500/30 text-white transition-all hover:bg-rose-500/50 active:scale-95 shadow-[0_0_14px_rgba(244,63,94,0.65)] animate-pulse shrink-0"
