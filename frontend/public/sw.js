@@ -67,7 +67,8 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/icon-192.png',
     badge: data.badge || '/icon-192.png',
-    vibrate: [200, 100, 200],
+    sound: data.sound || '/sounds/notification.mp3',
+    vibrate: [200, 100, 200, 100, 300],
     data: data.data || { url: '/teachers' },
     actions: [
       { action: 'open', title: 'Open Hub' },
