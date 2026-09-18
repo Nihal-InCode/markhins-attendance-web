@@ -78,7 +78,23 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                     setStatus("PROCESSING");
 
                     try {
-                        const response = await scanTeacherAttendance(decodedText);
+                        let locationCoords = null;
+                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                            try {
+                                const pos = await new Promise((resolve) => {
+                                    navigator.geolocation.getCurrentPosition(
+                                        (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+                                        () => resolve(null),
+                                        { timeout: 4000, enableHighAccuracy: true }
+                                    );
+                                });
+                                locationCoords = pos;
+                            } catch (locErr) {
+                                console.warn("Geolocation fetch error:", locErr);
+                            }
+                        }
+
+                        const response = await scanTeacherAttendance(decodedText, locationCoords);
                         if (response.success) {
                             setRecord(response.record || null);
                             if (response.status === "ALREADY_MARKED") {
@@ -229,7 +245,23 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
 
                     setStatus("PROCESSING");
                     try {
-                        const response = await scanTeacherAttendance(decodedText);
+                        let locationCoords = null;
+                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                            try {
+                                const pos = await new Promise((resolve) => {
+                                    navigator.geolocation.getCurrentPosition(
+                                        (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+                                        () => resolve(null),
+                                        { timeout: 4000, enableHighAccuracy: true }
+                                    );
+                                });
+                                locationCoords = pos;
+                            } catch (locErr) {
+                                console.warn("Geolocation fetch error:", locErr);
+                            }
+                        }
+
+                        const response = await scanTeacherAttendance(decodedText, locationCoords);
                         if (response.success) {
                             setRecord(response.record || null);
                             if (response.status === "ALREADY_MARKED") {

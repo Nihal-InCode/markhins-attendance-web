@@ -28,6 +28,8 @@ import {
     updateSingleSessionSetting,
     getStaffCutoffSetting,
     updateStaffCutoffSetting,
+    getGeofenceSetting,
+    updateGeofenceSetting,
     getGuestSessions,
     revokeGuestSession,
     clearGuestSessions,
@@ -136,6 +138,12 @@ export default function SettingsPage() {
     const [singleSessionBusy, setSingleSessionBusy] = useState(false);
     const [staffCutoffTime, setStaffCutoffTime] = useState("13:00");
     const [staffCutoffBusy, setStaffCutoffBusy] = useState(false);
+    const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+    const [geofenceLat, setGeofenceLat] = useState("0.0");
+    const [geofenceLng, setGeofenceLng] = useState("0.0");
+    const [geofenceRadius, setGeofenceRadius] = useState("100");
+    const [geofenceBusy, setGeofenceBusy] = useState(false);
+    const [gettingLocation, setGettingLocation] = useState(false);
     const [guestSessions, setGuestSessions] = useState([]);
     const [guestSessionStats, setGuestSessionStats] = useState({ active_online_count: 0, total_sessions: 0 });
     const [loadingGuestSessions, setLoadingGuestSessions] = useState(false);
@@ -199,6 +207,7 @@ export default function SettingsPage() {
                 getTimetableEditors(),
                 getSingleSessionSetting().catch(() => ({ enabled: true })),
                 getStaffCutoffSetting().catch(() => ({ cutoff_time: "13:00" })),
+                getGeofenceSetting().catch(() => ({ enabled: false, latitude: 0, longitude: 0, radius_meters: 100 })),
                 getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
             ]);
             setSessions(sessRes.sessions || []);
@@ -211,6 +220,12 @@ export default function SettingsPage() {
             setTimetableEditors(editorRes?.editors?.map(String) || []);
             setSingleSessionEnabled(singleSessRes?.enabled !== false);
             setStaffCutoffTime(cutoffRes?.cutoff_time || "13:00");
+            if (geofenceRes) {
+                setGeofenceEnabled(!!geofenceRes.enabled);
+                setGeofenceLat(String(geofenceRes.latitude || "0.0"));
+                setGeofenceLng(String(geofenceRes.longitude || "0.0"));
+                setGeofenceRadius(String(geofenceRes.radius_meters || "100"));
+            }
             if (guestSessRes) {
                 let list = [];
                 if (Array.isArray(guestSessRes)) {
@@ -322,6 +337,60 @@ export default function SettingsPage() {
         } finally {
             setStaffCutoffBusy(false);
         }
+    }
+
+    async function handleSaveGeofence(updatedEnabledVal = null) {
+        setGeofenceBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const isEnabled = updatedEnabledVal !== null ? updatedEnabledVal : geofenceEnabled;
+            const res = await updateGeofenceSetting({
+                enabled: isEnabled,
+                latitude: geofenceLat,
+                longitude: geofenceLng,
+                radius_meters: geofenceRadius
+            });
+            if (res && res.success) {
+                setMsg(res.message || "Campus geofence settings updated.");
+                playSound('success');
+            } else {
+                setError(res?.message || "Failed to update geofence settings.");
+                playSound('error');
+            }
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setGeofenceBusy(false);
+        }
+    }
+
+    async function handleFetchAdminLocation() {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            setError("Geolocation is not supported by your browser.");
+            return;
+        }
+        setGettingLocation(true);
+        setMsg("");
+        setError("");
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const latStr = pos.coords.latitude.toFixed(6);
+                const lngStr = pos.coords.longitude.toFixed(6);
+                setGeofenceLat(latStr);
+                setGeofenceLng(lngStr);
+                setMsg(`Campus location captured: Lat ${latStr}, Lng ${lngStr}. Tap 'Save Geofence Settings' to apply.`);
+                playSound('success');
+                setGettingLocation(false);
+            },
+            (err) => {
+                setError("Location access failed: " + err.message);
+                playSound('error');
+                setGettingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
     }
 
     useEffect(() => {
@@ -1311,6 +1380,94 @@ export default function SettingsPage() {
                                     </span>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Campus Geofence Location Settings */}
+                        <div className="rounded-3xl border border-teal-100 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">📍</span>
+                                        <h2 className="text-lg font-black text-gray-900">Campus Geofence Location Check</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        Enforce device location verification during QR code scanning so staff attendance can only be marked when teachers are physically on campus.
+                                    </p>
+                                </div>
+                                <label className="inline-flex items-center gap-3 cursor-pointer select-none self-start sm:self-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={geofenceEnabled}
+                                        disabled={geofenceBusy}
+                                        onChange={(e) => {
+                                            const val = e.target.checked;
+                                            setGeofenceEnabled(val);
+                                            handleSaveGeofence(val);
+                                        }}
+                                        className="h-5 w-5 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488]"
+                                    />
+                                    <span className={`text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition-all ${geofenceEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                        {geofenceEnabled ? "Geofence Active" : "Geofence Disabled"}
+                                    </span>
+                                </label>
+                            </div>
+
+                            {geofenceEnabled && (
+                                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in duration-200">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Campus Latitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={geofenceLat}
+                                            onChange={(e) => setGeofenceLat(e.target.value)}
+                                            placeholder="e.g. 11.123456"
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-[#0d9488]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Campus Longitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={geofenceLng}
+                                            onChange={(e) => setGeofenceLng(e.target.value)}
+                                            placeholder="e.g. 75.123456"
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-[#0d9488]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Max Radius (Meters)</label>
+                                        <input
+                                            type="number"
+                                            value={geofenceRadius}
+                                            onChange={(e) => setGeofenceRadius(e.target.value)}
+                                            placeholder="100"
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-[#0d9488]"
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-3 flex flex-wrap items-center justify-between gap-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleFetchAdminLocation}
+                                            disabled={gettingLocation}
+                                            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                                        >
+                                            <span>🎯</span> {gettingLocation ? "Detecting location..." : "Set to My Current Location"}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSaveGeofence()}
+                                            disabled={geofenceBusy}
+                                            className="px-5 py-2.5 rounded-xl bg-[#0d9488] hover:bg-[#0a7a70] text-white text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                        >
+                                            {geofenceBusy ? "Saving..." : "Save Geofence Settings"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Password + DB */}

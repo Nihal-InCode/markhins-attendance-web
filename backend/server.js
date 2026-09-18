@@ -1605,6 +1605,34 @@ app.post('/admin/staff-cutoff-setting', authenticateToken, async (req, res) => {
     }
 });
 
+// Admin Route: Geofence Location Check Setting
+app.get('/admin/geofence-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const result = await callPython({ action: "get_geofence_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/geofence-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { enabled, latitude, longitude, radius_meters } = req.body || {};
+        const result = await callPython({
+            action: "save_geofence_setting",
+            enabled,
+            latitude,
+            longitude,
+            radius_meters
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({
@@ -1691,7 +1719,7 @@ app.post('/api/teacher-attendance/scan', authenticateToken, async (req, res) => 
             return res.status(403).json({ success: false, message: "Only authenticated teachers are authorized to scan office QR attendance." });
         }
 
-        const { qrToken } = req.body || {};
+        const { qrToken, latitude, longitude } = req.body || {};
         if (!qrToken) {
             return res.status(400).json({ success: false, message: "QR token is required." });
         }
@@ -1701,7 +1729,9 @@ app.post('/api/teacher-attendance/scan', authenticateToken, async (req, res) => 
             action: "mark_teacher_attendance",
             teacher_id: user.id,
             qr_token: qrToken,
-            expected_secret
+            expected_secret,
+            latitude,
+            longitude
         });
 
         res.json(result);

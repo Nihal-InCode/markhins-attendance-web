@@ -452,9 +452,13 @@ export const getSubstituteReport = (params = {}) => {
 export const getSubstituteDashboardWidget = () => apiRequest('/api/substitute/dashboard-widget');
 
 // ── Teacher Attendance API Helpers ──
-export const scanTeacherAttendance = (qrToken) => apiRequest('/api/teacher-attendance/scan', {
+export const scanTeacherAttendance = (qrToken, coords = null) => apiRequest('/api/teacher-attendance/scan', {
     method: 'POST',
-    body: JSON.stringify({ qrToken }),
+    body: JSON.stringify({
+        qrToken,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude
+    }),
 });
 
 export const getTodayTeacherAttendanceStatus = () => apiRequest('/api/teacher-attendance/today-status');
@@ -478,5 +482,12 @@ export const getStaffCutoffSetting = () => apiRequest('/admin/staff-cutoff-setti
 export const updateStaffCutoffSetting = (cutoff_time) => apiRequest('/admin/staff-cutoff-setting', {
     method: 'POST',
     body: JSON.stringify({ cutoff_time }),
+});
+
+// ── Geofence Location Check Setting ──
+export const getGeofenceSetting = () => apiRequest('/admin/geofence-setting');
+export const updateGeofenceSetting = (data) => apiRequest('/admin/geofence-setting', {
+    method: 'POST',
+    body: JSON.stringify(data),
 });
 

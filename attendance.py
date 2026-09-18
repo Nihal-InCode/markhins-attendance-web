@@ -2,9 +2,23 @@
 import sqlite3
 from datetime import datetime as dt
 import datetime
-import sys, json, os, re, shutil
+import sys, json, os, re, shutil, math
 import io
 import html
+
+def calculate_haversine_distance_meters(lat1, lon1, lat2, lon2):
+    """Calculates distance between two geographical points in meters using Haversine formula."""
+    try:
+        R = 6371000.0  # Earth radius in meters
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        a = (math.sin(dlat / 2.0) ** 2 +
+             math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) *
+             math.sin(dlon / 2.0) ** 2)
+        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+        return R * c
+    except Exception:
+        return 999999.0
 
 def get_ist_now():
     """Returns the current datetime in IST (UTC + 5:30) regardless of server timezone."""
@@ -314,6 +328,22 @@ def run_migrations():
         c.execute("SELECT 1 FROM system_settings WHERE key='single_session_enforcement'")
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('single_session_enforcement', '1')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='geofence_enabled'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_enabled', '0')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='geofence_latitude'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_latitude', '0.0')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='geofence_longitude'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_longitude', '0.0')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='geofence_radius'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', '100')")
 
         c.execute("SELECT id FROM teachers WHERE LOWER(username)='guest'")
         if not c.fetchone():
@@ -7602,6 +7632,30 @@ if __name__ == "__main__":
                     conn.commit()
                     result = {"success": True, "cutoff_time": cutoff, "message": "Staff attendance cutoff time updated."}
 
+                elif action == "get_geofence_setting":
+                    c.execute("SELECT key, value FROM system_settings WHERE key IN ('geofence_enabled', 'geofence_latitude', 'geofence_longitude', 'geofence_radius')")
+                    rows = dict(c.fetchall())
+                    result = {
+                        "success": True,
+                        "enabled": (rows.get("geofence_enabled") or "0") == "1",
+                        "latitude": float(rows.get("geofence_latitude") or "0.0"),
+                        "longitude": float(rows.get("geofence_longitude") or "0.0"),
+                        "radius_meters": float(rows.get("geofence_radius") or "100")
+                    }
+
+                elif action == "save_geofence_setting":
+                    enabled = "1" if (data.get("enabled") is True or str(data.get("enabled")).lower() in ("1", "true")) else "0"
+                    latitude = str(data.get("latitude") or "0.0").strip()
+                    longitude = str(data.get("longitude") or "0.0").strip()
+                    radius_meters = str(data.get("radius_meters") or "100").strip()
+
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_enabled', ?)", (enabled,))
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_latitude', ?)", (latitude,))
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_longitude', ?)", (longitude,))
+                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_radius', ?)", (radius_meters,))
+                    conn.commit()
+                    result = {"success": True, "message": "Campus geofence settings updated successfully."}
+
                 # ── Teacher Attendance Actions ──
                 elif action == "mark_teacher_attendance":
                     teacher_id = data.get("teacher_id")
@@ -7616,46 +7670,77 @@ if __name__ == "__main__":
                     elif not qr_token or not clean_secret or clean_token != clean_secret:
                         result = {"success": False, "message": "This isn't a valid office QR code."}
                     else:
-                        now_ist = get_ist_now()
-                        today_date = now_ist.strftime("%Y-%m-%d")
-                        scan_time_str = now_ist.strftime("%I:%M:%S %p")
-                        scanned_at_str = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+                        # Geofence location check
+                        c.execute("SELECT value FROM system_settings WHERE key='geofence_enabled'")
+                        g_row = c.fetchone()
+                        geofence_enabled = (g_row[0] if g_row else "0") == "1"
+                        
+                        location_valid = True
+                        location_error_msg = ""
 
-                        c.execute("SELECT id, scan_time, scan_time_fn, scan_time_an, status FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
-                        existing = c.fetchone()
+                        if geofence_enabled:
+                            c.execute("SELECT key, value FROM system_settings WHERE key IN ('geofence_latitude', 'geofence_longitude', 'geofence_radius')")
+                            g_settings = dict(c.fetchall())
+                            campus_lat = float(g_settings.get("geofence_latitude") or "0.0")
+                            campus_lng = float(g_settings.get("geofence_longitude") or "0.0")
+                            allowed_radius = float(g_settings.get("geofence_radius") or "100")
 
-                        if not existing:
-                            status_val = "FULL PRESENT"
-                            c.execute(
-                                "INSERT INTO teacher_attendance (teacher_id, date, scan_time, scan_time_fn, scan_time_an, status, scanned_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                (teacher_id, today_date, scan_time_str, scan_time_str, None, status_val, scanned_at_str)
-                            )
-                            conn.commit()
-                            result = {
-                                "success": True,
-                                "status": "MARKED_PRESENT",
-                                "message": f"Attendance recorded at {scan_time_str}.",
-                                "record": {
-                                    "date": today_date,
-                                    "scanTime": scan_time_str,
-                                    "session": "SINGLE",
-                                    "status": status_val
-                                }
-                            }
+                            if campus_lat != 0.0 or campus_lng != 0.0:
+                                user_lat = data.get("latitude")
+                                user_lng = data.get("longitude")
+
+                                if user_lat is None or user_lng is None:
+                                    location_valid = False
+                                    location_error_msg = "Location permission is required to verify campus presence."
+                                else:
+                                    dist = calculate_haversine_distance_meters(user_lat, user_lng, campus_lat, campus_lng)
+                                    if dist > allowed_radius:
+                                        location_valid = False
+                                        location_error_msg = f"Location verification failed: You are {int(dist)}m away from campus (Max allowed: {int(allowed_radius)}m)."
+
+                        if not location_valid:
+                            result = {"success": False, "message": location_error_msg}
                         else:
-                            rec_id, old_scan, old_fn, old_an, old_status = existing
-                            prev_time = old_fn or old_scan or old_an or "earlier today"
-                            result = {
-                                "success": True,
-                                "status": "ALREADY_MARKED",
-                                "message": f"Your attendance was already recorded today at {prev_time}.",
-                                "record": {
-                                    "date": today_date,
-                                    "scanTime": prev_time,
-                                    "session": "SINGLE",
-                                    "status": old_status or "FULL PRESENT"
+                            now_ist = get_ist_now()
+                            today_date = now_ist.strftime("%Y-%m-%d")
+                            scan_time_str = now_ist.strftime("%I:%M:%S %p")
+                            scanned_at_str = now_ist.strftime("%Y-%m-%d %H:%M:%S")
+
+                            c.execute("SELECT id, scan_time, scan_time_fn, scan_time_an, status FROM teacher_attendance WHERE teacher_id=? AND date=?", (teacher_id, today_date))
+                            existing = c.fetchone()
+
+                            if not existing:
+                                status_val = "FULL PRESENT"
+                                c.execute(
+                                    "INSERT INTO teacher_attendance (teacher_id, date, scan_time, scan_time_fn, scan_time_an, status, scanned_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                    (teacher_id, today_date, scan_time_str, scan_time_str, None, status_val, scanned_at_str)
+                                )
+                                conn.commit()
+                                result = {
+                                    "success": True,
+                                    "status": "MARKED_PRESENT",
+                                    "message": f"Attendance recorded at {scan_time_str}.",
+                                    "record": {
+                                        "date": today_date,
+                                        "scanTime": scan_time_str,
+                                        "session": "SINGLE",
+                                        "status": status_val
+                                    }
                                 }
-                            }
+                            else:
+                                rec_id, old_scan, old_fn, old_an, old_status = existing
+                                prev_time = old_fn or old_scan or old_an or "earlier today"
+                                result = {
+                                    "success": True,
+                                    "status": "ALREADY_MARKED",
+                                    "message": f"Your attendance was already recorded today at {prev_time}.",
+                                    "record": {
+                                        "date": today_date,
+                                        "scanTime": prev_time,
+                                        "session": "SINGLE",
+                                        "status": old_status or "FULL PRESENT"
+                                    }
+                                }
 
 
                 elif action == "get_today_teacher_attendance_status":
