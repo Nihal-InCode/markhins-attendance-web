@@ -491,3 +491,19 @@ export const updateGeofenceSetting = (data) => apiRequest('/admin/geofence-setti
     body: JSON.stringify(data),
 });
 
+// ── Web Push Notification API Helpers ──
+export const getPushPublicKey = () => apiRequest('/api/push/public-key');
+export const savePushSubscription = (subscription, phone = '') => apiRequest('/api/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ subscription, phone, userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '' }),
+});
+export const getPushSetting = () => apiRequest('/admin/push-setting');
+export const updatePushSetting = (data) => apiRequest('/admin/push-setting', {
+    method: 'POST',
+    body: JSON.stringify(data),
+});
+export const sendTestPushNotification = (title, message) => apiRequest('/admin/push-test', {
+    method: 'POST',
+    body: JSON.stringify({ title, message }),
+});
+

@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { LoadingProvider } from "@/context/LoadingContext";
+import PushNotificationManager from "@/components/PushNotificationManager";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
         `}</Script>
         <AuthProvider>
           <LoadingProvider>
+            <PushNotificationManager />
             <main className="min-h-screen w-full">
               {children}
             </main>

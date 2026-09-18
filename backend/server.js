@@ -14,8 +14,8 @@ const {
     generateRegistrationOptions,
     verifyRegistrationResponse,
     generateAuthenticationOptions,
-    verifyAuthenticationResponse,
 } = require('@simplewebauthn/server');
+const webPush = require('web-push');
 
 const app = express();
 
@@ -2718,6 +2718,201 @@ app.get('/api/substitute/dashboard-widget', authenticateToken, async (req, res) 
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// --- Web Push Notification System ---
+let vapidKeysLoaded = false;
+async function initVapidKeys() {
+    try {
+        const res = await callPython({ action: 'get_push_setting' });
+        let pubKey = res.vapid_public_key;
+        let privKey = res.vapid_private_key;
+
+        if (!pubKey || !privKey) {
+            const newKeys = webPush.generateVAPIDKeys();
+            pubKey = newKeys.publicKey;
+            privKey = newKeys.privateKey;
+            await callPython({
+                action: 'save_push_setting',
+                enabled: res.enabled,
+                reminder_time: res.reminder_time,
+                vapid_public_key: pubKey,
+                vapid_private_key: privKey
+            });
+            console.log('[Push] Generated and stored new VAPID keypair.');
+        }
+
+        webPush.setVapidDetails(
+            'mailto:admin@markhinshub.com',
+            pubKey,
+            privKey
+        );
+        vapidKeysLoaded = true;
+        console.log('[Push] VAPID configured successfully.');
+    } catch (err) {
+        console.error('[Push Init Error]:', err.message);
+    }
+}
+
+// Immediately attempt VAPID initialization
+initVapidKeys();
+
+// 08:00 AM Cron Scheduler (Checks every minute)
+let lastReminderDate = null;
+setInterval(async () => {
+    try {
+        const now = new Date();
+        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+        const istTimeStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+
+        const settings = await callPython({ action: 'get_push_setting' });
+        if (!settings.enabled) return;
+
+        const targetTime = settings.reminder_time || '08:00';
+        
+        if (istTimeStr === targetTime && lastReminderDate !== istDateStr) {
+            lastReminderDate = istDateStr;
+            console.log(`[Push Scheduler] Triggering daily attendance reminder for ${istDateStr} at ${istTimeStr}`);
+
+            if (!vapidKeysLoaded) await initVapidKeys();
+
+            const pendingRes = await callPython({ action: 'get_pending_scans_for_push' });
+            const pendingList = pendingRes.data || [];
+
+            console.log(`[Push Scheduler] Sending reminders to ${pendingList.length} pending teachers.`);
+
+            const payload = JSON.stringify({
+                title: "MARKHINS HUB Attendance Reminder",
+                body: "You haven't scanned your attendance yet today! Please scan your QR code on arrival.",
+                icon: "/icons/icon-192x192.png",
+                badge: "/icons/icon-192x192.png",
+                data: { url: "/teachers" }
+            });
+
+            for (const item of pendingList) {
+                if (item.subscription) {
+                    try {
+                        await webPush.sendNotification(item.subscription, payload);
+                    } catch (err) {
+                        console.error(`[Push Send Error] Teacher ${item.teacher_id}:`, err.statusCode || err.message);
+                        if (err.statusCode === 410 || err.statusCode === 404) {
+                            await callPython({ action: 'delete_push_subscription', endpoint: item.endpoint });
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Push Scheduler Error]:', err.message);
+    }
+}, 60000);
+
+// GET Public Key
+app.get('/api/push/public-key', async (req, res) => {
+    try {
+        const settings = await callPython({ action: 'get_push_setting' });
+        let pubKey = settings.vapid_public_key;
+        if (!pubKey) {
+            await initVapidKeys();
+            const recheck = await callPython({ action: 'get_push_setting' });
+            pubKey = recheck.vapid_public_key;
+        }
+        res.json({ success: true, publicKey: pubKey });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST Subscribe
+app.post('/api/push/subscribe', async (req, res) => {
+    try {
+        const { subscription, phone, userAgent } = req.body;
+        if (!subscription || !subscription.endpoint) {
+            return res.status(400).json({ success: false, message: 'Invalid subscription object' });
+        }
+        const result = await callPython({
+            action: 'save_push_subscription',
+            subscription,
+            endpoint: subscription.endpoint,
+            phone,
+            userAgent
+        });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// GET Push Settings (Admin)
+app.get('/admin/push-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required' });
+        const result = await callPython({ action: 'get_push_setting' });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST Push Settings (Admin)
+app.post('/admin/push-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required' });
+        const { enabled, reminder_time } = req.body;
+        const result = await callPython({ action: 'save_push_setting', enabled, reminder_time });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST Test Push Notification (Admin)
+app.post('/admin/push-test', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required' });
+        const { title, message } = req.body;
+
+        if (!vapidKeysLoaded) await initVapidKeys();
+
+        const subsRes = await callPython({ action: 'get_all_push_subscriptions' });
+        const subs = subsRes.subscriptions || [];
+
+        let successCount = 0;
+        let failCount = 0;
+
+        const payload = JSON.stringify({
+            title: title || "MARKHINS HUB Test Notification",
+            body: message || "This is a test notification from MARKHINS HUB Admin Settings.",
+            icon: "/icons/icon-192x192.png",
+            badge: "/icons/icon-192x192.png",
+            data: { url: "/teachers" }
+        });
+
+        for (const s of subs) {
+            if (s.subscription) {
+                try {
+                    await webPush.sendNotification(s.subscription, payload);
+                    successCount++;
+                } catch (err) {
+                    failCount++;
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                        await callPython({ action: 'delete_push_subscription', endpoint: s.endpoint });
+                    }
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Test notification process completed.`,
+            delivered: successCount,
+            failed: failCount,
+            totalSubscriptions: subs.length
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 

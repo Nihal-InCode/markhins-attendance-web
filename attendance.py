@@ -345,6 +345,33 @@ def run_migrations():
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', '150')")
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                teacher_id INTEGER NOT NULL,
+                endpoint TEXT UNIQUE NOT NULL,
+                subscription_json TEXT NOT NULL,
+                user_agent TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='push_notifications_enabled'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('push_notifications_enabled', '1')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='push_reminder_time'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('push_reminder_time', '08:00')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='vapid_public_key'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_public_key', '')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='vapid_private_key'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_private_key', '')")
+
         # Update if default values were 0.0
         c.execute("UPDATE system_settings SET value='12.9727' WHERE key='geofence_latitude' AND (value='0.0' OR value='0')")
         c.execute("UPDATE system_settings SET value='77.6306' WHERE key='geofence_longitude' AND (value='0.0' OR value='0')")
@@ -8888,6 +8915,142 @@ if __name__ == "__main__":
                         })
                     
                     result = {"success": True, "data": report_data}
+
+                elif action == "save_push_subscription":
+                    phone = data.get("phone")
+                    sub_json = data.get("subscription")
+                    endpoint = data.get("endpoint")
+                    user_agent = data.get("userAgent", "")
+                    
+                    if not sub_json or not endpoint:
+                        result = {"success": False, "message": "Missing subscription details"}
+                    else:
+                        teacher_id = 0
+                        if phone:
+                            c.execute("SELECT id FROM teachers WHERE phone = ? OR username = ?", (str(phone), str(phone)))
+                            row = c.fetchone()
+                            if row:
+                                teacher_id = row[0]
+                        
+                        raw_sub = json.dumps(sub_json) if isinstance(sub_json, dict) else str(sub_json)
+                        c.execute("""
+                            INSERT INTO push_subscriptions (teacher_id, endpoint, subscription_json, user_agent)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(endpoint) DO UPDATE SET
+                                teacher_id=excluded.teacher_id,
+                                subscription_json=excluded.subscription_json,
+                                user_agent=excluded.user_agent,
+                                created_at=CURRENT_TIMESTAMP
+                        """, (teacher_id, endpoint, raw_sub, user_agent))
+                        conn.commit()
+                        result = {"success": True, "message": "Push subscription saved successfully"}
+
+                elif action == "get_push_setting":
+                    c.execute("SELECT value FROM system_settings WHERE key='push_notifications_enabled'")
+                    row_e = c.fetchone()
+                    enabled_val = row_e[0] if row_e else "1"
+                    
+                    c.execute("SELECT value FROM system_settings WHERE key='push_reminder_time'")
+                    row_t = c.fetchone()
+                    reminder_val = row_t[0] if row_t else "08:00"
+                    
+                    c.execute("SELECT value FROM system_settings WHERE key='vapid_public_key'")
+                    row_pub = c.fetchone()
+                    pub_key = row_pub[0] if row_pub else ""
+
+                    c.execute("SELECT value FROM system_settings WHERE key='vapid_private_key'")
+                    row_priv = c.fetchone()
+                    priv_key = row_priv[0] if row_priv else ""
+                    
+                    c.execute("SELECT COUNT(*) FROM push_subscriptions")
+                    sub_count = c.fetchone()[0]
+                    
+                    result = {
+                        "success": True,
+                        "enabled": str(enabled_val) in ["1", "true", "True"],
+                        "reminder_time": reminder_val,
+                        "vapid_public_key": pub_key,
+                        "vapid_private_key": priv_key,
+                        "subscription_count": sub_count
+                    }
+
+                elif action == "save_push_setting":
+                    enabled = "1" if (data.get("enabled") is True or str(data.get("enabled")) in ["1", "true", "True"]) else "0"
+                    reminder_time = data.get("reminder_time", "08:00")
+                    vapid_public = data.get("vapid_public_key")
+                    vapid_private = data.get("vapid_private_key")
+                    
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('push_notifications_enabled', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (enabled,))
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('push_reminder_time', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (reminder_time,))
+                    if vapid_public is not None:
+                        c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_public_key', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(vapid_public),))
+                    if vapid_private is not None:
+                        c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_private_key', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(vapid_private),))
+                        
+                    conn.commit()
+                    result = {"success": True, "message": "Push notification settings saved successfully"}
+
+                elif action == "get_pending_scans_for_push":
+                    today_date = get_ist_now().strftime("%Y-%m-%d")
+                    query = """
+                        SELECT t.id, t.name, t.phone, ps.endpoint, ps.subscription_json
+                        FROM teachers t
+                        JOIN push_subscriptions ps ON t.id = ps.teacher_id
+                        LEFT JOIN teacher_attendance ta ON t.id = ta.teacher_id AND ta.date = ?
+                        LEFT JOIN teacher_leaves tl ON t.id = tl.teacher_id AND tl.date = ?
+                        WHERE (t.role IS NULL OR t.role != 'admin')
+                          AND (t.is_teacher IS NULL OR t.is_teacher = 1)
+                          AND ta.id IS NULL
+                          AND (tl.id IS NULL OR tl.leave_type != 'full')
+                    """
+                    c.execute(query, (today_date, today_date))
+                    rows = c.fetchall()
+                    
+                    pending = []
+                    for r in rows:
+                        sub_obj = None
+                        try:
+                            sub_obj = json.loads(r[4]) if r[4] else None
+                        except Exception:
+                            pass
+                        pending.append({
+                            "teacher_id": r[0],
+                            "name": r[1],
+                            "phone": r[2],
+                            "endpoint": r[3],
+                            "subscription": sub_obj
+                        })
+                    result = {"success": True, "data": pending, "date": today_date}
+
+                elif action == "get_all_push_subscriptions":
+                    c.execute("""
+                        SELECT ps.id, ps.teacher_id, t.name, ps.endpoint, ps.subscription_json
+                        FROM push_subscriptions ps
+                        LEFT JOIN teachers t ON ps.teacher_id = t.id
+                    """)
+                    rows = c.fetchall()
+                    subs = []
+                    for r in rows:
+                        sub_obj = None
+                        try:
+                            sub_obj = json.loads(r[4]) if r[4] else None
+                        except Exception:
+                            pass
+                        subs.append({
+                            "id": r[0],
+                            "teacher_id": r[1],
+                            "teacher_name": r[2] or "Faculty",
+                            "endpoint": r[3],
+                            "subscription": sub_obj
+                        })
+                    result = {"success": True, "subscriptions": subs}
+
+                elif action == "delete_push_subscription":
+                    endpoint = data.get("endpoint")
+                    if endpoint:
+                        c.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+                        conn.commit()
+                    result = {"success": True, "message": "Subscription removed"}
 
                 else:
                     result = {"success": False, "message": f"Unknown action: {action}"}
