@@ -8,11 +8,27 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
     const [message, setMessage] = useState("");
     const [record, setRecord] = useState(null);
     const [locationStatus, setLocationStatus] = useState("PENDING"); // PENDING, READY, ERROR
+    const [permissionState, setPermissionState] = useState("prompt"); // prompt, granted, denied
     const scannerRef = useRef(null);
     const isScanningRef = useRef(false);
     const userCoordsRef = useRef(null);
 
+    const checkPermissionState = () => {
+        if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name: 'geolocation' }).then((status) => {
+                setPermissionState(status.state);
+                status.onchange = () => {
+                    setPermissionState(status.state);
+                    if (status.state === 'granted') {
+                        fetchUserLocation(true);
+                    }
+                };
+            }).catch(() => {});
+        }
+    };
+
     const fetchUserLocation = (forceFresh = false) => {
+        checkPermissionState();
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
             setLocationStatus("PENDING");
             if (forceFresh) {
@@ -26,6 +42,9 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                 (err) => {
                     console.warn("Location permission/fetch error:", err);
                     setLocationStatus("ERROR");
+                    if (err.code === 1) {
+                        setPermissionState("denied");
+                    }
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: forceFresh ? 0 : 15000 }
             );
@@ -592,21 +611,37 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <h3 className="text-lg font-black text-gray-800">Campus Location Check Failed</h3>
                         <p className="text-xs text-rose-700 font-bold px-2">{message}</p>
 
-                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-left w-full space-y-1 text-xs text-amber-900">
-                            <p className="font-bold text-amber-950">How to resolve:</p>
-                            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800 font-medium">
-                                <li>Ensure device <strong>GPS / Location</strong> is enabled.</li>
-                                <li>Tap <strong>Allow</strong> on the browser location permission pop-up.</li>
-                                <li>Verify you are physically located at the campus.</li>
-                            </ul>
-                        </div>
+                        {permissionState === 'denied' ? (
+                            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-left w-full space-y-2 text-xs text-rose-950">
+                                <div className="flex items-center gap-1.5 font-black text-rose-900">
+                                    <span>🔒</span> Android Location Access Blocked
+                                </div>
+                                <p className="text-[11px] text-rose-800 leading-relaxed font-medium">
+                                    Android Chrome blocks repeated permission popups once closed. Follow these 3 quick steps:
+                                </p>
+                                <ol className="list-decimal list-inside space-y-1 text-[11px] text-rose-900 font-bold bg-white/80 p-2.5 rounded-xl border border-rose-200">
+                                    <li>Tap <strong>🔒 Padlock / Tune icon</strong> next to the URL bar at the top.</li>
+                                    <li>Tap <strong>Permissions</strong> ➔ <strong>Location</strong>.</li>
+                                    <li>Select <strong>Allow</strong>, then tap <strong>Retry Scan</strong> below.</li>
+                                </ol>
+                            </div>
+                        ) : (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-left w-full space-y-1 text-xs text-amber-900">
+                                <p className="font-bold text-amber-950">Required to mark attendance:</p>
+                                <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800 font-medium">
+                                    <li>Turn ON device <strong>GPS / Location</strong>.</li>
+                                    <li>Tap <strong>Allow</strong> on the location popup.</li>
+                                    <li>Verify you are physically located at the campus.</li>
+                                </ul>
+                            </div>
+                        )}
 
                         <div className="flex gap-2 w-full pt-2">
                             <button
-                                onClick={() => { fetchUserLocation(); handleRetry(); }}
-                                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95"
+                                onClick={() => { fetchUserLocation(true); handleRetry(); }}
+                                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                             >
-                                Allow & Retry
+                                <span>🔄</span> Allow & Retry Location
                             </button>
                             <button
                                 onClick={handleClose}
