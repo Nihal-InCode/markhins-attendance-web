@@ -218,7 +218,7 @@ export default function SettingsPage() {
                 getTimetableEditors(),
                 getSingleSessionSetting().catch(() => ({ enabled: true })),
                 getStaffCutoffSetting().catch(() => ({ cutoff_time: "13:00" })),
-                getGeofenceSetting().catch(() => ({ enabled: false, latitude: 0, longitude: 0, radius_meters: 100 })),
+                getGeofenceSetting().catch(() => ({ enabled: true, latitude: 12.9727, longitude: 77.6306, radius_meters: 150 })),
                 getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
                 getPushSetting().catch(() => ({ enabled: true, reminder_time: "08:00", subscription_count: 0 })),
             ]);
@@ -238,10 +238,12 @@ export default function SettingsPage() {
                 setPushSubCount(pushRes.subscription_count || 0);
             }
             if (geofenceRes) {
-                setGeofenceEnabled(!!geofenceRes.enabled);
-                setGeofenceLat(String(geofenceRes.latitude || "0.0"));
-                setGeofenceLng(String(geofenceRes.longitude || "0.0"));
-                setGeofenceRadius(String(geofenceRes.radius_meters || "100"));
+                setGeofenceEnabled(geofenceRes.enabled !== false);
+                const latNum = parseFloat(geofenceRes.latitude);
+                const lngNum = parseFloat(geofenceRes.longitude);
+                setGeofenceLat(latNum && !isNaN(latNum) && latNum !== 0 ? String(geofenceRes.latitude) : "12.9727");
+                setGeofenceLng(lngNum && !isNaN(lngNum) && lngNum !== 0 ? String(geofenceRes.longitude) : "77.6306");
+                setGeofenceRadius(String(geofenceRes.radius_meters || "150"));
             }
             if (guestSessRes) {
                 let list = [];
