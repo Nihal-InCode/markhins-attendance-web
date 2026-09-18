@@ -12,9 +12,12 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
     const isScanningRef = useRef(false);
     const userCoordsRef = useRef(null);
 
-    const fetchUserLocation = () => {
+    const fetchUserLocation = (forceFresh = false) => {
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
             setLocationStatus("PENDING");
+            if (forceFresh) {
+                userCoordsRef.current = null;
+            }
             navigator.geolocation.getCurrentPosition(
                 (p) => {
                     userCoordsRef.current = { latitude: p.coords.latitude, longitude: p.coords.longitude };
@@ -24,7 +27,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                     console.warn("Location permission/fetch error:", err);
                     setLocationStatus("ERROR");
                 },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: forceFresh ? 0 : 15000 }
             );
         } else {
             setLocationStatus("ERROR");
@@ -241,6 +244,9 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
         setMessage("");
         setRecord(null);
 
+        // Force fresh browser location request on retry
+        fetchUserLocation(true);
+
         setTimeout(async () => {
             try {
                 const { Html5Qrcode } = await import("html5-qrcode");
@@ -277,17 +283,16 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
 
                     setStatus("PROCESSING");
                     try {
-                        let locationCoords = null;
-                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                        let locationCoords = userCoordsRef.current;
+                        if (!locationCoords && typeof navigator !== 'undefined' && navigator.geolocation) {
                             try {
-                                const pos = await new Promise((resolve) => {
+                                locationCoords = await new Promise((resolve) => {
                                     navigator.geolocation.getCurrentPosition(
                                         (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
                                         () => resolve(null),
-                                        { timeout: 4000, enableHighAccuracy: true }
+                                        { timeout: 5000, enableHighAccuracy: true, maximumAge: 0 }
                                     );
                                 });
-                                locationCoords = pos;
                             } catch (locErr) {
                                 console.warn("Geolocation fetch error:", locErr);
                             }
@@ -307,7 +312,11 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                             }
                             if (onSuccess) onSuccess(response.record);
                         } else {
-                            setStatus("INVALID_QR");
+                            if (response.message && (response.message.toLowerCase().includes("location") || response.message.toLowerCase().includes("campus"))) {
+                                setStatus("LOCATION_ERROR");
+                            } else {
+                                setStatus("INVALID_QR");
+                            }
                             setMessage(response.message || "Invalid QR code.");
                             playSound('error');
                         }
@@ -316,6 +325,9 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         if (err.message && err.message.toLowerCase().includes("network")) {
                             setStatus("NETWORK_ERROR");
                             setMessage("We couldn't reach the server. Please check your internet connection and try again.");
+                        } else if (err.message && (err.message.toLowerCase().includes("location") || err.message.toLowerCase().includes("campus"))) {
+                            setStatus("LOCATION_ERROR");
+                            setMessage(err.message);
                         } else {
                             setStatus("INVALID_QR");
                             setMessage(err.message || "QR Code Not Recognized.");
