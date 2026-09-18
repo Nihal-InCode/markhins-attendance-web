@@ -372,10 +372,6 @@ def run_migrations():
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_private_key', '')")
 
-        # Update if default values were 0.0
-        c.execute("UPDATE system_settings SET value='12.9727' WHERE key='geofence_latitude' AND (value='0.0' OR value='0')")
-        c.execute("UPDATE system_settings SET value='77.6306' WHERE key='geofence_longitude' AND (value='0.0' OR value='0')")
-
         c.execute("SELECT id FROM teachers WHERE LOWER(username)='guest'")
         if not c.fetchone():
             c.execute("""
@@ -7680,10 +7676,10 @@ if __name__ == "__main__":
                     longitude = str(data.get("longitude") or "0.0").strip()
                     radius_meters = str(data.get("radius_meters") or "100").strip()
 
-                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_enabled', ?)", (enabled,))
-                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_latitude', ?)", (latitude,))
-                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_longitude', ?)", (longitude,))
-                    c.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('geofence_radius', ?)", (radius_meters,))
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_enabled', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (enabled,))
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_latitude', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (latitude,))
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_longitude', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (longitude,))
+                    c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (radius_meters,))
                     conn.commit()
                     result = {"success": True, "message": "Campus geofence settings updated successfully."}
 
