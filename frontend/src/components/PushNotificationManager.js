@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getPushPublicKey, savePushSubscription } from "@/lib/api";
 
@@ -16,57 +16,140 @@ function urlBase64ToUint8Array(base64String) {
 
 export default function PushNotificationManager() {
   const { user } = useAuth();
+  const [permissionState, setPermissionState] = useState("default");
+  const [showBanner, setShowBanner] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const subscribeUser = useCallback(async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      const keyRes = await getPushPublicKey();
+      if (!keyRes || !keyRes.publicKey) return;
+
+      const convertedVapidKey = urlBase64ToUint8Array(keyRes.publicKey);
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedVapidKey
+        });
+      }
+
+      if (subscription && user) {
+        await savePushSubscription(subscription, user.phone || user.username || '');
+        console.log('[PushNotificationManager] Web Push Subscription saved.');
+      }
+    } catch (err) {
+      console.warn('[PushNotificationManager Error]:', err.message);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return;
-    }
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
 
-    let isSubscribed = false;
+    const currentPerm = Notification.permission;
+    setPermissionState(currentPerm);
 
-    async function initPush() {
-      try {
-        // Register SW
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        
-        // Fetch VAPID key
-        const keyRes = await getPushPublicKey();
-        if (!keyRes || !keyRes.publicKey) return;
-
-        const convertedVapidKey = urlBase64ToUint8Array(keyRes.publicKey);
-
-        // Check permission state
-        if (Notification.permission === 'default') {
-          // Ask for permission gracefully
-          const perm = await Notification.requestPermission();
-          if (perm !== 'granted') return;
-        } else if (Notification.permission !== 'granted') {
-          return;
-        }
-
-        // Get existing subscription or create new
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedVapidKey
-          });
-        }
-
-        // Send subscription to server
-        if (subscription && !isSubscribed) {
-          isSubscribed = true;
-          await savePushSubscription(subscription, user.phone || user.username || '');
-          console.log('[PushNotificationManager] Web Push Subscription saved.');
-        }
-      } catch (err) {
-        console.warn('[PushNotificationManager Warning]:', err.message);
+    // If permission is already granted, silently ensure subscription is active
+    if (currentPerm === 'granted') {
+      subscribeUser();
+    } else if (currentPerm === 'default') {
+      // Check if user previously dismissed banner in this session
+      const dismissed = sessionStorage.getItem('push_banner_dismissed');
+      if (!dismissed) {
+        setShowBanner(true);
       }
     }
+  }, [user, subscribeUser]);
 
-    initPush();
-  }, [user]);
+  async function handleEnablePush() {
+    setLoading(true);
+    setMsg("");
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        alert("Notifications are not supported by this browser.");
+        return;
+      }
 
-  return null;
+      // Explicit user gesture call to request permission
+      const perm = await Notification.requestPermission();
+      setPermissionState(perm);
+
+      if (perm === 'granted') {
+        await subscribeUser();
+        setShowBanner(false);
+        setMsg("Push notifications enabled!");
+        setTimeout(() => setMsg(""), 4000);
+      } else if (perm === 'denied') {
+        alert("Notification permission was denied. Please allow notifications in your browser site settings.");
+      }
+    } catch (err) {
+      console.error("[Push Error]:", err);
+      alert("Failed to enable notifications: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleDismiss() {
+    setShowBanner(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('push_banner_dismissed', '1');
+    }
+  }
+
+  return (
+    <>
+      {msg && (
+        <div className="fixed top-4 right-4 z-50 rounded-2xl bg-emerald-600 text-white px-4 py-2.5 shadow-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <span>🔔</span>
+          <span>{msg}</span>
+        </div>
+      )}
+
+      {showBanner && permissionState === 'default' && (
+        <div className="fixed bottom-4 right-4 left-4 md:left-auto md:w-96 z-50 rounded-3xl bg-slate-900/95 backdrop-blur-md text-white p-5 shadow-2xl border border-slate-800/80 flex flex-col gap-3 animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-xl shrink-0">
+                🔔
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-white">Enable Attendance Alerts</h4>
+                <p className="text-xs text-slate-300 mt-0.5 leading-snug">
+                  Receive daily 8:00 AM scan reminders and instant hub notifications directly on your phone.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDismiss}
+              className="text-slate-400 hover:text-white text-xs font-bold p-1 shrink-0"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex items-center gap-2 justify-end pt-1">
+            <button
+              onClick={handleDismiss}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+            >
+              Not Now
+            </button>
+            <button
+              onClick={handleEnablePush}
+              disabled={loading}
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black shadow-lg shadow-purple-900/40 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+            >
+              <span>{loading ? "Enabling..." : "Enable Notifications"}</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

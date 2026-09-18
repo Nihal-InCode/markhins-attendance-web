@@ -375,7 +375,6 @@ def run_migrations():
         # Update if default values were 0.0
         c.execute("UPDATE system_settings SET value='12.9727' WHERE key='geofence_latitude' AND (value='0.0' OR value='0')")
         c.execute("UPDATE system_settings SET value='77.6306' WHERE key='geofence_longitude' AND (value='0.0' OR value='0')")
-        c.execute("UPDATE system_settings SET value='1' WHERE key='geofence_enabled' AND value='0'")
 
         c.execute("SELECT id FROM teachers WHERE LOWER(username)='guest'")
         if not c.fetchone():

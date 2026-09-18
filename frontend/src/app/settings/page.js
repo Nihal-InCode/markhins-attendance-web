@@ -65,6 +65,7 @@ const TABS = [
     { id: "teachers", label: "Teachers", icon: "👥" },
     { id: "timetable", label: "Timetable", icon: "📅" },
     { id: "broadcasts", label: "Broadcasts", icon: "📢" },
+    { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "system", label: "System", icon: "⚙️" },
 ];
 
@@ -1248,6 +1249,111 @@ export default function SettingsPage() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Notifications Tab */}
+                {activeTab === "notifications" && (
+                    <div className="space-y-6">
+                        <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-2xl">🔔</span>
+                                        <h2 className="text-lg font-black text-gray-900">Web Push Notifications & Attendance Reminders</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        Configure browser push notifications and daily automated <b>"DONT SCANNED YET"</b> attendance reminders sent to teachers who haven't marked attendance.
+                                    </p>
+                                </div>
+                                <label className="inline-flex items-center gap-3 cursor-pointer select-none self-start sm:self-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={pushEnabled}
+                                        disabled={pushBusy}
+                                        onChange={(e) => {
+                                            const val = e.target.checked;
+                                            setPushEnabled(val);
+                                            handleSavePushSetting(val, pushReminderTime);
+                                        }}
+                                        className="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span className={`text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition-all ${pushEnabled ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                        {pushEnabled ? "Push System Active" : "Push System Disabled"}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                                        Daily Reminder Time (08:00 AM Default)
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="time"
+                                            value={pushReminderTime}
+                                            onChange={(e) => setPushReminderTime(e.target.value)}
+                                            disabled={!pushEnabled || pushBusy}
+                                            className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm font-semibold outline-none focus:border-purple-500 disabled:opacity-50"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSavePushSetting(pushEnabled, pushReminderTime)}
+                                            disabled={!pushEnabled || pushBusy}
+                                            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all disabled:opacity-50"
+                                        >
+                                            {pushBusy ? "Saving..." : "Save Time"}
+                                        </button>
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-gray-400">
+                                        Sends automated reminder to teachers who haven't scanned QR code by this time today.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                                        Active Subscribed Devices
+                                    </label>
+                                    <div className="rounded-xl bg-purple-50/50 border border-purple-100 p-3 flex items-center justify-between">
+                                        <div>
+                                            <span className="text-xl font-black text-purple-700">{pushSubCount}</span>
+                                            <span className="text-xs text-purple-600 font-medium ml-2">Registered PWA / Web devices</span>
+                                        </div>
+                                        <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2.5 py-1 rounded-lg">Active</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Send Test Push Section */}
+                            <div className="mt-6 pt-4 border-t border-gray-100">
+                                <h3 className="text-xs font-black uppercase text-gray-700 tracking-wider mb-2">Send Test Push Broadcast</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                    <input
+                                        type="text"
+                                        value={pushTestTitle}
+                                        onChange={(e) => setPushTestTitle(e.target.value)}
+                                        placeholder="Notification Title"
+                                        className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-medium outline-none focus:border-purple-500"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={pushTestMessage}
+                                        onChange={(e) => setPushTestMessage(e.target.value)}
+                                        placeholder="Notification Message"
+                                        className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs font-medium outline-none focus:border-purple-500"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleSendTestPush}
+                                    disabled={!pushEnabled || pushTestBusy || pushSubCount === 0}
+                                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                                >
+                                    <span>🚀</span> {pushTestBusy ? "Sending Test Push..." : "Send Test Push Notification Now"}
+                                </button>
                             </div>
                         </div>
                     </div>
