@@ -3605,7 +3605,32 @@ export default function DashboardPage() {
               />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">MARKHINS HUB</h1>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">MARKHINS HUB</h1>
+                
+                {/* Red Blinking QR Attendance Alert Icon Right After MARKHINS HUB */}
+                {(!teacherAttStatus?.markedToday || user?.role === 'admin') && (
+                  <button
+                    onClick={() => setShowTeacherQrScanner(true)}
+                    className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/60 bg-rose-500/30 text-white transition-all hover:bg-rose-500/50 active:scale-95 shadow-[0_0_14px_rgba(244,63,94,0.65)] animate-pulse shrink-0"
+                    title="Attendance Not Scanned Today - Tap to Scan QR"
+                    aria-label="Attendance QR Scanner"
+                  >
+                    {/* Subtle, professional red pulsing dot */}
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-90"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 border border-white"></span>
+                    </span>
+
+                    {/* Camera / QR Scan Icon */}
+                    <svg className="h-4.5 w-4.5 text-rose-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
               <div className="mt-1 flex items-center gap-2">
                 <p className="truncate text-[11px] font-bold text-teal-200/80 max-w-[130px] sm:max-w-none">
                   {user?.name || 'Teacher'}
@@ -3620,28 +3645,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Blinking Red QR Indicator Icon for Unmarked Teacher Attendance */}
-            {user && !teacherAttStatus?.markedToday && (
-              <button
-                onClick={() => setShowTeacherQrScanner(true)}
-                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-rose-500/70 bg-rose-500/25 text-rose-200 transition-all hover:bg-rose-500/35 active:scale-95 shadow-[0_0_18px_rgba(244,63,94,0.45)] animate-pulse"
-                title="Attendance Not Scanned Today - Tap to Scan QR"
-                aria-label="Attendance Not Scanned Today"
-              >
-                {/* Subtle, professional red pulsing dot */}
-                <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-90"></span>
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 border-2 border-[#082231]"></span>
-                </span>
-                
-                {/* Sleek Camera / QR Scan Icon */}
-                <svg className="h-6 w-6 text-rose-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-            )}
-
             <div ref={headerMenuRef} className="relative shrink-0">
             <label
               role="button"
@@ -3699,6 +3702,7 @@ export default function DashboardPage() {
                     Log out
                   </button>
                 </div>
+            </div>
           </div>
         </div>
       </header>
