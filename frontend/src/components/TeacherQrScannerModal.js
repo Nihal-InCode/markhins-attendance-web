@@ -389,8 +389,8 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         {record && (
                             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 w-full text-center space-y-1">
                                 <div className="flex justify-between items-center text-xs font-bold text-emerald-800">
-                                    <span>Session: {record.session || 'FN/AN'}</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-950 text-[10px] uppercase font-black">{record.status === 'FULL PRESENT' ? 'Present (Full Day)' : (record.status || 'PRESENT')}</span>
+                                    <span>Date: {record.date || 'Today'}</span>
+                                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-950 text-[10px] uppercase font-black">Present</span>
                                 </div>
                                 <p className="text-sm font-black text-emerald-950">Time Scanned: {record.scanTime}</p>
                             </div>
@@ -417,7 +417,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                             <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 w-full text-center space-y-1">
                                 <div className="flex justify-between items-center text-xs font-bold text-indigo-800">
                                     <span>Date: {record.date}</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-950 text-[10px] uppercase font-black">{record.status === 'FULL PRESENT' ? 'Present (Full Day)' : (record.status || 'MARKED')}</span>
+                                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-200 text-indigo-950 text-[10px] uppercase font-black">Recorded</span>
                                 </div>
                                 <p className="text-sm font-black text-indigo-950">Time Recorded: {record.scanTime}</p>
                             </div>

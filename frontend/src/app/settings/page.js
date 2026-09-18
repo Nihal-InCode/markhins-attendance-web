@@ -1293,33 +1293,22 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Staff Attendance Afternoon Cutoff Setting */}
+                        {/* Staff Attendance Mode Setting */}
                         <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xl">⏰</span>
-                                        <h2 className="text-lg font-black text-indigo-950">Staff Attendance Afternoon Cutoff Time</h2>
+                                        <span className="text-xl">📷</span>
+                                        <h2 className="text-lg font-black text-indigo-950">Staff Attendance Scanning Mode</h2>
                                     </div>
                                     <p className="text-xs text-gray-500 max-w-xl">
-                                        Scans recorded before this cutoff time are saved as <b>Morning Scan (FN)</b>. Scans recorded at or after this time are saved as <b>Afternoon Scan (AN)</b>. Staff members scanning in both sessions achieve <b>FULL PRESENT</b>.
+                                        Staff attendance is configured to <b>Single Scan Per Day</b>. Staff members scanning the QR code once at any time during the day are recorded as <b>PRESENT</b>.
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3 self-start sm:self-center">
-                                    <input
-                                        type="time"
-                                        value={staffCutoffTime}
-                                        disabled={staffCutoffBusy}
-                                        onChange={(e) => setStaffCutoffTime(e.target.value)}
-                                        className="rounded-xl border border-indigo-200 bg-indigo-50/50 px-4 py-2.5 text-sm font-black text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                    />
-                                    <button
-                                        onClick={() => handleSaveStaffCutoff(staffCutoffTime)}
-                                        disabled={staffCutoffBusy}
-                                        className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-indigo-100"
-                                    >
-                                        Save
-                                    </button>
+                                    <span className="px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-black uppercase tracking-wider">
+                                        Once Per Day (Active)
+                                    </span>
                                 </div>
                             </div>
                         </div>

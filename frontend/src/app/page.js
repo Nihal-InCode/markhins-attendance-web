@@ -873,15 +873,14 @@ export default function DashboardPage() {
       if (!scanRec) return "ABSENT";
       const raw = scanRec.status;
       if (typeof raw === "string" && raw.trim().length > 0) {
-        return raw.toUpperCase();
+        if (raw.toUpperCase() !== "ABSENT") return "FULL PRESENT";
+        return "ABSENT";
       }
-      if (scanRec.scan_time_fn && scanRec.scan_time_an) return "FULL PRESENT";
-      if (scanRec.scan_time || scanRec.scan_time_fn || scanRec.scan_time_an) return "HALF DAY";
+      if (scanRec.scan_time || scanRec.scan_time_fn || scanRec.scan_time_an) return "FULL PRESENT";
       return "ABSENT";
     };
 
     let fullPresentCount = 0;
-    let halfDayCount = 0;
     let absentCount = 0;
 
     allFaculty.forEach(t => {
@@ -890,8 +889,6 @@ export default function DashboardPage() {
       const st = resolveStatus(scanRec);
       if (st === "FULL PRESENT") {
         fullPresentCount++;
-      } else if (st.includes("HALF DAY")) {
-        halfDayCount++;
       } else {
         absentCount++;
       }
@@ -911,7 +908,6 @@ export default function DashboardPage() {
       const st = resolveStatus(scanRec);
 
       if (teacherAttFilter === "full" && st !== "FULL PRESENT") return false;
-      if (teacherAttFilter === "half" && !st.includes("HALF DAY")) return false;
       if (teacherAttFilter === "absent" && st !== "ABSENT") return false;
 
       return true;
@@ -923,7 +919,7 @@ export default function DashboardPage() {
       scanMap,
       resolveStatus,
       fullPresentCount,
-      halfDayCount,
+      halfDayCount: 0,
       absentCount,
       filtered
     };
@@ -3616,7 +3612,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div ref={headerMenuRef} className="relative shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Blinking Red QR Indicator Icon for Unmarked Teacher Attendance */}
+            {user && user.role !== 'admin' && user.role !== 'Majlis' && !teacherAttStatus?.markedToday && (
+              <button
+                onClick={() => setShowTeacherQrScanner(true)}
+                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-500/40 bg-rose-500/15 text-rose-300 transition-all hover:bg-rose-500/25 active:scale-95 shadow-sm"
+                title="Attendance Not Scanned Today - Tap to Scan QR"
+                aria-label="Attendance Not Scanned Today"
+              >
+                {/* Subtle, professional red pulsing dot */}
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border-2 border-[#082231]"></span>
+                </span>
+                
+                {/* Sleek Camera / QR Scan Icon */}
+                <svg className="h-5 w-5 text-rose-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            )}
+
+            <div ref={headerMenuRef} className="relative shrink-0">
             <label
               role="button"
               tabIndex={0}
@@ -8228,8 +8247,7 @@ export default function DashboardPage() {
                               <div className="flex gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100 overflow-x-auto">
                                 {[
                                   { id: "all", label: `All (${totalCount})` },
-                                  { id: "full", label: `Full (${fullPresentCount})` },
-                                  { id: "half", label: `Partial (${halfDayCount})` },
+                                  { id: "full", label: `Present (${fullPresentCount})` },
                                   { id: "absent", label: `Pending (${absentCount})` }
                                 ].map((tab) => (
                                   <button
@@ -8298,9 +8316,8 @@ export default function DashboardPage() {
                                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 w-full">
                                     {filtered.map((t, idx) => {
                                       const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-                                      const fnTime = scanRec?.scan_time_fn || (scanRec?.scan_time && !scanRec?.scan_time_an ? scanRec.scan_time : null);
-                                      const anTime = scanRec?.scan_time_an || null;
-                                      const st = staffAttData?.resolveStatus ? staffAttData.resolveStatus(scanRec) : (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
+                                      const scanTime = scanRec?.scan_time || scanRec?.scan_time_fn || scanRec?.scan_time_an || null;
+                                      const st = staffAttData?.resolveStatus ? staffAttData.resolveStatus(scanRec) : (scanTime ? "FULL PRESENT" : "ABSENT");
 
                                       const initials = (t.name || t.username || "?")
                                         .split(" ")
@@ -8321,8 +8338,6 @@ export default function DashboardPage() {
                                               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm ${
                                                 st === "FULL PRESENT"
                                                   ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200"
-                                                  : st.includes("HALF DAY")
-                                                  ? "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-200"
                                                   : "bg-gradient-to-br from-slate-400 to-gray-500 shadow-gray-200"
                                               }`}>
                                                 {initials}
@@ -8345,24 +8360,6 @@ export default function DashboardPage() {
                                                   <span>Present</span>
                                                 </span>
                                               )}
-                                              {st === "HALF DAY (FN)" && (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial (Morning)</span>
-                                                </span>
-                                              )}
-                                              {st === "HALF DAY (AN)" && (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial (Afternoon)</span>
-                                                </span>
-                                              )}
-                                              {st === "HALF DAY" && (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial</span>
-                                                </span>
-                                              )}
                                               {st === "ABSENT" && (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-gray-50 text-gray-400 border border-gray-200">
                                                   <span>⏳</span>
@@ -8376,16 +8373,10 @@ export default function DashboardPage() {
                                           <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 flex-wrap text-[10.5px]">
                                               <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl font-extrabold border ${
-                                                fnTime ? "bg-indigo-50/80 text-indigo-700 border-indigo-100" : "bg-gray-50 text-gray-300 border-gray-100"
+                                                scanTime ? "bg-indigo-50/80 text-indigo-700 border-indigo-100" : "bg-gray-50 text-gray-300 border-gray-100"
                                               }`}>
-                                                <span>🌅</span>
-                                                <span>{fnTime || "FN: —"}</span>
-                                              </div>
-                                              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl font-extrabold border ${
-                                                anTime ? "bg-amber-50/80 text-amber-700 border-amber-100" : "bg-gray-50 text-gray-300 border-gray-100"
-                                              }`}>
-                                                <span>☀️</span>
-                                                <span>{anTime || "AN: —"}</span>
+                                                <span>⏰</span>
+                                                <span>{scanTime ? scanTime : "Scan: —"}</span>
                                               </div>
                                             </div>
 
@@ -8421,17 +8412,15 @@ export default function DashboardPage() {
                                     <thead className="bg-gray-50/80 border-b border-gray-100">
                                       <tr>
                                         <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Staff Member</th>
-                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Morning Scan (FN)</th>
-                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Afternoon Scan (AN)</th>
+                                        <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Time Scanned</th>
                                         <th className="px-4 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Today's Status</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50 text-xs">
                                       {filtered.map((t, idx) => {
                                         const scanRec = scanMap.get(String(t.id)) || scanMap.get(String(t.name || "").toLowerCase().trim());
-                                        const fnTime = scanRec?.scan_time_fn || (scanRec?.scan_time && !scanRec?.scan_time_an ? scanRec.scan_time : null);
-                                        const anTime = scanRec?.scan_time_an || null;
-                                        const st = scanRec?.status || (fnTime && anTime ? "FULL PRESENT" : fnTime ? "HALF DAY (FN)" : anTime ? "HALF DAY (AN)" : "ABSENT");
+                                        const scanTime = scanRec?.scan_time || scanRec?.scan_time_fn || scanRec?.scan_time_an || null;
+                                        const st = scanRec?.status || (scanTime ? "FULL PRESENT" : "ABSENT");
 
                                         const initials = (t.name || t.username || "?")
                                           .split(" ")
@@ -8452,8 +8441,6 @@ export default function DashboardPage() {
                                                 <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center font-black text-[11px] text-white shrink-0 shadow-xs ${
                                                   st === "FULL PRESENT"
                                                     ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                                                    : st.includes("HALF DAY")
-                                                    ? "bg-gradient-to-br from-amber-500 to-orange-600"
                                                     : "bg-gradient-to-br from-gray-400 to-slate-500"
                                                 }`}>
                                                   {initials}
@@ -8487,24 +8474,12 @@ export default function DashboardPage() {
                                               </div>
                                             </td>
 
-                                            {/* Morning Scan (FN) Column */}
+                                            {/* Time Scanned Column */}
                                             <td className="px-4 py-3.5 whitespace-nowrap">
-                                              {fnTime ? (
+                                              {scanTime ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                  <span>🌅</span>
-                                                  <span>{fnTime}</span>
-                                                </span>
-                                              ) : (
-                                                <span className="text-[11px] font-medium text-gray-300">—</span>
-                                              )}
-                                            </td>
-
-                                            {/* Afternoon Scan (AN) Column */}
-                                            <td className="px-4 py-3.5 whitespace-nowrap">
-                                              {anTime ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                                                  <span>☀️</span>
-                                                  <span>{anTime}</span>
+                                                  <span>⏰</span>
+                                                  <span>{scanTime}</span>
                                                 </span>
                                               ) : (
                                                 <span className="text-[11px] font-medium text-gray-300">—</span>
@@ -8517,24 +8492,6 @@ export default function DashboardPage() {
                                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                   <span>✅</span>
                                                   <span>Present</span>
-                                                </span>
-                                              )}
-                                              {st === "HALF DAY (FN)" && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial (Morning)</span>
-                                                </span>
-                                              )}
-                                              {st === "HALF DAY (AN)" && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial (Afternoon)</span>
-                                                </span>
-                                              )}
-                                              {st === "HALF DAY" && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                                  <span>⛅</span>
-                                                  <span>Partial</span>
                                                 </span>
                                               )}
                                               {st === "ABSENT" && (
