@@ -3789,32 +3789,51 @@ export default function DashboardPage() {
         {activeTab === "attendance" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-            {/* ── Substitute Planner Dashboard Widget ── */}
-            {(user?.role === 'admin' || subCoordinators.includes(String(user?.id)) || subCoordinators.includes(user?.username)) && subWidget && (
-              <div onClick={() => { setReportType('substitute'); setActiveTab('reports'); router.push('/?tab=reports&type=substitute', { scroll: false }); }}
-                className="hidden">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-[#5eead4] bg-[#5eead4]/10 px-2 py-0.5 rounded-full">Substitute Planner</span>
-                    <h3 className="text-lg font-black mt-2">Tomorrow&apos;s Coverage</h3>
-                    <p className="text-[10px] text-white/50 mt-0.5 font-bold uppercase tracking-wider">{subWidget.date}</p>
+            {/* ── Red Blinking QR Attendance Alert Banner (Main Attendance Start Screen) ── */}
+            {!teacherAttStatus?.markedToday && (
+              <div
+                className="anim-fade-up bg-gradient-to-r from-rose-500/10 via-red-500/15 to-rose-500/10 border-2 border-rose-500/40 p-4 sm:p-5 rounded-[2.5rem] shadow-xl shadow-rose-500/10 flex items-center justify-between gap-3 relative overflow-hidden"
+                style={{ animationDelay: '0.01s' }}
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  {/* Professional Red Blinking Icon Button */}
+                  <button
+                    onClick={() => setShowTeacherQrScanner(true)}
+                    className="relative flex h-13 w-13 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-300 shrink-0 transition-all hover:scale-105 active:scale-95"
+                    title="Scan Staff Attendance QR Code"
+                  >
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-90"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 border-2 border-white"></span>
+                    </span>
+                    <svg className="h-6.5 w-6.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                      </span>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-rose-950 truncate">
+                        Staff Attendance Pending
+                      </h4>
+                    </div>
+                    <p className="text-[11px] font-bold text-rose-700/90 truncate mt-0.5">
+                      Tap QR button to scan today&apos;s attendance
+                    </p>
                   </div>
-                  <span className="text-2xl">📅</span>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mt-4 border-t border-white/10 pt-4">
-                  <div className="text-center">
-                    <p className="text-xl font-black text-amber-300">{subWidget.totalSubstitutes}</p>
-                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Affected Slots</p>
-                  </div>
-                  <div className="text-center border-x border-white/10">
-                    <p className="text-xl font-black text-emerald-400">{subWidget.assigned}</p>
-                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Assigned</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-black text-rose-400">{subWidget.pending}</p>
-                    <p className="text-[8px] font-bold uppercase text-white/60 tracking-wider">Pending</p>
-                  </div>
-                </div>
+
+                <button
+                  onClick={() => setShowTeacherQrScanner(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-rose-200 transition-all active:scale-95 shrink-0"
+                >
+                  Scan QR
+                </button>
               </div>
             )}
 
