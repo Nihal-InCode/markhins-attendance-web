@@ -334,16 +334,21 @@ const getDashboardRoleBadge = (user) => {
   const isMahroof = user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
   const displayRole = isMahroof && role !== 'Urdu Principal' ? 'Urdu Principal' : role;
 
+  const allowedRoles = ['Principal', 'Urdu Principal', 'Vice Principal', 'admin', 'Administrator'];
+  if (!allowedRoles.includes(displayRole) && !allowedRoles.includes(role)) {
+    return null;
+  }
+
   const styles = {
     Principal: 'border-amber-300/60 bg-amber-300/15 text-amber-100',
     'Urdu Principal': 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100',
     'Vice Principal': 'border-sky-300/60 bg-sky-300/15 text-sky-100',
     admin: 'border-violet-300/60 bg-violet-300/15 text-violet-100',
-    'Class Teacher': 'border-cyan-300/50 bg-cyan-300/10 text-cyan-100',
+    Administrator: 'border-violet-300/60 bg-violet-300/15 text-violet-100',
   };
 
   return {
-    label: displayRole,
+    label: displayRole === 'admin' ? 'Admin' : displayRole,
     className: styles[displayRole] || styles[role] || 'border-white/20 bg-white/10 text-white/80',
   };
 };
@@ -3605,30 +3610,32 @@ export default function DashboardPage() {
                 <p className="truncate text-[11px] font-bold text-teal-200/80 max-w-[130px] sm:max-w-none">
                   {user?.name || 'Teacher'}
                 </p>
-                <span className={`inline-flex items-center truncate rounded-full border px-3 py-0.5 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
-                  {roleBadge.label}
-                </span>
+                {roleBadge && (
+                  <span className={`inline-flex items-center truncate rounded-full border px-3 py-0.5 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm ${roleBadge.className}`}>
+                    {roleBadge.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             {/* Blinking Red QR Indicator Icon for Unmarked Teacher Attendance */}
-            {user && user.role !== 'admin' && user.role !== 'Majlis' && !teacherAttStatus?.markedToday && (
+            {user && !teacherAttStatus?.markedToday && (
               <button
                 onClick={() => setShowTeacherQrScanner(true)}
-                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-500/40 bg-rose-500/15 text-rose-300 transition-all hover:bg-rose-500/25 active:scale-95 shadow-sm"
+                className="relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-rose-500/70 bg-rose-500/25 text-rose-200 transition-all hover:bg-rose-500/35 active:scale-95 shadow-[0_0_18px_rgba(244,63,94,0.45)] animate-pulse"
                 title="Attendance Not Scanned Today - Tap to Scan QR"
                 aria-label="Attendance Not Scanned Today"
               >
                 {/* Subtle, professional red pulsing dot */}
-                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500 border-2 border-[#082231]"></span>
+                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-90"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 border-2 border-[#082231]"></span>
                 </span>
                 
                 {/* Sleek Camera / QR Scan Icon */}
-                <svg className="h-5 w-5 text-rose-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="h-6 w-6 text-rose-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
