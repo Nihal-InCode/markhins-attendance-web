@@ -102,56 +102,58 @@ export default function PushNotificationManager() {
   return (
     <>
       {msg && (
-        <div className="fixed top-4 right-4 z-50 rounded-2xl bg-emerald-600 text-white px-4 py-2.5 shadow-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+        <div className="fixed top-4 right-4 z-[10000] rounded-2xl bg-emerald-600 text-white px-4 py-2.5 shadow-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
           <span>🔔</span>
           <span>{msg}</span>
         </div>
       )}
 
       {showBanner && (
-        <div className="fixed bottom-4 right-4 left-4 md:left-auto md:w-96 z-50 rounded-3xl bg-slate-900/95 backdrop-blur-md text-white p-5 shadow-2xl border border-slate-800/80 flex flex-col gap-3 animate-in slide-in-from-bottom duration-300">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-xl shrink-0">
-                🔔
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-slate-900 text-white p-6 shadow-2xl border border-slate-800/80 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-2xl shrink-0">
+                  🔔
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-white">Enable Attendance Alerts</h4>
+                  <p className="text-xs text-slate-300 mt-1 leading-snug">
+                    Receive daily 8:00 AM scan reminders & important alerts directly on your phone.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-black text-white">Enable Attendance Alerts</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-snug">
-                  Receive daily 8:00 AM scan reminders & hub alerts directly on your phone.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleDismiss}
-              className="text-slate-400 hover:text-white text-xs font-bold p-1 shrink-0"
-              title="Dismiss"
-            >
-              ✕
-            </button>
-          </div>
-
-          {permissionState === 'denied' ? (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-200">
-              ⚠️ Notification permission was blocked in browser settings. Please tap the lock icon in your browser address bar to <b>Allow Notifications</b>.
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 justify-end pt-1">
               <button
                 onClick={handleDismiss}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                className="text-slate-400 hover:text-white text-xs font-bold p-1 shrink-0"
+                title="Dismiss"
               >
-                Not Now
-              </button>
-              <button
-                onClick={handleEnablePush}
-                disabled={loading}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black shadow-lg shadow-purple-900/40 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
-              >
-                <span>{loading ? "Enabling..." : "Enable Notifications"}</span>
+                ✕
               </button>
             </div>
-          )}
+
+            {permissionState === 'denied' ? (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3.5 text-xs text-amber-200 leading-relaxed">
+                ⚠️ Notification permission was blocked in browser settings. Please tap the lock icon 🔒 in your browser address bar to <b>Allow Notifications</b>.
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 justify-end pt-2 border-t border-slate-800/60">
+                <button
+                  onClick={handleDismiss}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                >
+                  Not Now
+                </button>
+                <button
+                  onClick={handleEnablePush}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black shadow-lg shadow-purple-900/40 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <span>{loading ? "Enabling..." : "Enable Notifications"}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>
