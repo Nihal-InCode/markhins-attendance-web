@@ -608,7 +608,7 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl shadow-lg shadow-rose-100">
                             📍
                         </div>
-                        <h3 className="text-lg font-black text-gray-800">Campus Location Check Failed</h3>
+                        <h3 className="text-lg font-black text-gray-800">Location Verification Failed</h3>
                         <p className="text-xs text-rose-700 font-bold px-2">{message}</p>
 
                         {permissionState === 'denied' ? (

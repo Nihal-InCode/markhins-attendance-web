@@ -7696,7 +7696,7 @@ if __name__ == "__main__":
 
                                 if user_lat is None or user_lng is None:
                                     location_valid = False
-                                    location_error_msg = "Location permission is required to verify campus presence."
+                                    location_error_msg = "Location permission is required to verify your presence."
                                 else:
                                     dist = calculate_haversine_distance_meters(user_lat, user_lng, campus_lat, campus_lng)
                                     if dist > allowed_radius:
