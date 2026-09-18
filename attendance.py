@@ -331,19 +331,24 @@ def run_migrations():
 
         c.execute("SELECT 1 FROM system_settings WHERE key='geofence_enabled'")
         if not c.fetchone():
-            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_enabled', '0')")
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_enabled', '1')")
 
         c.execute("SELECT 1 FROM system_settings WHERE key='geofence_latitude'")
         if not c.fetchone():
-            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_latitude', '0.0')")
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_latitude', '12.9727')")
 
         c.execute("SELECT 1 FROM system_settings WHERE key='geofence_longitude'")
         if not c.fetchone():
-            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_longitude', '0.0')")
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_longitude', '77.6306')")
 
         c.execute("SELECT 1 FROM system_settings WHERE key='geofence_radius'")
         if not c.fetchone():
-            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', '100')")
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', '150')")
+
+        # Update if default values were 0.0
+        c.execute("UPDATE system_settings SET value='12.9727' WHERE key='geofence_latitude' AND (value='0.0' OR value='0')")
+        c.execute("UPDATE system_settings SET value='77.6306' WHERE key='geofence_longitude' AND (value='0.0' OR value='0')")
+        c.execute("UPDATE system_settings SET value='1' WHERE key='geofence_enabled' AND value='0'")
 
         c.execute("SELECT id FROM teachers WHERE LOWER(username)='guest'")
         if not c.fetchone():

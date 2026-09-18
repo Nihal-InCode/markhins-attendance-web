@@ -4,11 +4,32 @@ import { scanTeacherAttendance } from "@/lib/api";
 import { playSound } from "@/lib/sound";
 
 export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
-    const [status, setStatus] = useState("IDLE"); // IDLE, SCANNING, PROCESSING, SUCCESS, ALREADY_MARKED, INVALID_QR, CAMERA_ERROR, NETWORK_ERROR
+    const [status, setStatus] = useState("IDLE"); // IDLE, SCANNING, PROCESSING, SUCCESS, ALREADY_MARKED, INVALID_QR, CAMERA_ERROR, NETWORK_ERROR, LOCATION_ERROR
     const [message, setMessage] = useState("");
     const [record, setRecord] = useState(null);
+    const [locationStatus, setLocationStatus] = useState("PENDING"); // PENDING, READY, ERROR
     const scannerRef = useRef(null);
     const isScanningRef = useRef(false);
+    const userCoordsRef = useRef(null);
+
+    const fetchUserLocation = () => {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            setLocationStatus("PENDING");
+            navigator.geolocation.getCurrentPosition(
+                (p) => {
+                    userCoordsRef.current = { latitude: p.coords.latitude, longitude: p.coords.longitude };
+                    setLocationStatus("READY");
+                },
+                (err) => {
+                    console.warn("Location permission/fetch error:", err);
+                    setLocationStatus("ERROR");
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
+        } else {
+            setLocationStatus("ERROR");
+        }
+    };
 
     useEffect(() => {
         if (!isOpen) {
@@ -16,12 +37,17 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
             setStatus("IDLE");
             setMessage("");
             setRecord(null);
+            userCoordsRef.current = null;
+            setLocationStatus("PENDING");
             return;
         }
 
         let isMounted = true;
         setStatus("SCANNING");
         setMessage("");
+
+        // Prompt location access upfront as soon as modal opens
+        fetchUserLocation();
 
         const startScanner = async () => {
             try {
@@ -78,19 +104,18 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                     setStatus("PROCESSING");
 
                     try {
-                        let locationCoords = null;
-                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                        let locationCoords = userCoordsRef.current;
+                        if (!locationCoords && typeof navigator !== 'undefined' && navigator.geolocation) {
                             try {
-                                const pos = await new Promise((resolve) => {
+                                locationCoords = await new Promise((resolve) => {
                                     navigator.geolocation.getCurrentPosition(
                                         (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
                                         () => resolve(null),
-                                        { timeout: 4000, enableHighAccuracy: true }
+                                        { timeout: 5000, enableHighAccuracy: true }
                                     );
                                 });
-                                locationCoords = pos;
                             } catch (locErr) {
-                                console.warn("Geolocation fetch error:", locErr);
+                                console.warn("Geolocation fetch fallback error:", locErr);
                             }
                         }
 
@@ -108,7 +133,11 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                             }
                             if (onSuccess) onSuccess(response.record);
                         } else {
-                            setStatus("INVALID_QR");
+                            if (response.message && (response.message.toLowerCase().includes("location") || response.message.toLowerCase().includes("campus"))) {
+                                setStatus("LOCATION_ERROR");
+                            } else {
+                                setStatus("INVALID_QR");
+                            }
                             setMessage(response.message || "Invalid QR code.");
                             playSound('error');
                         }
@@ -118,6 +147,9 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                         if (err.message && err.message.toLowerCase().includes("network")) {
                             setStatus("NETWORK_ERROR");
                             setMessage("We couldn't reach the server. Please check your internet connection and try again.");
+                        } else if (err.message && (err.message.toLowerCase().includes("location") || err.message.toLowerCase().includes("campus"))) {
+                            setStatus("LOCATION_ERROR");
+                            setMessage(err.message);
                         } else {
                             setStatus("INVALID_QR");
                             setMessage(err.message || "QR Code Not Recognized.");
@@ -529,6 +561,40 @@ export default function TeacherQrScannerModal({ isOpen, onClose, onSuccess }) {
                                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95"
                             >
                                 Retry Scan
+                            </button>
+                            <button
+                                onClick={handleClose}
+                                className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold text-xs transition-all"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {status === "LOCATION_ERROR" && (
+                    <div className="py-6 flex flex-col items-center space-y-4 animate-in zoom-in-95 duration-300">
+                        <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl shadow-lg shadow-rose-100">
+                            📍
+                        </div>
+                        <h3 className="text-lg font-black text-gray-800">Campus Location Check Failed</h3>
+                        <p className="text-xs text-rose-700 font-bold px-2">{message}</p>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-left w-full space-y-1 text-xs text-amber-900">
+                            <p className="font-bold text-amber-950">How to resolve:</p>
+                            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800 font-medium">
+                                <li>Ensure device <strong>GPS / Location</strong> is enabled.</li>
+                                <li>Tap <strong>Allow</strong> on the browser location permission pop-up.</li>
+                                <li>Verify you are physically located at the campus.</li>
+                            </ul>
+                        </div>
+
+                        <div className="flex gap-2 w-full pt-2">
+                            <button
+                                onClick={() => { fetchUserLocation(); handleRetry(); }}
+                                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95"
+                            >
+                                Allow & Retry
                             </button>
                             <button
                                 onClick={handleClose}
