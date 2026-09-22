@@ -7930,24 +7930,19 @@ export default function DashboardPage() {
 
                       return (
                         <div className="space-y-6">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
                               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Staff</span>
                               <p className="text-2xl font-black text-gray-900 mt-1">{totalCount}</p>
                               <p className="text-[10px] font-bold text-gray-400 mt-0.5">Enrolled faculty & staff</p>
                             </div>
                             <div className="bg-emerald-50/70 rounded-2xl border border-emerald-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Full Present</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Present</span>
                               <p className="text-2xl font-black text-emerald-600 mt-1">{fullPresentCount}</p>
-                              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Both FN & AN scanned</p>
-                            </div>
-                            <div className="bg-amber-50/70 rounded-2xl border border-amber-100 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Half Day</span>
-                              <p className="text-2xl font-black text-amber-600 mt-1">{halfDayCount}</p>
-                              <p className="text-[10px] font-bold text-amber-600 mt-0.5">Single scan completed</p>
+                              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">Scan completed</p>
                             </div>
                             <div className="bg-gray-50/80 rounded-2xl border border-gray-200 p-4 shadow-sm">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Not Scanned</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">Pending</span>
                               <p className="text-2xl font-black text-gray-600 mt-1">{absentCount}</p>
                               <p className="text-[10px] font-bold text-gray-400 mt-0.5">Pending scans</p>
                             </div>
