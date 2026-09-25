@@ -2935,6 +2935,62 @@ export default function DashboardPage() {
     }
   };
 
+  const exportBatchReportExcel = async () => {
+    if (!Array.isArray(batchReport) || batchReport.length === 0) {
+      alert("Select a class and wait for the report to load first.");
+      return;
+    }
+    try {
+      showLoader("Preparing Excel file...");
+      const className = (Array.isArray(classes) ? classes : []).find(c => String(c.id) === String(selectedClassForAnalysis))?.name || "Class";
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Attendance Report");
+
+      sheet.addRow([`${className} — Attendance Report`]);
+      sheet.addRow(["Date", getIstDateString(), "Students", batchReport.length]);
+      sheet.addRow([]);
+
+      const header = sheet.addRow(["Roll No", "Name", "Present", "Total", "Percent"]);
+      header.font = { bold: true, color: { argb: "FFFFFF" } };
+      header.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "1E3A8A" } };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+
+      batchReport.forEach(s => {
+        const row = sheet.addRow([s.rollNo, s.name, s.attended, s.total, s.percent]);
+        const value = Number(s.percent);
+        if (Number.isFinite(value)) {
+          row.getCell(5).font = { bold: true, color: { argb: value >= 75 ? "047857" : value >= 60 ? "B45309" : "B91C1C" } };
+        }
+      });
+
+      const average = batchReport.reduce((sum, s) => sum + (Number(s.percent) || 0), 0) / batchReport.length;
+      const totalRow = sheet.addRow(["", "Class Average", "", "", Number(average.toFixed(2))]);
+      totalRow.font = { bold: true };
+
+      sheet.columns.forEach(col => { col.width = 18; });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${String(className).replace(/[^a-zA-Z0-9]+/g, "_")}_attendance_${getIstDateString()}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      playSound('success');
+    } catch (err) {
+      console.error("Batch report Excel error:", err);
+      playSound('error');
+      alert("Failed to export Excel file: " + err.message);
+    } finally {
+      hideLoader();
+    }
+  };
+
   const fetchClassAverages = async () => {
     setLoadingClassAverages(true);
     try {
@@ -7187,14 +7243,27 @@ export default function DashboardPage() {
                           <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Batch-wise Breakdown</h3>
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Individual student attendance for selected class</p>
                         </div>
-                        <select
-                          className="bg-white px-4 py-3 rounded-xl border border-blue-100 text-xs font-black text-[#1e3a8a] uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[160px]"
-                          value={selectedClassForAnalysis}
-                          onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
-                        >
-                          <option value="">Select Class</option>
-                          {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                        <div className="flex items-center gap-2 justify-between sm:justify-end w-full sm:w-auto">
+                          <select
+                            className="bg-white px-4 py-3 rounded-xl border border-blue-100 text-xs font-black text-[#1e3a8a] uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[160px] flex-1 sm:flex-none"
+                            value={selectedClassForAnalysis}
+                            onChange={(e) => setSelectedClassForAnalysis(e.target.value)}
+                          >
+                            <option value="">Select Class</option>
+                            {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <button
+                            onClick={exportBatchReportExcel}
+                            disabled={!Array.isArray(batchReport) || batchReport.length === 0}
+                            title="Download this report as an Excel file"
+                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 shrink-0"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                            </svg>
+                            <span>Excel</span>
+                          </button>
+                        </div>
                       </div>
 
                       {Array.isArray(batchReport) ? (
