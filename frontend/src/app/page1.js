@@ -662,6 +662,14 @@ export default function DashboardPage() {
   const [selectedDay, setSelectedDay] = useState((new Date().getDay() + 6) % 7); // 0=Mon, 6=Sun
   const [timetableZoom, setTimetableZoom] = useState(60);
   const [timetablePdfOpen, setTimetablePdfOpen] = useState(false);
+  const [staffReportMonth, setStaffReportMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [staffReportMonths, setStaffReportMonths] = useState([]);
+  const [staffReport, setStaffReport] = useState(null);
+  const [staffReportPdfOpen, setStaffReportPdfOpen] = useState(false);
+  const [staffReportBusy, setStaffReportBusy] = useState(false);
   const [timetableEditors, setTimetableEditors] = useState([]);
   const [timetableEditMode, setTimetableEditMode] = useState(false);
   const [timetableEditingCell, setTimetableEditingCell] = useState(null);
@@ -760,17 +768,31 @@ export default function DashboardPage() {
   const [selectedStudentDetailModal, setSelectedStudentDetailModal] = useState(null);
   const [copiedPrayerState, setCopiedPrayerState] = useState(null);
 
+  const buildStaffReportMonths = (records) => {
+    const keys = new Set();
+    (Array.isArray(records) ? records : []).forEach(r => {
+      if (r?.date) keys.add(String(r.date).substring(0, 7));
+    });
+    const now = new Date();
+    keys.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+    return Array.from(keys).sort().reverse();
+  };
+
   const fetchTeacherAttData = useCallback(() => {
     if (activeTab === "reports" && reportType === "teacher_att") {
       setLoadingTeacherAtt(true);
       Promise.all([
         getTeachersList({ include_all: true }),
-        getTodayTeacherAttendanceList()
+        getTodayTeacherAttendanceList(),
+        getAllTeacherAttendanceHistory().catch(() => null)
       ])
-        .then(([tList, scanRes]) => {
+        .then(([tList, scanRes, histRes]) => {
           setTeachersList(Array.isArray(tList) ? tList : []);
           if (scanRes && scanRes.success && Array.isArray(scanRes.records)) {
             setTodayTeacherScans(scanRes.records);
+          }
+          if (histRes && Array.isArray(histRes.records)) {
+            setStaffReportMonths(buildStaffReportMonths(histRes.records));
           }
         })
         .catch((err) => console.error("Failed to load teacher attendance data:", err))
@@ -982,6 +1004,104 @@ export default function DashboardPage() {
       alert(err.message || "Error fetching attendance history.");
     } finally {
       setLoadingStaffHistory(false);
+    }
+  };
+
+  const isSystemStaffAccount = (t) => {
+    const name = String(t?.name || t?.teacher_name || "").trim().toUpperCase();
+    const user = String(t?.username || "").trim().toLowerCase();
+    return name === "MARKHINS OFFICIAL" || name === "ADMIN" || user === "markhinsofficial" || user === "admin" || user === "guest";
+  };
+
+  const staffMonthLabel = (monthKey, short = false) => {
+    const parts = String(monthKey || "").split("-");
+    if (parts.length !== 2) return monthKey || "";
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    if (Number.isNaN(d.getTime())) return monthKey;
+    return d.toLocaleString("en-US", short ? { month: "short", year: "numeric" } : { month: "long", year: "numeric" });
+  };
+
+  const openStaffReportPdf = () => {
+    history.pushState({ ...history.state, staffReportPdf: true }, "");
+    setStaffReportPdfOpen(true);
+  };
+
+  const closeStaffReportPdf = () => {
+    if (history.state?.staffReportPdf) {
+      history.back();
+    } else {
+      setStaffReportPdfOpen(false);
+    }
+  };
+
+  const generateStaffReport = async () => {
+    if (!staffReportMonth) return;
+    setStaffReportBusy(true);
+    try {
+      const res = await getAllTeacherAttendanceHistory();
+      const allRecords = res && Array.isArray(res.records) ? res.records : [];
+
+      setStaffReportMonths(prev => Array.from(new Set([...(prev || []), ...buildStaffReportMonths(allRecords), staffReportMonth])).sort().reverse());
+
+      const monthRecords = allRecords.filter(r => r?.date && String(r.date).substring(0, 7) === staffReportMonth && !isSystemStaffAccount(r));
+
+      const dateSet = new Set();
+      const presentMap = new Map();
+      monthRecords.forEach(r => {
+        dateSet.add(r.date);
+        const tid = String(r.teacher_id ?? r.id ?? "").toLowerCase().trim();
+        const tname = String(r.teacher_name || "").toLowerCase().trim();
+        if (tid) presentMap.set(`${tid}|${r.date}`, true);
+        if (tname) presentMap.set(`${tname}|${r.date}`, true);
+      });
+      const dates = Array.from(dateSet).sort();
+
+      let faculty = (staffAttData?.allFaculty || []).filter(t => t && !isSystemStaffAccount(t));
+      if (faculty.length === 0) {
+        const byKey = new Map();
+        monthRecords.forEach(r => {
+          const key = String(r.teacher_id ?? r.id ?? r.teacher_name ?? "");
+          if (key && !byKey.has(key)) byKey.set(key, { id: r.teacher_id ?? r.id, name: r.teacher_name });
+        });
+        faculty = Array.from(byKey.values());
+      }
+
+      const rows = faculty
+        .map(t => {
+          const tid = String(t.id ?? "").toLowerCase().trim();
+          const tname = String(t.name || "").toLowerCase().trim();
+          let present = 0;
+          const marks = dates.map(d => {
+            const hit = (tid && presentMap.get(`${tid}|${d}`)) || (tname && presentMap.get(`${tname}|${d}`));
+            if (hit) present += 1;
+            return hit ? "P" : "A";
+          });
+          return {
+            name: t.name || "N/A",
+            marks,
+            present,
+            percent: dates.length ? Math.round((present / dates.length) * 100) : 0
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const totalPresent = rows.reduce((sum, r) => sum + r.present, 0);
+      const maxPresent = rows.length * dates.length;
+
+      setStaffReport({
+        monthKey: staffReportMonth,
+        monthLabel: staffMonthLabel(staffReportMonth),
+        dates,
+        rows,
+        sessions: dates.length,
+        totalPresent,
+        percent: maxPresent ? Math.round((totalPresent / maxPresent) * 100) : 0
+      });
+      openStaffReportPdf();
+    } catch (err) {
+      alert(err.message || "Failed to generate staff attendance report.");
+    } finally {
+      setStaffReportBusy(false);
     }
   };
 
@@ -1942,6 +2062,7 @@ export default function DashboardPage() {
     const onPopState = () => {
       setPeriodModal(null);
       setTimetablePdfOpen(false);
+      setStaffReportPdfOpen(false);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -7924,6 +8045,37 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
+                    {/* Monthly Attendance PDF Report */}
+                    <div className="bg-white rounded-3xl border border-gray-100 p-3.5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Monthly Report</span>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <select
+                          value={staffReportMonth}
+                          onChange={(e) => setStaffReportMonth(e.target.value)}
+                          aria-label="Select month"
+                          className="flex-1 sm:flex-none bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5 text-xs font-black text-gray-800 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                        >
+                          {(() => {
+                            const keys = new Set(staffReportMonths);
+                            keys.add(staffReportMonth);
+                            return Array.from(keys).filter(Boolean).sort().reverse().map(k => (
+                              <option key={k} value={k}>{staffMonthLabel(k, true)}</option>
+                            ));
+                          })()}
+                        </select>
+                        <button
+                          onClick={generateStaffReport}
+                          disabled={staffReportBusy}
+                          className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                        >
+                          {staffReportBusy
+                            ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            : <span>📄</span>}
+                          <span>{staffReportBusy ? "Generating..." : "Generate Report"}</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Analytics KPI Cards */}
                     {(() => {
                       const { totalCount, scanMap, fullPresentCount, halfDayCount, absentCount, filtered } = staffAttData;
@@ -9871,6 +10023,103 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          STAFF ATTENDANCE MONTHLY REPORT (PDF VIEW)
+      ══════════════════════════════════════════════ */}
+      {staffReportPdfOpen && staffReport && (
+        <div className="fixed inset-0 z-[100] flex h-dvh w-screen flex-col overflow-hidden bg-slate-100">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#073b4c] px-3 py-2 text-white sm:px-5">
+            <button
+              onClick={closeStaffReportPdf}
+              className="flex h-9 items-center gap-2 rounded-xl bg-white/10 px-3 text-xs font-black transition-colors hover:bg-white/20"
+              aria-label="Back to staff attendance"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+              </svg>
+              Back
+            </button>
+            <div className="text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-teal-200">Attendance PDF View</p>
+              <h2 className="text-sm font-black">{staffReport.monthLabel}</h2>
+            </div>
+            <p className="hidden text-[8px] font-bold uppercase tracking-wider text-white/60 sm:block">Rotate phone for best view</p>
+            <div className="w-[68px] sm:hidden" aria-hidden="true" />
+          </div>
+          <div
+            className="flex-1 overflow-auto p-2 sm:p-3"
+            style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+          >
+            <div className="mx-auto min-w-[940px] bg-white p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-end justify-between">
+                <div>
+                  <h1 className="text-base font-black text-[#073b4c]">Staff Attendance</h1>
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-teal-600">{staffReport.monthLabel}</p>
+                </div>
+                <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400">MARKHINS HUB</p>
+              </div>
+
+              {staffReport.dates.length === 0 || staffReport.rows.length === 0 ? (
+                <div className="border border-slate-200 py-12 text-center text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  No records for this month
+                </div>
+              ) : (
+                <div className="border-t border-l border-slate-300">
+                  <table className="w-full table-fixed border-separate border-spacing-0">
+                    <thead>
+                      <tr>
+                        <th className="sticky left-0 z-10 w-[170px] border-r border-b border-slate-300 bg-[#073b4c] px-2 py-2 text-left text-[7px] font-black tracking-wider text-white">NAME</th>
+                        {staffReport.dates.map((d) => (
+                          <th key={d} className="border-r border-b border-slate-300 bg-[#073b4c] px-0.5 py-2 text-[7px] font-black tracking-wider text-white">
+                            {Number(d.substring(8))}
+                          </th>
+                        ))}
+                        <th className="w-[58px] border-r border-b border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">SESSIONS</th>
+                        <th className="w-[58px] border-r border-b border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">PRESENT</th>
+                        <th className="w-[46px] border-r border-b border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffReport.rows.map((row, rowIdx) => (
+                        <tr key={`${row.name}-${rowIdx}`}>
+                          <th className="sticky left-0 z-10 border-r border-b border-slate-300 bg-cyan-50 px-2 py-1.5 text-left text-[8px] font-black text-slate-900">
+                            <span className="block truncate">{row.name}</span>
+                          </th>
+                          {row.marks.map((m, idx) => (
+                            <td
+                              key={idx}
+                              className={`border-r border-b px-0.5 py-1.5 text-center text-[8px] font-black ${
+                                m === "P"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-slate-200 bg-white text-slate-300"
+                              }`}
+                            >
+                              {m}
+                            </td>
+                          ))}
+                          <td className="border-r border-b border-slate-300 bg-slate-50 px-1 py-1.5 text-center text-[8px] font-black text-slate-700">{staffReport.sessions}</td>
+                          <td className="border-r border-b border-slate-300 bg-slate-50 px-1 py-1.5 text-center text-[8px] font-black text-emerald-700">{row.present}</td>
+                          <td className="border-r border-b border-slate-300 bg-slate-50 px-1 py-1.5 text-center text-[8px] font-black text-slate-900">{row.percent}%</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <th className="sticky left-0 z-10 border-r border-b border-slate-300 bg-[#073b4c] px-2 py-1.5 text-left text-[7px] font-black tracking-wider text-white">TOTAL</th>
+                        {staffReport.dates.map((d) => (
+                          <td key={d} className="border-r border-b border-slate-300 bg-slate-50 px-0.5 py-1.5" />
+                        ))}
+                        <td className="border-r border-b border-slate-300 bg-[#073b4c] px-1 py-1.5 text-center text-[8px] font-black text-white">{staffReport.sessions}</td>
+                        <td className="border-r border-b border-slate-300 bg-[#073b4c] px-1 py-1.5 text-center text-[8px] font-black text-white">{staffReport.totalPresent}</td>
+                        <td className="border-r border-b border-slate-300 bg-[#073b4c] px-1 py-1.5 text-center text-[8px] font-black text-white">{staffReport.percent}%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
