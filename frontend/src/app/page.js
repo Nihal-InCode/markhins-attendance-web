@@ -753,6 +753,9 @@ export default function DashboardPage() {
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [adminActivityLog, setAdminActivityLog] = useState(null);
   const [batchReport, setBatchReport] = useState(null);
+  const [batchAdvanced, setBatchAdvanced] = useState(false);
+  const [batchFromDate, setBatchFromDate] = useState("");
+  const [batchToDate, setBatchToDate] = useState("");
   const [selectedClassForAnalysis, setSelectedClassForAnalysis] = useState("");
   const [classAverages, setClassAverages] = useState(null);
   const [loadingClassAverages, setLoadingClassAverages] = useState(false);
@@ -2432,7 +2435,7 @@ export default function DashboardPage() {
         fetchTeachers();
         fetchClassAverages();
         if (selectedClassForAnalysis) {
-          fetchBatchReport(selectedClassForAnalysis);
+          fetchBatchReport(selectedClassForAnalysis, getBatchReportRange());
           loadAbsenteesReport(todayIst);
         }
       }
@@ -2612,9 +2615,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (activeTab === "reports" && selectedClassForAnalysis) {
-      fetchBatchReport(selectedClassForAnalysis);
+      fetchBatchReport(selectedClassForAnalysis, getBatchReportRange());
     }
-  }, [selectedClassForAnalysis, activeTab]);
+  }, [selectedClassForAnalysis, activeTab, batchAdvanced, batchFromDate, batchToDate]);
 
   useEffect(() => {
     if (activeTab === "reports" && reportType === "namaz") {
@@ -2922,11 +2925,11 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchBatchReport = async (classId) => {
+  const fetchBatchReport = async (classId, range) => {
     if (!classId) return;
     setLoadingFeature(true);
     try {
-      const data = await getBatchReport(classId);
+      const data = await getBatchReport(classId, range || null);
       setBatchReport(Array.isArray(data) ? data : []);
     } catch (err) {
       setReportError("Failed to load batch report.");
@@ -2934,6 +2937,10 @@ export default function DashboardPage() {
       setLoadingFeature(false);
     }
   };
+
+  const getBatchReportRange = () => (batchAdvanced && (batchFromDate || batchToDate))
+    ? { from: batchFromDate || "", to: batchToDate || "" }
+    : null;
 
   const exportBatchReportExcel = async () => {
     if (!Array.isArray(batchReport) || batchReport.length === 0) {
@@ -2943,12 +2950,16 @@ export default function DashboardPage() {
     try {
       showLoader("Preparing Excel file...");
       const className = (Array.isArray(classes) ? classes : []).find(c => String(c.id) === String(selectedClassForAnalysis))?.name || "Class";
+      const range = getBatchReportRange();
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Attendance Report");
 
       sheet.addRow([`${className} — Attendance Report`]);
       sheet.addRow(["Date", getIstDateString(), "Students", batchReport.length]);
+      if (range) {
+        sheet.addRow(["From", range.from || "Start", "To", range.to || "Today"]);
+      }
       sheet.addRow([]);
 
       const header = sheet.addRow(["Roll No", "Name", "Present", "Total", "Percent"]);
@@ -2977,7 +2988,8 @@ export default function DashboardPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${String(className).replace(/[^a-zA-Z0-9]+/g, "_")}_attendance_${getIstDateString()}.xlsx`;
+      const rangeSlug = range ? `_${range.from || "start"}_to_${range.to || "today"}` : "";
+      a.download = `${String(className).replace(/[^a-zA-Z0-9]+/g, "_")}_attendance${rangeSlug}_${getIstDateString()}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
 
@@ -7243,7 +7255,7 @@ export default function DashboardPage() {
                           <h3 className="font-black text-[#1e3a8a] tracking-tight text-lg">Batch-wise Breakdown</h3>
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Individual student attendance for selected class</p>
                         </div>
-                        <div className="flex items-center gap-2 justify-between sm:justify-end w-full sm:w-auto">
+                        <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end w-full sm:w-auto">
                           <select
                             className="bg-white px-4 py-3 rounded-xl border border-blue-100 text-xs font-black text-[#1e3a8a] uppercase tracking-wider cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[160px] flex-1 sm:flex-none"
                             value={selectedClassForAnalysis}
@@ -7252,6 +7264,29 @@ export default function DashboardPage() {
                             <option value="">Select Class</option>
                             {(Array.isArray(classes) ? classes : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
+                          <button
+                            onClick={() => {
+                              if (batchAdvanced) {
+                                setBatchAdvanced(false);
+                                setBatchFromDate("");
+                                setBatchToDate("");
+                              } else {
+                                setBatchToDate(prev => prev || getIstDateString());
+                                setBatchAdvanced(true);
+                              }
+                            }}
+                            title="Choose a date range for this report"
+                            className={`flex items-center gap-1.5 px-4 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 shrink-0 border ${
+                              batchAdvanced
+                                ? "bg-[#1e3a8a] border-[#1e3a8a] text-white shadow-lg shadow-blue-200/50"
+                                : "bg-white border-blue-100 text-[#1e3a8a] hover:bg-blue-50"
+                            }`}
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 21h14a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                            </svg>
+                            <span>Advanced</span>
+                          </button>
                           <button
                             onClick={exportBatchReportExcel}
                             disabled={!Array.isArray(batchReport) || batchReport.length === 0}
@@ -7265,6 +7300,39 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       </div>
+
+                      {batchAdvanced && (
+                        <div className="flex flex-wrap items-end gap-3 bg-blue-50/60 border border-blue-100 rounded-2xl px-4 py-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]/70">From</span>
+                            <input
+                              type="date"
+                              value={batchFromDate}
+                              max={batchToDate || undefined}
+                              onChange={(e) => setBatchFromDate(e.target.value)}
+                              className="bg-white px-3 py-2 rounded-xl border border-blue-100 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]/70">To</span>
+                            <input
+                              type="date"
+                              value={batchToDate}
+                              min={batchFromDate || undefined}
+                              onChange={(e) => setBatchToDate(e.target.value)}
+                              className="bg-white px-3 py-2 rounded-xl border border-blue-100 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+                            />
+                          </label>
+                          <button
+                            onClick={() => { setBatchFromDate(""); setBatchToDate(""); }}
+                            className="px-3 py-2 rounded-xl bg-white border border-blue-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1e3a8a] transition-all"
+                            title="Clear the range and show all records"
+                          >
+                            All
+                          </button>
+                          <span className="text-[10px] font-bold text-gray-400 pb-2">Blank = from the beginning till today</span>
+                        </div>
+                      )}
 
                       {Array.isArray(batchReport) ? (
                         <div className="space-y-2">

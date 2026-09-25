@@ -1269,7 +1269,12 @@ app.get('/class-averages', authenticateToken, async (req, res) => {
 
 app.get('/batch-report/:classId', authenticateToken, async (req, res) => {
     try {
-        const result = await callPython({ action: "get_batch_report", classId: req.params.classId });
+        const result = await callPython({
+            action: "get_batch_report",
+            classId: req.params.classId,
+            startDate: req.query.from || null,
+            endDate: req.query.to || null
+        });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -2242,7 +2247,12 @@ app.get('/admin/download-db', authenticateToken, async (req, res) => {
 app.get('/admin/batch-report/:classId', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin' && req.user.role !== 'Principal' && req.user.role !== 'Vice Principal') return res.status(403).send('Forbidden');
-        const result = await callPython({ action: "get_batch_report", classId: req.params.classId });
+        const result = await callPython({
+            action: "get_batch_report",
+            classId: req.params.classId,
+            startDate: req.query.from || null,
+            endDate: req.query.to || null
+        });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

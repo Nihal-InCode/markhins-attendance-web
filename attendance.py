@@ -1583,37 +1583,47 @@ def get_attendance_list(c, class_, period, date):
 # ===================================================
 # 🧾 Get Individual Student Attendance History
 # ===================================================
-def get_student_stats(c, student_id, student_name, student_class, roll_no):
+def get_student_stats(c, student_id, student_name, student_class, roll_no, start_date=None, end_date=None):
     """
     Calculates attendance statistics for a student.
+    Optional start_date / end_date (YYYY-MM-DD) limit the stats to that date range.
     Returns: (total_classes, attended, percent, log)
     """
+    date_sql = ""
+    date_params = []
+    if start_date:
+        date_sql += " AND date >= ?"
+        date_params.append(start_date)
+    if end_date:
+        date_sql += " AND date <= ?"
+        date_params.append(end_date)
+
     # 1. Compute total_classes strictly using class-level attendance marks
-    c.execute("SELECT COUNT(DISTINCT date || '-' || period) FROM period_attendance WHERE class = ?", (student_class,))
+    c.execute("SELECT COUNT(DISTINCT date || '-' || period) FROM period_attendance WHERE class = ?" + date_sql, [student_class] + date_params)
     count_period = c.fetchone()[0] or 0
-    
-    c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?", (student_class,))
+
+    c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?" + date_sql, [student_class] + date_params)
     count_extra = c.fetchone()[0] or 0
-    
+
     total_classes = count_period + count_extra
-    
+
     attended = 0
     log = []
 
     # 2. Period Attendance (Student-level for attended count and logs)
-    c.execute("SELECT date, period, status FROM period_attendance WHERE student_id=?", (student_id,))
+    c.execute("SELECT date, period, status FROM period_attendance WHERE student_id=?" + date_sql, [student_id] + date_params)
     for d, p, s in c.fetchall():
         if s in ("P", "SL"):
             attended += 1
         log.append((d, p, s))
 
     # 3. Sick / Leave records from attendance table (Logs only, treated as absent)
-    c.execute("SELECT date, period, status FROM attendance WHERE student_id=? AND status IN ('S','L')", (student_id,))
+    c.execute("SELECT date, period, status FROM attendance WHERE student_id=? AND status IN ('S','L')" + date_sql, [student_id] + date_params)
     for d, p, s in c.fetchall():
         log.append((d, p, s))
 
     # 4. Extra Classes
-    c.execute("SELECT date, absent_rolls, period FROM extra_classes WHERE class=?", (student_class,))
+    c.execute("SELECT date, absent_rolls, period FROM extra_classes WHERE class=?" + date_sql, [student_class] + date_params)
     for d, absent_str, p in c.fetchall():
         absent_list = [x.strip() for x in absent_str.split(",")] if absent_str else []
         if str(roll_no) in absent_list:
@@ -5884,12 +5894,14 @@ if __name__ == "__main__":
 
                 elif action == "get_batch_report":
                     class_id = data.get("classId")
+                    start_date = data.get("startDate") or None
+                    end_date = data.get("endDate") or None
                     c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
                     students = c.fetchall()
                     
                     batch_data = []
                     for sid, roll, name in students:
-                        total, attended, percent, _ = get_student_stats(c, sid, name, class_id, roll)
+                        total, attended, percent, _ = get_student_stats(c, sid, name, class_id, roll, start_date, end_date)
                         batch_data.append({
                             "rollNo": roll,
                             "name": name,

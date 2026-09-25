@@ -149,7 +149,13 @@ export const getStudentHistory = (rollNo) => apiRequest(`/student-history/${roll
 
 export const getDailyReport = (date) => apiRequest(`/daily-report?date=${date}`);
 
-export const getBatchReport = (classId) => apiRequest(`/batch-report/${classId}`);
+export const getBatchReport = (classId, range = null) => {
+    const params = new URLSearchParams();
+    if (range?.from) params.set('from', range.from);
+    if (range?.to) params.set('to', range.to);
+    const query = params.toString();
+    return apiRequest(`/batch-report/${classId}${query ? `?${query}` : ''}`);
+};
 
 export const getClassAverages = () => apiRequest('/class-averages');
 
