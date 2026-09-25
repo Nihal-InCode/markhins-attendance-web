@@ -5910,7 +5910,21 @@ if __name__ == "__main__":
                             "absent": total - attended,
                             "percent": percent
                         })
-                    result = {"success": True, "data": batch_data}
+                    c.execute("""
+                        SELECT MIN(d), MAX(d) FROM (
+                            SELECT date AS d FROM period_attendance WHERE class = ?
+                            UNION ALL
+                            SELECT date AS d FROM extra_classes WHERE class = ?
+                        )
+                    """, (class_id, class_id))
+                    span = c.fetchone()
+                    data_from, data_to = span[0], span[1]
+                    if not data_from:
+                        c.execute("SELECT MIN(date), MAX(date) FROM period_attendance")
+                        fallback = c.fetchone()
+                        data_from, data_to = fallback[0], fallback[1]
+
+                    result = {"success": True, "data": {"students": batch_data, "from": data_from, "to": data_to}}
 
                 elif action == "get_weekly_report":
                     end_date = get_ist_now()

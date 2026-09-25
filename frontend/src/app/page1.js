@@ -717,6 +717,7 @@ export default function DashboardPage() {
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [adminActivityLog, setAdminActivityLog] = useState(null);
   const [batchReport, setBatchReport] = useState(null);
+  const [batchReportSpan, setBatchReportSpan] = useState(null);
   const [batchAdvanced, setBatchAdvanced] = useState(false);
   const [batchFromDate, setBatchFromDate] = useState("");
   const [batchToDate, setBatchToDate] = useState("");
@@ -2800,7 +2801,9 @@ export default function DashboardPage() {
     setLoadingFeature(true);
     try {
       const data = await getBatchReport(classId, range || null);
-      setBatchReport(Array.isArray(data) ? data : []);
+      const payload = Array.isArray(data) ? { students: data } : (data || {});
+      setBatchReport(Array.isArray(payload.students) ? payload.students : []);
+      setBatchReportSpan(payload.from || payload.to ? { from: payload.from || null, to: payload.to || null } : null);
     } catch (err) {
       setReportError("Failed to load batch report.");
     } finally {
@@ -2821,15 +2824,15 @@ export default function DashboardPage() {
       showLoader("Preparing Excel file...");
       const className = (Array.isArray(classes) ? classes : []).find(c => String(c.id) === String(selectedClassForAnalysis))?.name || "Class";
       const range = getBatchReportRange();
+      const spanFrom = range?.from || batchReportSpan?.from || "";
+      const spanTo = range?.to || getIstDateString();
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Attendance Report");
 
       sheet.addRow([`${className} — Attendance Report`]);
       sheet.addRow(["Date", getIstDateString(), "Students", batchReport.length]);
-      if (range) {
-        sheet.addRow(["From", range.from || "Start", "To", range.to || "Today"]);
-      }
+      sheet.addRow(["From", spanFrom || "Start", "To", spanTo]);
       sheet.addRow([]);
 
       const header = sheet.addRow(["Roll No", "Name", "Present", "Total", "Percent"]);
@@ -2858,8 +2861,8 @@ export default function DashboardPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const rangeSlug = range ? `_${range.from || "start"}_to_${range.to || "today"}` : "";
-      a.download = `${String(className).replace(/[^a-zA-Z0-9]+/g, "_")}_attendance${rangeSlug}_${getIstDateString()}.xlsx`;
+      const rangeSlug = `_${spanFrom || "start"}_to_${spanTo || "today"}`;
+      a.download = `${String(className).replace(/[^a-zA-Z0-9]+/g, "_")}_attendance${rangeSlug}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
 
