@@ -65,6 +65,7 @@ import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 import TeacherQrScannerModal from "@/components/TeacherQrScannerModal";
+import { LiquidButton } from "@/components/ui/liquid-glass-button";
 import { playSound } from "@/lib/sound";
 import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
 
@@ -4290,17 +4291,17 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <button
+            <LiquidButton
               onClick={handleLoadStudents}
               disabled={(!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0)}
-              className={`anim-fade-up w-full py-6 rounded-[2rem] text-xl font-black shadow-2xl transition-all active:scale-[0.97] ${((!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0))
+              className={`anim-fade-up isolate w-full flex h-[4.75rem] rounded-[2rem] text-xl font-black tracking-wide shadow-2xl transition-all ${((!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0))
                 ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
-                : 'anim-shimmer-btn anim-cta-glow text-white'
+                : 'text-white bg-blue-600/85 shadow-blue-500/40 hover:brightness-110 active:brightness-95'
                 }`}
               style={{ animationDelay: '0.25s' }}
             >
               {multiMode ? "Start Marking" : resolvedSubject?.error ? "Unavailable" : "Start Marking"}
-            </button>
+            </LiquidButton>
           </div>
         )}
 
