@@ -4294,9 +4294,9 @@ export default function DashboardPage() {
             <LiquidButton
               onClick={handleLoadStudents}
               disabled={(!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0)}
-              className={`anim-fade-up isolate w-full flex h-[4.75rem] rounded-[2rem] text-xl font-black tracking-wide shadow-2xl transition-all ${((!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0))
-                ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
-                : 'text-white bg-blue-600/85 shadow-blue-500/40 hover:brightness-110 active:brightness-95'
+              className={`anim-fade-up isolate w-full flex h-[4.75rem] rounded-[2rem] text-xl font-black tracking-wide backdrop-blur-xl transition-all duration-300 before:pointer-events-none before:absolute before:inset-x-5 before:top-[4px] before:h-[44%] before:rounded-[1.75rem] before:bg-gradient-to-b before:from-white/85 before:to-transparent before:content-[''] ${((!multiMode && (!resolvedSubject || resolvedSubject.error || resolving)) || (multiMode && selectedPeriods.length === 0))
+                ? 'bg-white/60 text-slate-400 shadow-none ring-1 ring-inset ring-slate-200 cursor-not-allowed'
+                : 'text-slate-900 bg-gradient-to-b from-white/95 via-white/70 to-blue-100/60 shadow-[0_18px_34px_-18px_rgba(15,23,42,0.5)] ring-1 ring-inset ring-white/80 hover:to-blue-100/85 hover:shadow-[0_22px_40px_-18px_rgba(37,99,235,0.55)] active:brightness-[0.98]'
                 }`}
               style={{ animationDelay: '0.25s' }}
             >
