@@ -1346,6 +1346,9 @@ app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
 
         const { sessionId, studentId, status, updates, editedBy } = req.body;
         const editorName = req.user?.name || req.user?.username || editedBy || 'Teacher';
+        const isAdminEditor = req.user?.role === 'admin'
+            || req.user?.id === 'system-admin'
+            || String(req.user?.username || '').trim().toLowerCase() === 'admin';
         const result = await callPython({
             action: "update_namaz_attendance",
             sessionId,
@@ -1353,6 +1356,7 @@ app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
             status,
             updates,
             editedBy: editorName,
+            anonymous: isAdminEditor,
         });
         res.json(result);
     } catch (error) {

@@ -819,6 +819,10 @@ def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, no
 
 NAMAZ_SESSION_TYPES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
+# Admin edits are anonymous: never recorded in namaz_edit_logs and never
+# exposed in the session "editors" history shown in the UI.
+ADMIN_EDITOR_NAMES = ("admin", "system-admin", "system administrator")
+
 def _date_range_days(from_date, to_date):
     start = dt.strptime(from_date, "%Y-%m-%d").date()
     end = dt.strptime(to_date, "%Y-%m-%d").date()
@@ -878,12 +882,14 @@ def _filtered_namaz_sessions(c, filters):
             {"rollNo": r[0], "status": r[1], "name": r[2] or r[0]}
             for r in c2.fetchall()
         ]
-        c2.execute("""
+        placeholders_admin = ",".join("?" for _ in ADMIN_EDITOR_NAMES)
+        c2.execute(f"""
             SELECT DISTINCT editorName
             FROM namaz_edit_logs
             WHERE sessionId = ?
+              AND LOWER(TRIM(editorName)) NOT IN ({placeholders_admin})
             ORDER BY id ASC
-        """, (s_id,))
+        """, (s_id, *ADMIN_EDITOR_NAMES))
         editors = [r[0] for r in c2.fetchall() if r[0]]
 
         sessions_list.append({
@@ -1303,6 +1309,19 @@ def handle_update_namaz_attendance(c, data):
 
     edited_by = str(data.get("editedBy") or data.get("editorName") or "Admin").strip()
 
+    # Admin edits stay anonymous: no namaz_edit_logs row is written, so the
+    # "Edited by" history never reveals that the admin changed anything.
+    anonymous_flag = str(data.get("anonymous") or "").strip().lower() in ("1", "true", "yes", "on")
+    is_anonymous = anonymous_flag or edited_by.lower() in ADMIN_EDITOR_NAMES
+
+    def _log_edit():
+        if is_anonymous:
+            return
+        c.execute("""
+            INSERT INTO namaz_edit_logs (sessionId, editorName, editedAt)
+            VALUES (?, ?, ?)
+        """, (session_id, edited_by, get_ist_now().strftime("%Y-%m-%d %H:%M:%S")))
+
     valid_statuses = {"present", "absent", "namaz_special_leave"}
 
     updates = data.get("updates")
@@ -1320,11 +1339,7 @@ def handle_update_namaz_attendance(c, data):
                 count += 1
 
         if count > 0:
-            now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
-            c.execute("""
-                INSERT INTO namaz_edit_logs (sessionId, editorName, editedAt)
-                VALUES (?, ?, ?)
-            """, (session_id, edited_by, now_str))
+            _log_edit()
 
         return {
             "success": True,
@@ -1348,11 +1363,7 @@ def handle_update_namaz_attendance(c, data):
     else:
         c.execute("INSERT INTO namaz_attendance (sessionId, studentId, status) VALUES (?, ?, ?)", (session_id, student_id, status))
 
-    now_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("""
-        INSERT INTO namaz_edit_logs (sessionId, editorName, editedAt)
-        VALUES (?, ?, ?)
-    """, (session_id, edited_by, now_str))
+    _log_edit()
 
     return {
         "success": True,

@@ -330,6 +330,12 @@ const canEditNamaz = (user) => {
   return true;
 };
 
+const isAdminUser = (user) => {
+  if (!user) return false;
+  const username = String(user.username || "").trim().toLowerCase();
+  return user.role === "admin" || username === "admin" || user.id === "system-admin";
+};
+
 const getDashboardRoleBadge = (user) => {
   const role = user?.role || 'Teacher';
   const isMahroof = user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
@@ -1831,7 +1837,17 @@ export default function DashboardPage() {
 
     const currStatus = currentStudent.status;
     let nextStatus = "namaz_special_leave";
-    if (currStatus === "absent") {
+
+    if (isAdminUser(user)) {
+      // Admin: full 3-way cycle -> Present -> Absent -> Special Leave -> Present
+      if (currStatus === "present") {
+        nextStatus = "absent";
+      } else if (currStatus === "absent") {
+        nextStatus = "namaz_special_leave";
+      } else {
+        nextStatus = "present";
+      }
+    } else if (currStatus === "absent") {
       nextStatus = "namaz_special_leave";
     } else if (currStatus === "namaz_special_leave" || currStatus === "special_leave") {
       nextStatus = "absent";
@@ -6480,6 +6496,7 @@ export default function DashboardPage() {
                                 const absentCount = sList.filter(st => st.status === "absent").length;
                                 const isTodaySession = session.date === getIstDateString();
                                 const isEditableSession = isTodaySession && canEditNamaz(user);
+                                const isAdminEditor = isAdminUser(user);
 
                                 // Filter students by search and status tab
                                 const filteredStudents = sList.filter((st) => {
@@ -6687,10 +6704,16 @@ export default function DashboardPage() {
                                                         isAbsent
                                                           ? "bg-red-100 text-red-700 border border-red-200 hover:bg-purple-600 hover:text-white hover:border-purple-600"
                                                           : isSpecialLeave
-                                                          ? "bg-purple-600 text-white shadow-md hover:bg-red-500"
+                                                          ? isAdminEditor
+                                                            ? "bg-purple-600 text-white shadow-md hover:bg-emerald-500"
+                                                            : "bg-purple-600 text-white shadow-md hover:bg-red-500"
                                                           : "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-100 hover:text-red-700 hover:border-red-200"
                                                       }`}
-                                                      title="Click to toggle status (Absent ↔ Special Leave)"
+                                                      title={
+                                                        isAdminEditor
+                                                          ? "Click to cycle status: Present → Absent → Special Leave → Present"
+                                                          : "Click to toggle status (Absent ↔ Special Leave)"
+                                                      }
                                                     >
                                                       {isAbsent ? (
                                                         <><span>✗</span> ABSENT</>
