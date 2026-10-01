@@ -26,6 +26,45 @@ export default function LoginPage() {
     const [guestPortalMessage, setGuestPortalMessage] = useState("");
     const [portalChecking, setPortalChecking] = useState(false);
     const [hero404Src, setHero404Src] = useState(GUEST_PORTAL_404_FALLBACK);
+    const hero404TriedRef = useRef([]);
+
+    // Rotate the offline artwork every time the 404 screen is (re)shown: random
+    // pick from the files that exist, never the one from the last visit.
+    const pickHero404 = useCallback(async () => {
+        try {
+            const checks = await Promise.all(
+                GUEST_PORTAL_404_IMAGES.map((src) =>
+                    fetch(src, { method: "HEAD" })
+                        .then((res) => (res.ok ? src : null))
+                        .catch(() => null)
+                )
+            );
+            const available = checks.filter(Boolean);
+            const pool = available.length > 0 ? available : GUEST_PORTAL_404_IMAGES;
+            let last = null;
+            try { last = sessionStorage.getItem(GUEST_PORTAL_404_LAST_KEY); } catch { /* private mode */ }
+            const fresh = pool.filter((src) => src !== last);
+            const choices = fresh.length > 0 ? fresh : pool;
+            const pick = choices[Math.floor(Math.random() * choices.length)];
+            try { sessionStorage.setItem(GUEST_PORTAL_404_LAST_KEY, pick); } catch { /* private mode */ }
+            hero404TriedRef.current = [pick];
+            setHero404Src(pick);
+        } catch {
+            // Keep whatever is currently showing
+        }
+    }, []);
+
+    const handleHero404Error = () => {
+        const tried = hero404TriedRef.current;
+        const next = GUEST_PORTAL_404_IMAGES.find((src) => !tried.includes(src));
+        if (next) {
+            tried.push(next);
+            setHero404Src(next);
+        } else {
+            setHero404Src((current) => (current === GUEST_PORTAL_404_FALLBACK ? current : GUEST_PORTAL_404_FALLBACK));
+        }
+    };
+
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
     const nameInputRef = useRef(null);
@@ -42,6 +81,7 @@ export default function LoginPage() {
             const down = status?.enabled === false;
             setGuestPortalDown(down);
             setGuestPortalMessage(status?.shutdownMessage || "");
+            if (down) pickHero404(); // fresh artwork each time (incl. "Try Again")
             return !down;
         } catch {
             // If the status check itself fails, let the login attempt decide
@@ -50,7 +90,7 @@ export default function LoginPage() {
         } finally {
             setPortalChecking(false);
         }
-    }, []);
+    }, [pickHero404]);
 
     useEffect(() => {
         if (isGuestLogin) {
@@ -59,41 +99,6 @@ export default function LoginPage() {
             setGuestPortalDown(false);
         }
     }, [isGuestLogin, checkGuestPortal]);
-
-    // Rotate the offline artwork: pick a random image that actually exists,
-    // never the one shown on this browser's previous visit. Stays on the
-    // fallback during SSR/first paint to avoid a hydration mismatch.
-    useEffect(() => {
-        let cancelled = false;
-        const pickArtwork = async () => {
-            try {
-                const checks = await Promise.all(
-                    GUEST_PORTAL_404_IMAGES.map((src) =>
-                        fetch(src, { method: "HEAD" })
-                            .then((res) => (res.ok ? src : null))
-                            .catch(() => null)
-                    )
-                );
-                const available = checks.filter(Boolean);
-                if (available.length === 0) return;
-                let last = null;
-                try { last = sessionStorage.getItem(GUEST_PORTAL_404_LAST_KEY); } catch { /* private mode */ }
-                const fresh = available.filter((src) => src !== last);
-                const pool = fresh.length > 0 ? fresh : available;
-                const pick = pool[Math.floor(Math.random() * pool.length)];
-                try { sessionStorage.setItem(GUEST_PORTAL_404_LAST_KEY, pick); } catch { /* private mode */ }
-                if (!cancelled && pick !== GUEST_PORTAL_404_FALLBACK) setHero404Src(pick);
-            } catch {
-                // Keep the guaranteed fallback artwork
-            }
-        };
-        pickArtwork();
-        return () => { cancelled = true; };
-    }, []);
-
-    const handleHero404Error = () => {
-        setHero404Src((current) => (current === GUEST_PORTAL_404_FALLBACK ? current : GUEST_PORTAL_404_FALLBACK));
-    };
 
     const fetchSuggestions = useCallback((query) => {
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -174,6 +179,7 @@ export default function LoginPage() {
                 setError("");
                 setGuestPortalDown(true);
                 setGuestPortalMessage(err.message || "");
+                pickHero404();
             } else {
                 setError(err.message || "Login failed. Please check your credentials.");
             }
