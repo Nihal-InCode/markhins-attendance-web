@@ -7,6 +7,12 @@ import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import { isWebAuthnSupported, startAuthentication } from '@/lib/webauthn';
 
+// Guest Portal offline artwork pool — drop transparent PNGs at
+// frontend/public/404/02.png ... 05.png and they join the rotation automatically.
+const GUEST_PORTAL_404_IMAGES = ["/404/01.png", "/404/02.png", "/404/03.png", "/404/04.png", "/404/05.png"];
+const GUEST_PORTAL_404_FALLBACK = "/404/01.png";
+const GUEST_PORTAL_404_LAST_KEY = "markhins-guest-404-last";
+
 export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -19,6 +25,7 @@ export default function LoginPage() {
     const [guestPortalDown, setGuestPortalDown] = useState(false);
     const [guestPortalMessage, setGuestPortalMessage] = useState("");
     const [portalChecking, setPortalChecking] = useState(false);
+    const [hero404Src, setHero404Src] = useState(GUEST_PORTAL_404_FALLBACK);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
     const nameInputRef = useRef(null);
@@ -52,6 +59,41 @@ export default function LoginPage() {
             setGuestPortalDown(false);
         }
     }, [isGuestLogin, checkGuestPortal]);
+
+    // Rotate the offline artwork: pick a random image that actually exists,
+    // never the one shown on this browser's previous visit. Stays on the
+    // fallback during SSR/first paint to avoid a hydration mismatch.
+    useEffect(() => {
+        let cancelled = false;
+        const pickArtwork = async () => {
+            try {
+                const checks = await Promise.all(
+                    GUEST_PORTAL_404_IMAGES.map((src) =>
+                        fetch(src, { method: "HEAD" })
+                            .then((res) => (res.ok ? src : null))
+                            .catch(() => null)
+                    )
+                );
+                const available = checks.filter(Boolean);
+                if (available.length === 0) return;
+                let last = null;
+                try { last = sessionStorage.getItem(GUEST_PORTAL_404_LAST_KEY); } catch { /* private mode */ }
+                const fresh = available.filter((src) => src !== last);
+                const pool = fresh.length > 0 ? fresh : available;
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                try { sessionStorage.setItem(GUEST_PORTAL_404_LAST_KEY, pick); } catch { /* private mode */ }
+                if (!cancelled && pick !== GUEST_PORTAL_404_FALLBACK) setHero404Src(pick);
+            } catch {
+                // Keep the guaranteed fallback artwork
+            }
+        };
+        pickArtwork();
+        return () => { cancelled = true; };
+    }, []);
+
+    const handleHero404Error = () => {
+        setHero404Src((current) => (current === GUEST_PORTAL_404_FALLBACK ? current : GUEST_PORTAL_404_FALLBACK));
+    };
 
     const fetchSuggestions = useCallback((query) => {
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -205,11 +247,12 @@ export default function LoginPage() {
                     <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-9 shadow-2xl space-y-6">
                         <div className="space-y-4">
                             <Image
-                                src="/404.png"
+                                src={hero404Src}
                                 alt="404 — Guest Portal Offline"
                                 width={1082}
                                 height={1454}
                                 priority
+                                onError={handleHero404Error}
                                 className="mx-auto h-52 sm:h-60 w-auto object-contain drop-shadow-[0_12px_40px_rgba(255,255,255,0.08)]"
                             />
                             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-[10px] font-black uppercase tracking-widest text-amber-300">
