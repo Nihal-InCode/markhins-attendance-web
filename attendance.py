@@ -50,6 +50,23 @@ def escape_html(text):
     return html.escape(text, quote=True)
 
 
+def _guest_portal_enabled(c):
+    """Admin kill-switch for the student Guest Portal ('1' = open, '0' = shut down)."""
+    try:
+        c.execute("SELECT value FROM system_settings WHERE key='guest_portal_enabled'")
+        row = c.fetchone()
+    except sqlite3.Error:
+        return True
+    return (str(row[0]) if row else "1") != "0"
+
+
+# Shown on the custom 404 screen whenever someone tries the guest login while it is off.
+GUEST_PORTAL_SHUTDOWN_MESSAGE = (
+    "The Guest Portal has been temporarily shut down by the administrator. "
+    "Please wait for some time and try again later."
+)
+
+
 def get_teacher_image_url(teacher_id):
     """Return the public URL for a teacher photo if a matching file exists."""
     teacher_id = str(teacher_id or "").strip()
@@ -344,6 +361,10 @@ def run_migrations():
         c.execute("SELECT 1 FROM system_settings WHERE key='geofence_radius'")
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', '150')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='guest_portal_enabled'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('guest_portal_enabled', '1')")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -5392,6 +5413,16 @@ if __name__ == "__main__":
                     result = handle_update_namaz_attendance(c, data)
                     conn.commit()
 
+                # ── Guest portal kill-switch: refuse guest sign-in when admin shut it down ──
+                elif (action == "login"
+                      and str(data.get("username") or "").lower().strip() == "guest"
+                      and not _guest_portal_enabled(c)):
+                    result = {
+                        "success": False,
+                        "code": "GUEST_PORTAL_DISABLED",
+                        "error": GUEST_PORTAL_SHUTDOWN_MESSAGE
+                    }
+
                 elif action == "login":
                     username = data.get("username", "").lower().strip()
                     password = str(data.get("password", ""))  # phone number entered by user
@@ -5483,6 +5514,14 @@ if __name__ == "__main__":
                     else:
                         result = {"success": False, "error": "Invalid username or password"}
 
+                # ── Guest portal kill-switch: instantly invalidate every guest session ──
+                elif action == "verify_guest_session" and not _guest_portal_enabled(c):
+                    result = {
+                        "success": False,
+                        "code": "GUEST_PORTAL_DISABLED",
+                        "message": "Guest portal is shut down by the administrator."
+                    }
+
                 elif action == "verify_guest_session":
                     token = data.get("guest_session_token")
                     if not token:
@@ -5564,6 +5603,40 @@ if __name__ == "__main__":
                     c.execute("DELETE FROM guest_sessions")
                     conn.commit()
                     result = {"success": True, "message": "All guest session logs cleared."}
+
+                elif action == "get_guest_portal_setting":
+                    result = {
+                        "success": True,
+                        "enabled": _guest_portal_enabled(c),
+                        "shutdownMessage": GUEST_PORTAL_SHUTDOWN_MESSAGE
+                    }
+
+                elif action == "save_guest_portal_setting":
+                    raw_enabled = data.get("enabled")
+                    enabled = "1" if (raw_enabled is True or str(raw_enabled).strip().lower() in ("1", "true", "yes", "on")) else "0"
+                    c.execute("""
+                        INSERT INTO system_settings (key, value) VALUES ('guest_portal_enabled', ?)
+                        ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                    """, (enabled,))
+
+                    kicked = 0
+                    if enabled == "0":
+                        # Invalidate every guest token (forces an immediate logout on the next
+                        # request) and mark them offline, while keeping the login history intact.
+                        c.execute("""
+                            UPDATE guest_sessions
+                            SET session_token = 'revoked_' || id || '_' || session_token,
+                                last_active = NULL
+                        """)
+                        kicked = c.rowcount
+                    conn.commit()
+
+                    if enabled == "1":
+                        message = "Guest Portal reopened. Students can sign in as guest again."
+                    else:
+                        message = f"Guest Portal shut down. {kicked} guest session(s) logged out immediately."
+
+                    result = {"success": True, "enabled": enabled == "1", "kickedGuests": kicked, "message": message}
 
                 elif action == "get_classes":
                     # Comprehensive class list from all relevant tables

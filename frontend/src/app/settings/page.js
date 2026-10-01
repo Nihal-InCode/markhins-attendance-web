@@ -35,6 +35,8 @@ import {
     revokeGuestSession,
     clearGuestSessions,
     logoutAllGuestSessions,
+    getGuestPortalSetting,
+    updateGuestPortalSetting,
     getPushSetting,
     updatePushSetting,
     sendTestPushNotification,
@@ -153,6 +155,8 @@ export default function SettingsPage() {
     const [guestSessionStats, setGuestSessionStats] = useState({ active_online_count: 0, total_sessions: 0 });
     const [loadingGuestSessions, setLoadingGuestSessions] = useState(false);
     const [guestSearch, setGuestSearch] = useState("");
+    const [guestPortalEnabled, setGuestPortalEnabled] = useState(true);
+    const [guestPortalBusy, setGuestPortalBusy] = useState(false);
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
     const [pushSubCount, setPushSubCount] = useState(0);
@@ -208,7 +212,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes, guestPortalRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -222,6 +226,7 @@ export default function SettingsPage() {
                 getGeofenceSetting().catch(() => ({ enabled: true, latitude: 12.9727, longitude: 77.6306, radius_meters: 150 })),
                 getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
                 getPushSetting().catch(() => ({ enabled: true, reminder_time: "08:00", subscription_count: 0 })),
+                getGuestPortalSetting().catch(() => ({ enabled: true })),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -233,6 +238,9 @@ export default function SettingsPage() {
             setTimetableEditors(editorRes?.editors?.map(String) || []);
             setSingleSessionEnabled(singleSessRes?.enabled !== false);
             setStaffCutoffTime(cutoffRes?.cutoff_time || "13:00");
+            if (guestPortalRes) {
+                setGuestPortalEnabled(guestPortalRes.enabled !== false);
+            }
             if (pushRes) {
                 setPushEnabled(pushRes.enabled !== false);
                 setPushReminderTime(pushRes.reminder_time || "08:00");
@@ -302,6 +310,32 @@ export default function SettingsPage() {
         } catch (err) {
             playSound('error');
             setError(err.message);
+        }
+    }
+
+    async function handleToggleGuestPortal(enabled) {
+        if (!enabled) {
+            const ok = confirm(
+                "⚠️ SHUT DOWN THE GUEST PORTAL?\n\n" +
+                "• Every student currently signed in as guest will be logged out immediately.\n" +
+                "• Anyone trying the guest login will see a 'Guest Portal Closed' screen.\n" +
+                "• You can switch it back on anytime from here."
+            );
+            if (!ok) return;
+        }
+
+        setGuestPortalBusy(true);
+        try {
+            const res = await updateGuestPortalSetting(enabled);
+            setGuestPortalEnabled(enabled);
+            setMsg(res?.message || (enabled ? "Guest Portal reopened." : "Guest Portal shut down."));
+            playSound('success');
+            await refreshGuestSessions();
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setGuestPortalBusy(false);
         }
     }
 
@@ -867,6 +901,35 @@ export default function SettingsPage() {
                                         </button>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Guest Portal Kill-Switch */}
+                            <div className="px-6 py-4 border-b border-indigo-100 bg-gradient-to-r from-indigo-50/70 to-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="flex items-start gap-3">
+                                    <span className={`mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 ${guestPortalEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                                    <div>
+                                        <p className="text-xs font-black text-gray-900 uppercase tracking-widest">Guest Portal Access</p>
+                                        <p className="text-[11px] font-semibold text-gray-500 mt-0.5">
+                                            {guestPortalBusy
+                                                ? "Applying change..."
+                                                : guestPortalEnabled
+                                                    ? "Open — anyone can sign in with the universal guest account."
+                                                    : "Shut down — every guest is logged out and guest sign-in is blocked."}
+                                        </p>
+                                    </div>
+                                </div>
+                                <label className="inline-flex items-center gap-3 cursor-pointer select-none shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        checked={guestPortalEnabled}
+                                        disabled={guestPortalBusy}
+                                        onChange={(e) => handleToggleGuestPortal(e.target.checked)}
+                                        className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                    />
+                                    <span className={`text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition-all ${guestPortalEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                        {guestPortalBusy ? "Saving..." : guestPortalEnabled ? "Portal Open" : "Portal Shut Down"}
+                                    </span>
+                                </label>
                             </div>
 
                             {/* Live KPI Header */}

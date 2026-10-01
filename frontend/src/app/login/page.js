@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin, searchStudents } from "@/lib/api";
+import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin, searchStudents, getGuestPortalStatus } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import { isWebAuthnSupported, startAuthentication } from '@/lib/webauthn';
@@ -15,6 +15,8 @@ export default function LoginPage() {
     const [passkeyLoading, setPasskeyLoading] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [guestPortalDown, setGuestPortalDown] = useState(false);
+    const [portalChecking, setPortalChecking] = useState(false);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
     const nameInputRef = useRef(null);
@@ -22,6 +24,31 @@ export default function LoginPage() {
     const searchTimeoutRef = useRef(null);
 
     const isGuestLogin = username.trim().toLowerCase() === "guest";
+
+    // Pre-check the admin's Guest Portal kill-switch before even trying to sign in
+    const checkGuestPortal = useCallback(async () => {
+        setPortalChecking(true);
+        try {
+            const status = await getGuestPortalStatus();
+            const down = status?.enabled === false;
+            setGuestPortalDown(down);
+            return !down;
+        } catch {
+            // If the status check itself fails, let the login attempt decide
+            setGuestPortalDown(false);
+            return true;
+        } finally {
+            setPortalChecking(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isGuestLogin) {
+            checkGuestPortal();
+        } else {
+            setGuestPortalDown(false);
+        }
+    }, [isGuestLogin, checkGuestPortal]);
 
     const fetchSuggestions = useCallback((query) => {
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -98,7 +125,12 @@ export default function LoginPage() {
             }
         } catch (err) {
             playSound('loginError');
-            setError(err.message || "Login failed. Please check your credentials.");
+            if (err?.code === 'GUEST_PORTAL_DISABLED') {
+                setError("");
+                setGuestPortalDown(true);
+            } else {
+                setError(err.message || "Login failed. Please check your credentials.");
+            }
         } finally {
             setLoading(false);
             hideLoader();
@@ -153,6 +185,70 @@ export default function LoginPage() {
             hideLoader();
         }
     };
+
+    // ── Custom 404 screen shown when the admin has shut the Guest Portal down ──
+    if (guestPortalDown) {
+        return (
+            <div className="flex flex-col items-center justify-center px-6 py-12 min-h-screen bg-slate-950 font-sans">
+                <div className="w-full max-w-md text-center space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <img
+                        src="/logo.png"
+                        alt="MARKHINS HUB Logo"
+                        className="h-16 w-16 object-contain mx-auto drop-shadow-lg opacity-80"
+                        style={{ height: '64px', width: '64px' }}
+                    />
+
+                    <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-9 shadow-2xl space-y-6">
+                        <div className="space-y-2">
+                            <p className="text-7xl font-black tracking-tighter text-white/90 leading-none">404</p>
+                            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                Guest Portal Offline
+                            </span>
+                        </div>
+
+                        <h1 className="text-xl font-black text-white tracking-tight">
+                            Guest Portal is temporarily closed
+                        </h1>
+
+                        <p className="text-sm font-semibold leading-relaxed text-slate-300">
+                            The Guest Portal has been shut down by the admin. Please wait for a
+                            while and come again later.
+                        </p>
+
+                        <div className="pt-2 space-y-3">
+                            <button
+                                type="button"
+                                onClick={checkGuestPortal}
+                                disabled={portalChecking}
+                                className="w-full flex justify-center items-center gap-2 py-4 px-4 rounded-2xl text-sm font-black uppercase tracking-widest text-slate-950 bg-white hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-white/30 disabled:opacity-60 transition-all active:scale-95"
+                            >
+                                {portalChecking ? (
+                                    <>
+                                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-slate-950 border-t-transparent"></span>
+                                        Checking...
+                                    </>
+                                ) : (
+                                    "Try Again"
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setGuestPortalDown(false)}
+                                className="w-full flex justify-center py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-300 border border-white/15 hover:bg-white/5 focus:outline-none focus:ring-4 focus:ring-white/10 transition-all active:scale-95"
+                            >
+                                Back to Sign In
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                        MARKHINS HUB · Administrative Console
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center px-6 py-12 min-h-screen bg-gray-50/50 font-sans">

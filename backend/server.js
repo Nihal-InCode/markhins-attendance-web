@@ -361,6 +361,15 @@ function getRequestActivityDescriptor(req) {
     if (routePath === '/admin/reset-namaz-data' && method === 'POST') {
         return { type: 'Admin', summary: 'Reset namaz data', meta: 'Namaz reset' };
     }
+    if (routePath === '/admin/guest-portal-setting' && method === 'POST') {
+        const raw = req.body?.enabled;
+        const isOpen = raw === true || String(raw ?? '').toLowerCase() === 'true' || String(raw ?? '') === '1';
+        return {
+            type: 'Admin',
+            summary: isOpen ? 'Opened the Guest Portal' : 'Shut down the Guest Portal',
+            meta: isOpen ? 'Guest login enabled' : 'Guest login disabled + sessions cleared',
+        };
+    }
     if (routePath === '/absentees-report' && method === 'POST') {
         return { type: 'Reports', summary: 'Generated absentees report', meta: req.body?.classId || 'All classes' };
     }
@@ -747,6 +756,9 @@ app.post('/login', async (req, res) => {
                 meta: 'Successful login',
             });
             res.json({ ...result, token });
+        } else if (result && result.code === 'GUEST_PORTAL_DISABLED') {
+            // Custom 404 screen for the shut-down Guest Portal (kept out of the 401 flow)
+            return res.status(404).json(result);
         } else {
             res.status(401).json(result);
         }
@@ -810,6 +822,40 @@ app.delete('/admin/guest-sessions', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
         const result = await callPython({ action: "clear_guest_sessions" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ── Guest Portal Kill-Switch ──
+// Public pre-check so the login screen can show the custom 404 page before submitting
+app.get('/guest-portal-status', async (req, res) => {
+    try {
+        const result = await callPython({ action: "get_guest_portal_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/admin/guest-portal-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "get_guest_portal_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/guest-portal-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const result = await callPython({
+            action: "save_guest_portal_setting",
+            enabled: req.body?.enabled,
+        });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

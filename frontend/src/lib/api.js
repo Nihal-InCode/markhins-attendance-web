@@ -48,7 +48,9 @@ export async function apiRequest(endpoint, options = {}) {
             const errorData = await response.json().catch(() => ({}));
             const errorMsg = errorData.message || errorData.error || `Error ${response.status}: ${response.statusText}`;
             console.error(`[API Error Response]`, { status: response.status, endpoint, errorData });
-            throw new Error(errorMsg);
+            const err = new Error(errorMsg);
+            if (errorData.code) err.code = errorData.code; // e.g. GUEST_PORTAL_DISABLED -> custom 404 screen
+            throw err;
         }
 
         const data = await response.json();
@@ -85,6 +87,15 @@ export const getGuestSessions = () => apiRequest('/admin/guest-sessions');
 export const revokeGuestSession = (id) => apiRequest(`/admin/guest-sessions/${id}`, { method: 'DELETE' });
 export const clearGuestSessions = () => apiRequest('/admin/guest-sessions', { method: 'DELETE' });
 export const logoutAllGuestSessions = () => apiRequest('/admin/guest-sessions', { method: 'DELETE' });
+
+// ── Guest Portal Kill-Switch ──
+export const getGuestPortalStatus = () => apiRequest('/guest-portal-status');
+export const getGuestPortalSetting = () => apiRequest('/admin/guest-portal-setting');
+export const updateGuestPortalSetting = (enabled) =>
+    apiRequest('/admin/guest-portal-setting', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+    });
 export const logoutApi = () => apiRequest('/logout', { method: 'POST' });
 
 /**
