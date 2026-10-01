@@ -62,8 +62,9 @@ def _guest_portal_enabled(c):
 
 # Shown on the custom 404 screen whenever someone tries the guest login while it is off.
 GUEST_PORTAL_SHUTDOWN_MESSAGE = (
-    "The Guest Portal has been temporarily shut down by the administrator. "
-    "Please wait for some time and try again later."
+    "The Guest Portal is temporarily unavailable due to administrative restrictions. "
+    "Access will be restored once the necessary administrative actions have been "
+    "completed. Please check back later."
 )
 
 
@@ -1325,7 +1326,9 @@ def handle_update_namaz_attendance(c, data):
 
     session_date = session_row[0]
     today_ist = get_ist_now().strftime("%Y-%m-%d")
-    if session_date != today_ist:
+    # The system admin may edit sessions from any day; everyone else is today-only.
+    allow_any_day = str(data.get("allowAnyDay") or "").strip().lower() in ("1", "true", "yes", "on")
+    if session_date != today_ist and not allow_any_day:
         return {"success": False, "message": "Editing attendance is only permitted on the same day"}
 
     edited_by = str(data.get("editedBy") or data.get("editorName") or "Admin").strip()

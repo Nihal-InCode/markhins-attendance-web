@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { login as loginApi, getWebAuthnLoginOptions, verifyWebAuthnLogin, searchStudents, getGuestPortalStatus } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
@@ -16,6 +17,7 @@ export default function LoginPage() {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [guestPortalDown, setGuestPortalDown] = useState(false);
+    const [guestPortalMessage, setGuestPortalMessage] = useState("");
     const [portalChecking, setPortalChecking] = useState(false);
     const { login } = useAuth();
     const { showLoader, hideLoader } = useLoading();
@@ -32,6 +34,7 @@ export default function LoginPage() {
             const status = await getGuestPortalStatus();
             const down = status?.enabled === false;
             setGuestPortalDown(down);
+            setGuestPortalMessage(status?.shutdownMessage || "");
             return !down;
         } catch {
             // If the status check itself fails, let the login attempt decide
@@ -128,6 +131,7 @@ export default function LoginPage() {
             if (err?.code === 'GUEST_PORTAL_DISABLED') {
                 setError("");
                 setGuestPortalDown(true);
+                setGuestPortalMessage(err.message || "");
             } else {
                 setError(err.message || "Login failed. Please check your credentials.");
             }
@@ -199,8 +203,15 @@ export default function LoginPage() {
                     />
 
                     <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-9 shadow-2xl space-y-6">
-                        <div className="space-y-2">
-                            <p className="text-7xl font-black tracking-tighter text-white/90 leading-none">404</p>
+                        <div className="space-y-4">
+                            <Image
+                                src="/404.png"
+                                alt="404 — Guest Portal Offline"
+                                width={1082}
+                                height={1454}
+                                priority
+                                className="mx-auto h-52 sm:h-60 w-auto object-contain drop-shadow-[0_12px_40px_rgba(255,255,255,0.08)]"
+                            />
                             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-[10px] font-black uppercase tracking-widest text-amber-300">
                                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                                 Guest Portal Offline
@@ -212,8 +223,8 @@ export default function LoginPage() {
                         </h1>
 
                         <p className="text-sm font-semibold leading-relaxed text-slate-300">
-                            The Guest Portal has been shut down by the admin. Please wait for a
-                            while and come again later.
+                            {guestPortalMessage ||
+                                "The Guest Portal is temporarily unavailable due to administrative restrictions. Access will be restored once the necessary administrative actions have been completed. Please check back later."}
                         </p>
 
                         <div className="pt-2 space-y-3">

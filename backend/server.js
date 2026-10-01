@@ -1403,6 +1403,7 @@ app.post('/admin/update-namaz-status', authenticateToken, async (req, res) => {
             updates,
             editedBy: editorName,
             anonymous: isAdminEditor,
+            allowAnyDay: isAdminEditor,
         });
         res.json(result);
     } catch (error) {

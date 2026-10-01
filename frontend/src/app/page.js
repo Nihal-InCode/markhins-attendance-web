@@ -330,6 +330,13 @@ const canEditNamaz = (user) => {
   return true;
 };
 
+// Only the system admin may edit namaz attendance for days other than today.
+const canEditAnyDay = (user) => {
+  if (!user) return false;
+  const username = String(user.username || "").trim().toLowerCase();
+  return user.role === "admin" || username === "admin" || user.id === "system-admin";
+};
+
 const getDashboardRoleBadge = (user) => {
   const role = user?.role || 'Teacher';
   const isMahroof = user?.name?.trim?.().toUpperCase() === 'MAHROOF QADIRI';
@@ -1821,7 +1828,7 @@ export default function DashboardPage() {
       alert("Editing Namaz attendance is restricted to teachers with full access.");
       return;
     }
-    if (session.date !== getIstDateString()) {
+    if (session.date !== getIstDateString() && !canEditAnyDay(user)) {
       alert("Editing attendance is only permitted for today's sessions.");
       return;
     }
@@ -6481,7 +6488,8 @@ export default function DashboardPage() {
                                 const specialLeaveCount = sList.filter(st => st.status === "namaz_special_leave" || st.status === "special_leave").length;
                                 const absentCount = sList.filter(st => st.status === "absent").length;
                                 const isTodaySession = session.date === getIstDateString();
-                                const isEditableSession = isTodaySession && canEditNamaz(user);
+                                const isAdminEditor = canEditAnyDay(user);
+                                const isEditableSession = (isTodaySession || isAdminEditor) && canEditNamaz(user);
 
                                 // Filter students by search and status tab
                                 const filteredStudents = sList.filter((st) => {
@@ -6533,9 +6541,15 @@ export default function DashboardPage() {
                                                 ReadOnly (Teachers Only)
                                               </span>
                                             ) : !isTodaySession ? (
-                                              <span className="ml-2 text-amber-600 font-black bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
-                                                ReadOnly (Past Date)
-                                              </span>
+                                              isAdminEditor ? (
+                                                <span className="ml-2 text-amber-700 font-black bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
+                                                  Admin Editing Past Day
+                                                </span>
+                                              ) : (
+                                                <span className="ml-2 text-amber-600 font-black bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
+                                                  ReadOnly (Past Date)
+                                                </span>
+                                              )
                                             ) : null}
                                           </p>
 
