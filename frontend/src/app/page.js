@@ -7560,12 +7560,16 @@ export default function DashboardPage() {
                     {/* Extra class detail - tap a square above */}
                     {extraDetail && (() => {
                       const isOwner = String(extraDetail.teacherId) === String(user?.id);
-                      const absentRolls = Array.isArray(extraDetail.absentRolls) ? extraDetail.absentRolls : [];
+                      const absentees = Array.isArray(extraDetail.absentees) && extraDetail.absentees.length > 0
+                        ? extraDetail.absentees
+                        : (Array.isArray(extraDetail.absentRolls)
+                            ? extraDetail.absentRolls.map((roll) => ({ roll, name: null }))
+                            : []);
                       return (
-                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true">
+                        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-[calc(var(--bottom-nav-height)+1rem)] sm:pb-6" role="dialog" aria-modal="true">
                           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setExtraDetail(null)} />
-                          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-                            <div className="flex items-start justify-between gap-3 px-5 py-4" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+                          <div className="relative max-h-[78vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white shadow-2xl">
+                            <div className="flex items-start justify-between gap-3 rounded-t-3xl px-5 py-4" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
                               <div className="min-w-0">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">⚡ Extra Class</p>
                                 <h4 className="truncate text-lg font-black text-white">{extraDetail.subject || "Extra"}</h4>
@@ -7600,11 +7604,14 @@ export default function DashboardPage() {
                               </div>
 
                               <div>
-                                <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-gray-400">Absent rolls</p>
-                                {absentRolls.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {absentRolls.map((roll) => (
-                                      <span key={String(roll)} className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-black text-red-600">{roll}</span>
+                                <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-gray-400">Absent</p>
+                                {absentees.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {absentees.map((a, i) => (
+                                      <div key={`${a.roll ?? i}`} className="flex items-center gap-2.5 rounded-xl border border-red-100 bg-red-50/70 px-3 py-2">
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-100 text-[10px] font-black text-red-600">{a.roll}</span>
+                                        <span className="truncate text-xs font-bold text-gray-800">{a.name || `Roll ${a.roll}`}</span>
+                                      </div>
                                     ))}
                                   </div>
                                 ) : (

@@ -7141,14 +7141,20 @@ if __name__ == "__main__":
                         ex_id, ex_date, ex_class, ex_subject, ex_teacher, ex_time, ex_absent, ex_period, ex_teacher_id = r
                         # Only rolls that still belong to this class count - orphan
                         # rolls left over from deleted/renamed students must not
-                        # inflate the absent total.
-                        c.execute("SELECT roll_no FROM students WHERE class=?", (ex_class,))
-                        class_rolls = {str(row[0]).strip() for row in c.fetchall()}
-                        cls_total = len(class_rolls)
+                        # inflate the absent total. Keep the names too so the
+                        # screen can show who was absent, not just a roll number.
+                        c.execute("SELECT roll_no, name FROM students WHERE class=? ORDER BY roll_no", (ex_class,))
+                        roster = [(str(roll).strip(), name) for roll, name in c.fetchall()]
+                        class_rolls = {roll for roll, _ in roster}
+                        name_by_roll = dict(roster)
+                        cls_total = len(roster)
 
                         absent_raw = [x.strip() for x in (ex_absent or "").split(",") if x.strip()]
-                        absent_real = [x for x in absent_raw if x in class_rolls]
-                        absent_count = len(absent_real)
+                        absentees = [
+                            {"roll": roll, "name": name_by_roll[roll]}
+                            for roll in absent_raw if roll in class_rolls
+                        ]
+                        absent_count = len(absentees)
 
                         # Sick / Leave breakdown for this date (same health rule the
                         # marking screen uses), so the card can show it.
@@ -7177,6 +7183,7 @@ if __name__ == "__main__":
                             "totalStudents": cls_total,
                             "sickCount": sick_count,
                             "leaveCount": leave_count,
+                            "absentees": absentees,
                             "absentRolls": absent_raw,
                             "orphanRolls": [x for x in absent_raw if x not in class_rolls]
                         })
