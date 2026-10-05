@@ -291,31 +291,45 @@ export default function ExtraAttendancePage() {
                                 className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#0d9488]/20 transition-all" />
                         </div>
 
-                        {/* Already-recorded chips for this class + date */}
+                        {/* Already-recorded chips for this class + date.
+                            Everyone's extra classes are listed, but only the ones this
+                            teacher marked can be edited. */}
                         {selectedClass && existing.length > 0 && (
                             <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-2 animate-fade-in">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">
                                     {existing.length} extra class{existing.length > 1 ? "es" : ""} already saved on {date}
                                 </p>
                                 <p className="text-[11px] font-medium text-amber-700/70">
-                                    Each session is stored separately — edit one, or start a new one below.
+                                    Each session is stored separately — edit one of yours, or start a new one below.
                                 </p>
-                                {existing.map((r) => (
-                                    <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-black text-gray-800">{r.subject || "Extra"}</p>
-                                            <p className="truncate text-[10px] font-bold text-gray-400">
-                                                {r.time} • {r.presentCount}/{r.totalStudents} present
-                                                {r.sickCount ? ` • ${r.sickCount} sick` : ""}
-                                                {r.leaveCount ? ` • ${r.leaveCount} leave` : ""}
-                                            </p>
+                                {existing.map((r) => {
+                                    const mine = String(r.teacherId) === String(user?.id);
+                                    return (
+                                        <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-black text-gray-800">{r.subject || "Extra"}</p>
+                                                <p className="truncate text-[10px] font-bold text-gray-400">
+                                                    {r.time} • {r.presentCount}/{r.totalStudents} present
+                                                    {r.sickCount ? ` • ${r.sickCount} sick` : ""}
+                                                    {r.leaveCount ? ` • ${r.leaveCount} leave` : ""}
+                                                </p>
+                                                {!mine && r.teacherName && (
+                                                    <p className="truncate text-[10px] font-bold uppercase tracking-wider text-gray-400">by {r.teacherName}</p>
+                                                )}
+                                            </div>
+                                            {mine ? (
+                                                <button onClick={() => startEditSession(r)}
+                                                    className="shrink-0 rounded-lg bg-amber-400 px-3 py-2 text-[10px] font-black uppercase text-amber-950 transition-all active:scale-95">
+                                                    Edit
+                                                </button>
+                                            ) : (
+                                                <span className="shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[10px] font-black uppercase text-gray-400">
+                                                    Others
+                                                </span>
+                                            )}
                                         </div>
-                                        <button onClick={() => startEditSession(r)}
-                                            className="shrink-0 rounded-lg bg-amber-400 px-3 py-2 text-[10px] font-black uppercase text-amber-950 transition-all active:scale-95">
-                                            Edit
-                                        </button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                         {selectedClass && existingLoading && (
