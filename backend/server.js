@@ -2187,10 +2187,20 @@ app.get('/extra-subjects', authenticateToken, async (req, res) => {
 // Mark Extra Class Attendance
 app.post('/attendance/extra', authenticateToken, async (req, res) => {
     try {
+        const user = req.user;
+        if (!user || !user.id || user.id === 'system-admin' || user.id === 'majlis-user' || user.role === 'admin' || user.role === 'Majlis') {
+            return res.status(403).json({ success: false, message: "Only authenticated teachers can record extra classes." });
+        }
+
+        const teacherId = Number(user.id);
+        if (!Number.isInteger(teacherId) || teacherId <= 0) {
+            return res.status(403).json({ success: false, message: "Only authenticated teachers can record extra classes." });
+        }
+
         const result = await callPython({
             action: "mark_extra_attendance",
             ...req.body,
-            teacher_id: req.user.id || 1
+            teacher_id: teacherId
         });
         res.json(result);
     } catch (error) {

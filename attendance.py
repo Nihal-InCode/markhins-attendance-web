@@ -523,6 +523,30 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # Ensure 'session_ref' exists in extra_classes.
+        # Each web marking session gets its own uuid so a second extra class for the
+        # same class/subject/teacher/day becomes its own row instead of overwriting.
+        try:
+            c.execute("ALTER TABLE extra_classes ADD COLUMN session_ref TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_extra_classes_session_ref "
+                "ON extra_classes(session_ref) WHERE session_ref IS NOT NULL"
+            )
+        except sqlite3.OperationalError:
+            pass
+
+        # The approval workflow table was never implemented - drop it if empty.
+        try:
+            c.execute("SELECT COUNT(*) FROM extra_class_requests")
+            if c.fetchone()[0] == 0:
+                c.execute("DROP TABLE IF EXISTS extra_class_requests")
+        except sqlite3.OperationalError:
+            pass
+        conn.commit()
+
         # Backfill teacher_id from teachers.name where missing
         try:
             c.execute("""
@@ -1530,6 +1554,150 @@ def get_student_current_status(c, sid):
             return stat
     return None
 
+
+def get_student_status_on_date(c, sid, date):
+    """
+    Returns the health status ('S', 'L') a student had ON (or before) the given
+    date, or None. Same rule as get_student_current_status but bounded by date so
+    historical extra-class records resolve correctly.
+    """
+    if not date:
+        return get_student_current_status(c, sid)
+    c.execute("""
+        SELECT status FROM attendance
+        WHERE student_id = ? AND date <= ?
+        ORDER BY date DESC, id DESC LIMIT 1
+    """, (sid, str(date)))
+    latest = c.fetchone()
+    if latest and latest[0] in ('S', 'L'):
+        return latest[0]
+    return None
+
+
+def mark_extra_class_attendance(c, conn, data):
+    """
+    Record extra-class attendance from the web app.
+
+    - Only absent roll numbers are stored (everyone else = present).
+    - Sick / Leave students are locked in the UI and forced absent here, using
+      the same rule as regular period marking (see mark_attendance), so the
+      screen and the stored record can never disagree.
+    - Every marking session carries a uuid (`sessionId`). Re-submitting the same
+      session updates its own row (no duplicate on retry), while a genuinely new
+      session always INSERTs - so a teacher can take two extra classes for the
+      same class/subject/teacher/day and keep both.
+    - `editId` explicitly updates an existing record.
+    """
+    class_id = str(data.get("classId") or "").strip()
+    subject_name = str(data.get("subject") or "").strip() or "Extra Class"
+    period_val = str(data.get("period") or "Extra").strip() or "Extra"
+    records = data.get("records") or []
+    date = str(data.get("date") or "").strip() or get_ist_now().strftime("%Y-%m-%d")
+    now_ts = get_ist_now().strftime("%H:%M")
+    session_ref = str(data.get("sessionId") or "").strip() or None
+    edit_id = data.get("editId")
+
+    if not class_id:
+        return {"success": False, "message": "No class selected."}
+
+    # --- Only real teacher accounts may record an extra class ---
+    try:
+        teacher_id = int(data.get("teacher_id"))
+    except (TypeError, ValueError):
+        return {"success": False, "message": "Only teacher accounts can record extra classes."}
+
+    c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))
+    t_row = c.fetchone()
+    if not t_row:
+        return {"success": False, "message": "Only teacher accounts can record extra classes."}
+    teacher_name = t_row[0]
+
+    # Normalize period label
+    if period_val != "Extra" and not period_val.startswith("P"):
+        period_val = f"P{period_val}"
+
+    absent_rolls = []
+    sick_rolls = []
+    leave_rolls = []
+    present_count = 0
+
+    for rec in records:
+        roll = str(rec.get("rollNo") or "").strip()
+        if not roll:
+            continue
+        student_id = rec.get("studentId")
+        # Sick / Leave are locked on screen; force them absent here so the
+        # stored record matches what the user saw.
+        health = get_student_status_on_date(c, student_id, date) if student_id is not None else None
+        if health in ("S", "L"):
+            (sick_rolls if health == "S" else leave_rolls).append(roll)
+            if roll not in absent_rolls:
+                absent_rolls.append(roll)
+            continue
+        if str(rec.get("status") or "").strip().lower() in ("absent", "a"):
+            if roll not in absent_rolls:
+                absent_rolls.append(roll)
+        else:
+            present_count += 1
+
+    absent_rolls_str = ",".join(absent_rolls)
+    total_count = len(records)
+
+    # --- Resolve which row to write ---
+    existing_id = None
+    if edit_id is not None and str(edit_id).strip():
+        try:
+            candidate = int(edit_id)
+        except (TypeError, ValueError):
+            candidate = None
+        if candidate is not None:
+            c.execute("SELECT id FROM extra_classes WHERE id=?", (candidate,))
+            if c.fetchone():
+                existing_id = candidate
+
+    if existing_id is None and session_ref:
+        c.execute("SELECT id FROM extra_classes WHERE session_ref=?", (session_ref,))
+        row = c.fetchone()
+        if row:
+            existing_id = row[0]
+
+    if existing_id is not None:
+        c.execute("""
+            UPDATE extra_classes
+            SET date=?, class=?, subject=?, teacher=?, time=?, absent_rolls=?,
+                period=?, teacher_id=?, session_ref=COALESCE(session_ref, ?)
+            WHERE id=?
+        """, (date, class_id, subject_name, teacher_name, now_ts, absent_rolls_str,
+              period_val, teacher_id, session_ref, existing_id))
+    else:
+        c.execute("""
+            INSERT INTO extra_classes
+                (date, class, subject, teacher, time, absent_rolls, period, teacher_id, session_ref)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (date, class_id, subject_name, teacher_name, now_ts, absent_rolls_str,
+              period_val, teacher_id, session_ref))
+        existing_id = c.lastrowid
+
+    conn.commit()
+
+    return {
+        "success": True,
+        "message": f"Extra class attendance recorded for {class_id}.",
+        "data": {
+            "id": existing_id,
+            "class": class_id,
+            "subject": subject_name,
+            "period": period_val,
+            "date": date,
+            "time": now_ts,
+            "total": total_count,
+            "present": present_count,
+            "absent": len(absent_rolls),
+            "sick": len(sick_rolls),
+            "leave": len(leave_rolls)
+        }
+    }
+
 def is_urdu_class(class_name):
     return 'u' in str(class_name or '').lower()
 
@@ -1871,48 +2039,6 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message, trus
     if not parts:
         conn.close()
         return "❓ Empty message."
-
-    # ========== SESSION INTEGRATION - START ==========
-    # Import session integration modules
-    try:
-        from attendance_session_integration import (
-            process_attendance_with_sessions,
-            handle_extra_class_commands
-        )
-        
-        # Route session-based commands
-        if text.startswith('/request_extra') or text.startswith('/start_session') or \
-           text.startswith('/list_sessions') or text.startswith('/my_sessions'):
-            
-            reply = handle_extra_class_commands(
-                telegram_username, chat_id, text, c, conn
-            )
-            notifications = reply[1] if isinstance(reply, tuple) else []
-            # Send any notifications
-            if notifications and send_whatsapp_message:
-                for notif in notifications:
-                    if 'telegram_chat_id' in notif and 'message' in notif:
-                        send_whatsapp_message(notif['telegram_chat_id'], notif['message'])
-            conn.close()
-            return reply[0] if isinstance(reply, tuple) else reply
-        
-        # Check for time-based attendance (format: "HS1 14:30 1,2,3,A4")
-        if len(parts) >= 3 and ':' in parts[1]:
-            reply = process_attendance_with_sessions(
-                telegram_username, chat_id, text, c, conn
-            )
-            notifications = reply[1] if isinstance(reply, tuple) else []
-            # Send any notifications
-            if notifications and send_whatsapp_message:
-                for notif in notifications:
-                    if 'telegram_chat_id' in notif and 'message' in notif:
-                        send_whatsapp_message(notif['telegram_chat_id'], notif['message'])
-            conn.close()
-            return reply[0] if isinstance(reply, tuple) else reply
-    except ImportError:
-        # Session integration not available, continue with regular flow
-        pass
-    # ========== SESSION INTEGRATION - END ==========
 
     # Handle .edit prefix
     if parts[0].lower() == '.edit':
@@ -5942,21 +6068,27 @@ if __name__ == "__main__":
                         total = row[0] or 0
                         present = row[1] or 0
 
-                        c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?", (cls,))
-                        extra_count = c.fetchone()[0] or 0
+                        c.execute("SELECT COUNT(*) FROM students WHERE class = ?", (cls,))
+                        cls_total = c.fetchone()[0] or 0
 
-                        if extra_count > 0:
-                            c.execute("SELECT absent_rolls FROM extra_classes WHERE class = ?", (cls,))
-                            for (absent_str,) in c.fetchall():
-                                absent_list = [x.strip() for x in absent_str.split(",")] if absent_str else []
-                                total += 1
-                                if not absent_list:
-                                    present += 1
-                                else:
-                                    c.execute("SELECT COUNT(*) FROM students WHERE class = ? AND roll_no NOT IN ({})".format(
-                                        ",".join("?" * len(absent_list)) if absent_list else "NULL"
-                                    ), [cls] + (absent_list if absent_list else []))
-                                    present += c.fetchone()[0] or 0
+                        c.execute("SELECT absent_rolls FROM extra_classes WHERE class = ?", (cls,))
+                        extra_rows_avg = c.fetchall()
+                        for (absent_str,) in extra_rows_avg:
+                            absent_list = [x.strip() for x in (absent_str or "").split(",") if x.strip()]
+                            if absent_list:
+                                q = ",".join("?" * len(absent_list))
+                                c.execute(
+                                    f"SELECT COUNT(*) FROM students WHERE class = ? AND roll_no IN ({q})",
+                                    [cls] + absent_list
+                                )
+                                absent_real = c.fetchone()[0] or 0
+                            else:
+                                absent_real = 0
+                            # One extra-class session counts every student in the
+                            # class - not just one row - otherwise the denominator
+                            # stays tiny and the average is inflated.
+                            total += cls_total
+                            present += (cls_total - absent_real)
 
                         if total == 0:
                             percent = None
@@ -6297,11 +6429,15 @@ if __name__ == "__main__":
                         reg_rows = c.fetchall()
                         
                         # Get extra classes (prefer teacher_id match for reliability)
+                        # NOTE: one extra_classes row == one session. Do NOT group by
+                        # date/class/period here - a teacher can take two extra classes
+                        # for the same class on the same day, and grouping them made
+                        # them count as one.
                         c.execute("""
                             SELECT date, class, period 
                             FROM extra_classes 
                             WHERE teacher_id=?
-                            GROUP BY date, class, period
+                            ORDER BY date, id
                         """, (teacher_id,))
                         extra_rows = c.fetchall()
                         
@@ -6985,7 +7121,7 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacherId")
                     class_id = data.get("classId")
                     
-                    query = "SELECT id, date, class, subject, teacher, time, absent_rolls FROM extra_classes WHERE date=?"
+                    query = "SELECT id, date, class, subject, teacher, time, absent_rolls, period, teacher_id FROM extra_classes WHERE date=?"
                     params = [report_date]
                     
                     if class_id:
@@ -6996,97 +7132,59 @@ if __name__ == "__main__":
                         query += " AND teacher_id = ?"
                         params.append(teacher_id)
                     
-                    query += " ORDER BY time DESC"
+                    query += " ORDER BY time DESC, id DESC"
                     c.execute(query, tuple(params))
                     rows = c.fetchall()
                     
                     report_data = []
                     for r in rows:
-                        c.execute("SELECT COUNT(*) FROM students WHERE class=?", (r[2],))
-                        cls_total = c.fetchone()[0] or 0
-                        absent_list = [x for x in (r[6] or "").split(",") if x.strip()]
-                        absent_count = len(absent_list)
-                        
+                        ex_id, ex_date, ex_class, ex_subject, ex_teacher, ex_time, ex_absent, ex_period, ex_teacher_id = r
+                        # Only rolls that still belong to this class count - orphan
+                        # rolls left over from deleted/renamed students must not
+                        # inflate the absent total.
+                        c.execute("SELECT roll_no FROM students WHERE class=?", (ex_class,))
+                        class_rolls = {str(row[0]).strip() for row in c.fetchall()}
+                        cls_total = len(class_rolls)
+
+                        absent_raw = [x.strip() for x in (ex_absent or "").split(",") if x.strip()]
+                        absent_real = [x for x in absent_raw if x in class_rolls]
+                        absent_count = len(absent_real)
+
+                        # Sick / Leave breakdown for this date (same health rule the
+                        # marking screen uses), so the card can show it.
+                        sick_count = 0
+                        leave_count = 0
+                        if class_rolls:
+                            c.execute("SELECT id FROM students WHERE class=?", (ex_class,))
+                            for (sid,) in c.fetchall():
+                                health = get_student_status_on_date(c, sid, ex_date)
+                                if health == 'S':
+                                    sick_count += 1
+                                elif health == 'L':
+                                    leave_count += 1
+
                         report_data.append({
-                            "id": r[0],
-                            "date": r[1],
-                            "class": r[2],
-                            "subject": r[3],
-                            "teacherName": r[4],
-                            "time": r[5] or "00:00",
+                            "id": ex_id,
+                            "date": ex_date,
+                            "class": ex_class,
+                            "subject": ex_subject,
+                            "teacherName": ex_teacher,
+                            "teacherId": ex_teacher_id,
+                            "time": ex_time or "00:00",
+                            "period": ex_period or "Extra",
                             "absentCount": absent_count,
                             "presentCount": max(0, cls_total - absent_count),
-                            "totalStudents": cls_total
+                            "totalStudents": cls_total,
+                            "sickCount": sick_count,
+                            "leaveCount": leave_count,
+                            "absentRolls": absent_raw,
+                            "orphanRolls": [x for x in absent_raw if x not in class_rolls]
                         })
                     result = {"success": True, "data": report_data}
                 elif action == "mark_extra_attendance":
                     # === EXTRA CLASS ATTENDANCE MARKING ===
-                    # Mirrors bot's extra_att logic:
-                    # - Stores in extra_classes table
-                    # - Only absent roll numbers stored (everyone else = present)
-                    class_id = data.get("classId")
-                    subject_name = data.get("subject", "Extra Class")
-                    teacher_id = data.get("teacher_id", 1)
-                    period_val = data.get("period", "Extra")
-                    records = data.get("records", [])  # [{studentId, rollNo, status}]
-                    date = data.get("date", get_ist_now().strftime("%Y-%m-%d"))
-                    now_ts = get_ist_now().strftime("%H:%M")
-
-                    # Resolve teacher name for extra_classes.teacher column
-                    c.execute("SELECT name FROM teachers WHERE id=?", (teacher_id,))
-                    t_row = c.fetchone()
-                    teacher_name = t_row[0] if t_row else f"Teacher#{teacher_id}"
-
-                    # Normalize period label
-                    if period_val and period_val != "Extra" and not period_val.startswith("P"):
-                        period_val = f"P{period_val}"
-
-                    # Build absent_rolls string from records (only absent students)
-                    absent_rolls = []
-                    present_count = 0
-                    total_count = len(records)
-                    for rec in records:
-                        if rec.get("status") in ("absent", "A"):
-                            absent_rolls.append(str(rec.get("rollNo", "")))
-                        else:
-                            present_count += 1
-
-                    absent_rolls_str = ",".join(r for r in absent_rolls if r)
-
-                    # Upsert into extra_classes (same as bot's extra_att logic)
-                    c.execute("""
-                        SELECT id FROM extra_classes
-                        WHERE date=? AND class=? AND subject=? AND teacher=? AND period=?
-                        ORDER BY id DESC LIMIT 1
-                    """, (date, class_id, subject_name, teacher_name, period_val))
-                    existing = c.fetchone()
-
-                    if existing:
-                        c.execute("""
-                            UPDATE extra_classes SET absent_rolls=?, time=?, teacher_id=?
-                            WHERE id=?
-                        """, (absent_rolls_str, now_ts, teacher_id, existing[0]))
-                    else:
-                        c.execute("""
-                            INSERT INTO extra_classes (date, class, subject, teacher, time, absent_rolls, period, teacher_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (date, class_id, subject_name, teacher_name, now_ts, absent_rolls_str, period_val, teacher_id))
-
-                    conn.commit()
-
-                    result = {
-                        "success": True,
-                        "message": f"Extra class attendance recorded for {class_id}.",
-                        "data": {
-                            "class": class_id,
-                            "subject": subject_name,
-                            "period": period_val,
-                            "date": date,
-                            "total": total_count,
-                            "present": present_count,
-                            "absent": len(absent_rolls)
-                        }
-                    }
+                    # Implementation lives in mark_extra_class_attendance()
+                    result = mark_extra_class_attendance(c, conn, data)
 
                 elif action == "get_health_list":
                     target_status = data.get("status") # 'S' or 'L'
@@ -8461,8 +8559,12 @@ if __name__ == "__main__":
                     attendance_rows = list(c.fetchall())
 
                     # 3. Include Extra Classes
+                    # Each extra_classes row is its OWN session. Without a unique
+                    # label every extra class on a date produced the same session
+                    # key "(date, 99, 'Extra (Extra)')" and they collapsed into one,
+                    # with the last record's marks overwriting the rest.
                     extra_query = """
-                        SELECT date, period, absent_rolls 
+                        SELECT date, period, absent_rolls, subject, time
                         FROM extra_classes 
                         WHERE UPPER(TRIM(class)) = UPPER(TRIM(?))
                         AND date BETWEEN ? AND ?
@@ -8471,14 +8573,21 @@ if __name__ == "__main__":
                     if not all_teachers:
                         extra_query += " AND teacher_id = ?"
                         extra_params.append(t_search_id)
+                    extra_query += " ORDER BY date ASC, COALESCE(time, '') ASC, id ASC"
                     c.execute(extra_query, tuple(extra_params))
                     
                     extra_rows = c.fetchall()
-                    for ex_date, ex_period, ex_absent in extra_rows:
+                    extra_label_seen = {}
+                    for ex_date, ex_period, ex_absent, ex_subject, ex_time in extra_rows:
                         absent_list = [r.strip() for r in str(ex_absent).split(",") if r.strip()]
+                        label = f"{ex_time or '--:--'} {ex_subject or ex_period or 'Extra'} (Extra)"
+                        dup = extra_label_seen.get((ex_date, label), 0)
+                        extra_label_seen[(ex_date, label)] = dup + 1
+                        if dup:
+                            label = f"{label} #{dup + 1}"
                         for sid, name, roll in student_rows:
                             status = 'A' if str(roll) in absent_list else 'P'
-                            attendance_rows.append((sid, ex_date, f"{ex_period} (Extra)", status))
+                            attendance_rows.append((sid, ex_date, label, status))
 
                     print("QUERY RESULT (WITH EXTRA):", {
                         "classId": class_id,

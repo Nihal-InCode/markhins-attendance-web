@@ -7511,7 +7511,7 @@ export default function DashboardPage() {
                       ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                           {extraClassesReport.map((report, idx) => (
-                            <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
+                            <div key={report.id ?? idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
                               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
                               <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
@@ -7521,6 +7521,11 @@ export default function DashboardPage() {
                               <div className="mt-2 space-y-1">
                                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
                                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
+                                {(report.sickCount > 0 || report.leaveCount > 0) && (
+                                  <p className="text-[11px] font-bold text-amber-600 uppercase tracking-tight">
+                                    {[report.sickCount > 0 ? `🤒 ${report.sickCount} Sick` : null, report.leaveCount > 0 ? `🏠 ${report.leaveCount} Leave` : null].filter(Boolean).join(" • ")}
+                                  </p>
+                                )}
                               </div>
                               <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
                                 <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
