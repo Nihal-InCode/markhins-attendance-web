@@ -788,6 +788,7 @@ export default function DashboardPage() {
   const [loadingExtra, setLoadingExtra] = useState(false);
   const [selectedTeacherForExtra, setSelectedTeacherForExtra] = useState("");
   const [selectedClassForExtra, setSelectedClassForExtra] = useState("");
+  const [extraDetail, setExtraDetail] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [namazAnalytics, setNamazAnalytics] = useState(null);
   const [loadingNamaz, setLoadingNamaz] = useState(false);
@@ -7509,37 +7510,45 @@ export default function DashboardPage() {
                       {loadingExtra ? (
                         <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-[3px] border-amber-400 border-t-transparent"></div></div>
                       ) : Array.isArray(extraClassesReport) && extraClassesReport.length > 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                          {extraClassesReport.map((report, idx) => (
-                            <div key={report.id ?? idx} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-lg hover:border-amber-100 relative overflow-hidden group">
-                              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform"></div>
-                              <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">⚡ Extra Class</span>
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.time}</span>
-                              </div>
-                              <h4 className="font-black text-gray-800 text-base leading-tight pr-6">{report.subject}</h4>
-                              <div className="mt-2 space-y-1">
-                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Class: <span className="text-gray-900 font-black">{report.class}</span></p>
-                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Teacher: <span className="text-gray-900 font-black">{report.teacherName}</span></p>
-                                {(report.sickCount > 0 || report.leaveCount > 0) && (
-                                  <p className="text-[11px] font-bold text-amber-600 uppercase tracking-tight">
-                                    {[report.sickCount > 0 ? `🤒 ${report.sickCount} Sick` : null, report.leaveCount > 0 ? `🏠 ${report.leaveCount} Leave` : null].filter(Boolean).join(" • ")}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-                                <div className="text-center bg-green-50/50 p-2 rounded-2xl border border-green-50">
-                                  <p className="text-sm font-black text-green-600">{report.presentCount}</p>
-                                  <p className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-0.5">Present</p>
+                        (() => {
+                          const grouped = {};
+                          extraClassesReport.forEach((r) => {
+                            const key = r.class || "Unknown";
+                            if (!grouped[key]) grouped[key] = [];
+                            grouped[key].push(r);
+                          });
+                          const classOrder = { 'HS1': 1, 'HSU1': 2, 'HS2': 3, 'HSU2': 4, 'BS1': 5, 'BSU1': 6, 'BS2': 7, 'BS3': 8, 'BS4': 9, 'BS5': 10 };
+                          const keys = Object.keys(grouped).sort((a, b) =>
+                            ((classOrder[a] ?? 99) - (classOrder[b] ?? 99)) || String(a).localeCompare(String(b))
+                          );
+                          return (
+                            <div className="space-y-5">
+                              {keys.map((cls) => (
+                                <div key={cls} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-5">
+                                  <div className="flex items-center justify-between gap-3 mb-4">
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="inline-flex h-7 min-w-[2.75rem] items-center justify-center rounded-lg bg-amber-100 px-2 text-[11px] font-black uppercase tracking-wider text-amber-700">{cls}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                        {grouped[cls].length} extra class{grouped[cls].length > 1 ? "es" : ""}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">{selectedDate}</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3">
+                                    {grouped[cls].map((rec) => (
+                                      <button key={rec.id} onClick={() => setExtraDetail(rec)}
+                                        className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border border-gray-100 bg-gray-50/70 p-2 flex flex-col items-center justify-center gap-1 text-center transition-all hover:border-amber-300 hover:bg-amber-50 active:scale-95">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">{rec.time}</span>
+                                        <span className="w-full line-clamp-2 text-[11px] font-black leading-tight text-gray-800 break-words">{rec.subject || "Extra"}</span>
+                                        <span className="text-[9px] font-bold text-emerald-600">{rec.presentCount}/{rec.totalStudents}</span>
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="text-center bg-red-50/50 p-2 rounded-2xl border border-red-50">
-                                  <p className="text-sm font-black text-red-600">{report.absentCount}</p>
-                                  <p className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-0.5">Absent</p>
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()
                       ) : (
                         <div className="bg-gray-50/50 p-12 rounded-[2.5rem] border border-dashed border-gray-200 text-center">
                           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-xl">⚡</div>
@@ -7548,6 +7557,82 @@ export default function DashboardPage() {
                       )}
                     </div>
 
+                    {/* Extra class detail - tap a square above */}
+                    {extraDetail && (() => {
+                      const isOwner = String(extraDetail.teacherId) === String(user?.id);
+                      const absentRolls = Array.isArray(extraDetail.absentRolls) ? extraDetail.absentRolls : [];
+                      return (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true">
+                          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setExtraDetail(null)} />
+                          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+                            <div className="flex items-start justify-between gap-3 px-5 py-4" style={{ background: 'linear-gradient(135deg, #082231 0%, #0a505c 100%)' }}>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">⚡ Extra Class</p>
+                                <h4 className="truncate text-lg font-black text-white">{extraDetail.subject || "Extra"}</h4>
+                                <p className="text-[11px] font-bold text-white/60">{extraDetail.class} • {extraDetail.date}</p>
+                              </div>
+                              <button onClick={() => setExtraDetail(null)} aria-label="Close"
+                                className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all">✕</button>
+                            </div>
+
+                            <div className="space-y-4 p-5">
+                              <div className="grid grid-cols-2 gap-3">
+                                {[["Time", extraDetail.time], ["Period", extraDetail.period || "Extra"], ["Teacher", extraDetail.teacherName], ["Total", extraDetail.totalStudents]].map(([l, v]) => (
+                                  <div key={l} className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{l}</p>
+                                    <p className="truncate text-sm font-black text-gray-800">{v}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="grid grid-cols-4 gap-2 text-center">
+                                {[
+                                  ["Present", extraDetail.presentCount, "text-emerald-600", "bg-emerald-50"],
+                                  ["Absent", extraDetail.absentCount, "text-red-500", "bg-red-50"],
+                                  ["Sick", extraDetail.sickCount || 0, "text-orange-600", "bg-orange-50"],
+                                  ["Leave", extraDetail.leaveCount || 0, "text-amber-600", "bg-amber-50"],
+                                ].map(([l, v, t, b]) => (
+                                  <div key={l} className={`rounded-2xl border border-gray-50 p-2 ${b}`}>
+                                    <p className={`text-sm font-black ${t}`}>{v}</p>
+                                    <p className={`text-[8px] font-black uppercase tracking-widest ${t} opacity-70`}>{l}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div>
+                                <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-gray-400">Absent rolls</p>
+                                {absentRolls.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {absentRolls.map((roll) => (
+                                      <span key={String(roll)} className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-black text-red-600">{roll}</span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] font-bold text-gray-400">None - everyone present</p>
+                                )}
+                              </div>
+
+                              <div className="flex gap-3 pt-1">
+                                <button onClick={() => setExtraDetail(null)}
+                                  className="flex-1 rounded-2xl border border-gray-200 bg-white py-3.5 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-[0.98]">Close</button>
+                                {isOwner && (
+                                  <button onClick={() => {
+                                      try { sessionStorage.setItem("extra_edit_request", JSON.stringify({ id: extraDetail.id, date: extraDetail.date })); } catch (_) { /* ignore */ }
+                                      setExtraDetail(null);
+                                      trackEvent("Editing extra class", `${extraDetail.class} ${extraDetail.subject || ""}`);
+                                      router.push("/extra");
+                                    }}
+                                    className="flex-1 rounded-2xl bg-[#0d9488] py-3.5 text-sm font-bold text-white hover:bg-[#0a7a70] transition-all active:scale-[0.98]">Edit</button>
+                                )}
+                              </div>
+                              {!isOwner && (
+                                <p className="text-center text-[11px] font-bold text-gray-400">Only {extraDetail.teacherName} can edit this record.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
 

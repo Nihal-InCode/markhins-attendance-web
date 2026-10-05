@@ -63,6 +63,7 @@ export default function ExtraAttendancePage() {
     // classes for the same class on the same day keeps both records.
     const [sessionId, setSessionId] = useState(null);
     const [editId, setEditId] = useState(null);
+    const [editingSubject, setEditingSubject] = useState("");
     const [existing, setExisting] = useState([]);
     const [existingLoading, setExistingLoading] = useState(false);
 
@@ -73,10 +74,31 @@ export default function ExtraAttendancePage() {
             try {
                 const clsData = await getClasses();
                 setClasses(Array.isArray(clsData) ? clsData : []);
+
+                // Edit hand-off from Management > Extra Classes report.
+                let req = null;
+                try {
+                    const raw = sessionStorage.getItem("extra_edit_request");
+                    if (raw) {
+                        sessionStorage.removeItem("extra_edit_request");
+                        req = JSON.parse(raw);
+                    }
+                } catch (_) { req = null; }
+
+                if (req && req.id && req.date) {
+                    const rows = await getExtraClassesReport({ date: req.date });
+                    const rec = (Array.isArray(rows) ? rows : [])
+                        .find((r) => String(r.id) === String(req.id));
+                    if (rec) {
+                        await startEditSession(rec);
+                        return;
+                    }
+                }
             } catch (err) { setSetupError(err.message); }
             finally { setLoadingSetup(false); hideLoader(); }
         }
         load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -111,10 +133,15 @@ export default function ExtraAttendancePage() {
         return () => { cancelled = true; };
     }, [selectedClass, date, step]);
 
-    const effectiveSubject = customSubject.trim() !== "" ? customSubject.trim() : selectedSubject;
+    // While editing an existing record its own subject wins - the subject
+    // dropdown effect clears customSubject/selectedSubject whenever the class
+    // changes, so relying on those would race during the edit hand-off.
+    const effectiveSubject = editId
+        ? (editingSubject || customSubject.trim() || selectedSubject)
+        : (customSubject.trim() !== "" ? customSubject.trim() : selectedSubject);
 
-    const fetchRoster = async () => {
-        const data = await getStudents(selectedClass, "", date);
+    const fetchRoster = async (classId, dateStr) => {
+        const data = await getStudents(classId || selectedClass, "", dateStr || date);
         return Array.isArray(data) ? data : [];
     };
 
@@ -144,27 +171,35 @@ export default function ExtraAttendancePage() {
         setLoadingStudents(true);
         showLoader("Loading students...");
         try {
-            const list = await fetchRoster();
+            const list = await fetchRoster(selectedClass, date);
             setStudents(list);
             setAttendance(buildInitial(list, null));
             setSessionId(newSessionId());
             setEditId(null);
+            setEditingSubject("");
             setStep("marking");
         } catch (err) { setSetupError(err.message); }
         finally { setLoadingStudents(false); hideLoader(); }
     };
 
-    const startEditSession = async (record) => {
+    const startEditSession = async (record, classId, dateStr) => {
         if (!record) return;
+        const cls = record.class || classId || selectedClass;
+        const day = record.date || dateStr || date;
         setSetupError("");
         setLoadingStudents(true);
         showLoader("Loading students...");
         try {
-            const list = await fetchRoster();
+            // Resolve the roster from the record's own class/date - the matching
+            // state may not be committed yet when this is called on mount.
+            const list = await fetchRoster(cls, day);
             setStudents(list);
             setAttendance(buildInitial(list, record.absentRolls || []));
-            setCustomSubject(record.subject || "");
+            setSelectedClass(cls);
+            setDate(day);
+            setEditingSubject(record.subject || "");
             setSelectedSubject("");
+            setCustomSubject("");
             setSessionId(null);
             setEditId(record.id);
             setStep("marking");
@@ -217,6 +252,7 @@ export default function ExtraAttendancePage() {
         setDate(getIstToday());
         setSessionId(null);
         setEditId(null);
+        setEditingSubject("");
         setExisting([]);
         setSubmitError("");
         setSetupError("");
@@ -238,7 +274,18 @@ export default function ExtraAttendancePage() {
             <div className="rounded-b-3xl px-4 pt-6 pb-10 sm:px-6" style={{ background: "linear-gradient(135deg, #082231 0%, #0a505c 100%)" }}>
                 <div className="mx-auto max-w-md">
                     <div className="flex items-center justify-between mb-5">
-                        <button onClick={() => step === "marking" ? setStep("setup") : router.push("/")}
+                        <button onClick={() => {
+                                if (step === "marking") {
+                                    // Leaving marking cancels an in-progress edit.
+                                    setStep("setup");
+                                    setEditId(null);
+                                    setEditingSubject("");
+                                    setSessionId(newSessionId());
+                                    setSubmitError("");
+                                } else {
+                                    router.push("/");
+                                }
+                            }}
                             className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all">← Back</button>
                         <span className="rounded-full bg-amber-400/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300 animate-pulse">⚡ Extra</span>
                     </div>
