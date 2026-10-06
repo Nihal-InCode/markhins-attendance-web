@@ -319,7 +319,7 @@ export default function StudyLeavePage() {
                     </button>
                     <div className="text-center">
                         <h1 className="text-lg font-black">📚 Study Leave</h1>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-700">
                             {step === 1 ? "Step 1 • Select Classes" : `Step 2 • ${sessionLabel}`}
                         </p>
                         <div className="flex items-center justify-center gap-1.5 mt-1.5">
@@ -339,10 +339,10 @@ export default function StudyLeavePage() {
 
                 {/* Recent marking card */}
                 {lastMarking && step === 1 && (
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-violet-100 p-5 space-y-3">
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-5 space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Your last study leave marking</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-700">Your last study leave marking</p>
                                 <p className="text-sm font-black text-gray-900 mt-0.5">
                                     {lastMarking.className} • {lastMarking.sessionLabel}
                                 </p>
@@ -356,7 +356,7 @@ export default function StudyLeavePage() {
                             <button
                                 onClick={() => enterStep2({ date: lastMarking.date, sessionKey: lastMarking.session, classes: [lastMarking.className] })}
                                 disabled={!lastMarking.editable}
-                                className="py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-violet-50 text-violet-700 border border-violet-100 active:scale-95 disabled:opacity-40"
+                                className="py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 text-slate-800 border border-slate-200 active:scale-95 disabled:opacity-40"
                             >
                                 ✏️ Edit
                             </button>
@@ -380,7 +380,7 @@ export default function StudyLeavePage() {
                                 type="date"
                                 value={date}
                                 onChange={(e) => setDate(e.target.value || getIstToday())}
-                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all text-gray-800"
+                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-slate-600/10 transition-all text-gray-800"
                             />
                         </div>
 
@@ -394,10 +394,10 @@ export default function StudyLeavePage() {
                                         <button
                                             key={s.key}
                                             onClick={() => setSessionKey(s.key)}
-                                            className={`p-4 rounded-2xl border text-left transition-all active:scale-95 ${isSelected ? "bg-violet-600 border-violet-600 shadow-lg shadow-violet-200" : "bg-white border-gray-100 hover:border-violet-200"}`}
+                                            className={`p-4 rounded-2xl border text-left transition-all active:scale-95 ${isSelected ? "bg-slate-700 border-slate-700 shadow-lg shadow-slate-300" : "bg-white border-gray-100 hover:border-slate-300"}`}
                                         >
                                             <p className={`text-xs font-black leading-tight ${isSelected ? "text-white" : "text-gray-800"}`}>{s.label}</p>
-                                            <p className={`text-[10px] font-bold mt-1 ${isSelected ? "text-violet-200" : "text-gray-400"}`}>×{s.power} attendance</p>
+                                            <p className={`text-[10px] font-bold mt-1 ${isSelected ? "text-slate-300" : "text-gray-400"}`}>×{s.power} attendance</p>
                                         </button>
                                     );
                                 })}
@@ -411,9 +411,9 @@ export default function StudyLeavePage() {
                             {selectedClasses.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {selectedClasses.map(cls => (
-                                        <span key={cls} className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 px-3 py-1 rounded-xl text-xs font-bold border border-violet-100">
+                                        <span key={cls} className="inline-flex items-center gap-1 bg-slate-50 text-slate-800 px-3 py-1 rounded-xl text-xs font-bold border border-slate-200">
                                             {cls}
-                                            <button onClick={() => setSelectedClasses(prev => prev.filter(x => x !== cls))} className="text-violet-400 hover:text-violet-700 font-bold ml-1">x</button>
+                                            <button onClick={() => setSelectedClasses(prev => prev.filter(x => x !== cls))} className="text-slate-400 hover:text-slate-800 font-bold ml-1">x</button>
                                         </span>
                                     ))}
                                 </div>
@@ -422,10 +422,10 @@ export default function StudyLeavePage() {
                             <button
                                 type="button"
                                 onClick={() => { setClassSearch(""); setClassModalOpen(true); }}
-                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-xs font-medium text-gray-500 flex items-center justify-between hover:border-violet-200 transition-all"
+                                className="w-full rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-xs font-medium text-gray-500 flex items-center justify-between hover:border-slate-300 transition-all"
                             >
                                 <span>Click to select classes...</span>
-                                <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">{selectedClasses.length} selected</span>
+                                <span className="text-[10px] font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md">{selectedClasses.length} selected</span>
                             </button>
                         </div>
 
@@ -433,7 +433,7 @@ export default function StudyLeavePage() {
                             <button
                                 onClick={() => enterStep2()}
                                 disabled={!sessionKey || selectedClasses.length === 0}
-                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${!sessionKey || selectedClasses.length === 0 ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-violet-600 text-white shadow-violet-200 hover:bg-violet-700"}`}
+                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${!sessionKey || selectedClasses.length === 0 ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-slate-700 text-white shadow-slate-300 hover:bg-slate-800"}`}
                             >
                                 {!sessionKey ? "Select a session" : selectedClasses.length === 0 ? "Select at least one class" : `Continue — ${selectedClasses.length} class${selectedClasses.length > 1 ? "es" : ""}`}
                             </button>
@@ -442,10 +442,10 @@ export default function StudyLeavePage() {
                 ) : (
                     <>
                         {/* Session summary */}
-                        <div className="bg-violet-600 rounded-[2rem] p-5 shadow-xl shadow-violet-200 flex items-center justify-between gap-3">
+                        <div className="bg-slate-700 rounded-[2rem] p-5 shadow-xl shadow-slate-300 flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-white font-black text-sm">{sessionLabel}</p>
-                                <p className="text-violet-200 text-[10px] font-bold mt-0.5">{formatDisplayDate(date)} • ×{power} attendance per mark</p>
+                                <p className="text-slate-300 text-[10px] font-bold mt-0.5">{formatDisplayDate(date)} • ×{power} attendance per mark</p>
                             </div>
                             <button
                                 onClick={() => setStep(1)}
@@ -480,7 +480,7 @@ export default function StudyLeavePage() {
                                                 {locked ? `Marked by ${entry.teacherName || 'Admin'}` : "Editing"}
                                             </span>
                                         ) : (
-                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border bg-violet-50 text-violet-600 border-violet-100">Not marked</span>
+                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border bg-slate-50 text-slate-700 border-slate-200">Not marked</span>
                                         )}
                                     </div>
 
@@ -545,7 +545,7 @@ export default function StudyLeavePage() {
                             <button
                                 onClick={() => setShowConfirm(true)}
                                 disabled={submitting || nothingEditable}
-                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${submitting || nothingEditable ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-violet-600 text-white shadow-violet-200 hover:bg-violet-700"}`}
+                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${submitting || nothingEditable ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-slate-700 text-white shadow-slate-300 hover:bg-slate-800"}`}
                             >
                                 {submitting ? "Processing..." : nothingEditable ? "Already marked by others" : allMarked ? "Update Attendance" : "Submit Attendance"}
                             </button>
@@ -573,7 +573,7 @@ export default function StudyLeavePage() {
                                 placeholder="Search class..."
                                 value={classSearch}
                                 onChange={(e) => setClassSearch(e.target.value)}
-                                className="w-full px-4 py-2.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-violet-500/20 font-medium"
+                                className="w-full px-4 py-2.5 text-xs border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-slate-600/20 font-medium"
                             />
                         </div>
 
@@ -588,11 +588,11 @@ export default function StudyLeavePage() {
                                             key={cls}
                                             type="button"
                                             onClick={() => setSelectedClasses(prev => (isSelected ? prev.filter(x => x !== cls) : [...prev, cls]))}
-                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-violet-50 text-violet-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left group ${isSelected ? 'bg-slate-50 text-slate-800 font-black' : 'hover:bg-gray-50 text-gray-600'}`}
                                         >
                                             <span>{cls}</span>
                                             {isSelected ? (
-                                                <span className="text-violet-600 font-extrabold text-[10px] uppercase tracking-wider bg-violet-100/50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                                <span className="text-slate-700 font-extrabold text-[10px] uppercase tracking-wider bg-slate-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
                                                     <span>Selected</span>
                                                     <span className="text-xs">✓</span>
                                                 </span>
@@ -606,7 +606,7 @@ export default function StudyLeavePage() {
                         </div>
 
                         <div className="border-t border-gray-50 pt-4 mt-2">
-                            <button type="button" onClick={() => setClassModalOpen(false)} className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-violet-500/20">
+                            <button type="button" onClick={() => setClassModalOpen(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-slate-600/20">
                                 Done ({selectedClasses.length} selected)
                             </button>
                         </div>
@@ -618,7 +618,7 @@ export default function StudyLeavePage() {
             {showConfirm && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-200">
                     <div className="bg-white w-full sm:max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
-                        <div className="bg-violet-600 p-6 flex-shrink-0 relative overflow-hidden">
+                        <div className="bg-slate-700 p-6 flex-shrink-0 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl" />
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 mb-2">
@@ -626,7 +626,7 @@ export default function StudyLeavePage() {
                                     <span className="text-white font-black text-sm uppercase tracking-widest">Study Leave Attendance</span>
                                 </div>
                                 <h2 className="text-white text-xl font-black">{sessionLabel}</h2>
-                                <p className="text-violet-100 text-xs font-bold mt-0.5">{formatDisplayDate(date)} • ×{power} attendance per mark</p>
+                                <p className="text-slate-200 text-xs font-bold mt-0.5">{formatDisplayDate(date)} • ×{power} attendance per mark</p>
                             </div>
                         </div>
 
@@ -636,14 +636,14 @@ export default function StudyLeavePage() {
                                 const entry = classStatus[cls] || {};
                                 const action = entry.marked ? (entry.editable ? "Update" : "Skip") : "Mark";
                                 return (
-                                    <div key={cls} className={`${action === "Skip" ? "bg-gray-50 border-gray-100" : "bg-violet-50 border-violet-100"} border rounded-[1.5rem] p-4 flex items-center justify-between gap-3`}>
+                                    <div key={cls} className={`${action === "Skip" ? "bg-gray-50 border-gray-100" : "bg-slate-50 border-slate-200"} border rounded-[1.5rem] p-4 flex items-center justify-between gap-3`}>
                                         <div>
                                             <p className="font-black text-gray-900 text-sm">{cls}</p>
                                             <p className="text-[10px] font-bold text-gray-500 mt-0.5">
                                                 {counts.present} present • {counts.absent + counts.sick + counts.leave} absent • {counts.special_leave} special leave
                                             </p>
                                         </div>
-                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${action === "Skip" ? 'bg-white text-gray-500 border-gray-200' : 'bg-white text-violet-700 border-violet-200'}`}>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${action === "Skip" ? 'bg-white text-gray-500 border-gray-200' : 'bg-white text-slate-800 border-slate-300'}`}>
                                             {action}
                                         </span>
                                     </div>
@@ -655,7 +655,7 @@ export default function StudyLeavePage() {
                             <button onClick={() => setShowConfirm(false)} className="w-full py-5 rounded-[2rem] font-black text-base bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all active:scale-95">
                                 Cancel
                             </button>
-                            <button onClick={handleSubmit} disabled={submitting} className={`w-full py-5 rounded-[2rem] font-black text-base transition-all active:scale-95 ${submitting ? "bg-gray-200 text-gray-400" : "bg-violet-600 text-white hover:bg-violet-700 shadow-xl shadow-violet-200"}`}>
+                            <button onClick={handleSubmit} disabled={submitting} className={`w-full py-5 rounded-[2rem] font-black text-base transition-all active:scale-95 ${submitting ? "bg-gray-200 text-gray-400" : "bg-slate-700 text-white hover:bg-slate-800 shadow-xl shadow-slate-300"}`}>
                                 {submitting ? "Saving..." : "Confirm"}
                             </button>
                         </div>
