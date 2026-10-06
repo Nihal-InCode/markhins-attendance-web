@@ -139,6 +139,56 @@ def _load_study_leave_settings(c):
     return settings
 
 
+# Platforms (floors) are an admin-managed grouping used by the study leave
+# wizard to filter the class list: {"id", "name", "classes": [cls, ...]}.
+STUDY_PLATFORMS_KEY = "study_leave_platforms"
+
+
+def _normalize_study_leave_platforms(value):
+    """Keeps only well-formed platforms: {id, name, classes:[str, ...]}."""
+    if not isinstance(value, list):
+        return []
+    normalized = []
+    seen_ids = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        classes = item.get("classes")
+        if not isinstance(classes, list):
+            classes = []
+        cleaned_classes = []
+        for cls in classes:
+            cls = str(cls or "").strip()
+            if cls and cls not in cleaned_classes:
+                cleaned_classes.append(cls)
+        pid = str(item.get("id") or "").strip() or os.urandom(4).hex()
+        while pid in seen_ids:
+            pid = os.urandom(4).hex()
+        seen_ids.add(pid)
+        normalized.append({"id": pid, "name": name, "classes": cleaned_classes})
+    return normalized
+
+
+def _load_study_leave_platforms(c):
+    """Reads the admin-defined platform list ([] when never configured)."""
+    try:
+        c.execute("SELECT value FROM system_settings WHERE key=?", (STUDY_PLATFORMS_KEY,))
+        row = c.fetchone()
+        raw = row[0] if row else None
+    except sqlite3.Error:
+        return []
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    return _normalize_study_leave_platforms(parsed)
+
+
 # Shown on the custom 404 screen whenever someone tries the guest login while it is off.
 GUEST_PORTAL_SHUTDOWN_MESSAGE = (
     "The Guest Portal is temporarily unavailable due to administrative restrictions. "
@@ -450,6 +500,10 @@ def run_migrations():
         if not c.fetchone():
             default_study_leave = {"enabled": False, "powers": {s["key"]: s["default_power"] for s in STUDY_SESSIONS}}
             c.execute("INSERT INTO system_settings (key, value) VALUES ('study_leave_settings', ?)", (json.dumps(default_study_leave),))
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='study_leave_platforms'")
+        if not c.fetchone():
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('study_leave_platforms', ?)", (json.dumps([]),))
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -8046,6 +8100,22 @@ if __name__ == "__main__":
                         "enabled": settings["enabled"],
                         "powers": settings["powers"],
                         "message": "Study leave settings updated.",
+                    }
+
+                elif action == "get_study_leave_platforms":
+                    result = {"success": True, "platforms": _load_study_leave_platforms(c)}
+
+                elif action == "save_study_leave_platforms":
+                    platforms = _normalize_study_leave_platforms(data.get("platforms"))
+                    c.execute("""
+                        INSERT INTO system_settings (key, value) VALUES (?, ?)
+                        ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                    """, (STUDY_PLATFORMS_KEY, json.dumps(platforms)))
+                    conn.commit()
+                    result = {
+                        "success": True,
+                        "platforms": platforms,
+                        "message": "Platforms updated.",
                     }
 
                 elif action == "mark_study_leave_attendance":

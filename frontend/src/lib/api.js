@@ -216,6 +216,14 @@ export const updateStudyLeaveSetting = (enabled, powers) =>
         body: JSON.stringify({ enabled, powers }),
     });
 
+export const getStudyLeavePlatforms = () => apiRequest('/admin/study-leave-platforms');
+
+export const saveStudyLeavePlatforms = (platforms) =>
+    apiRequest('/admin/study-leave-platforms', {
+        method: 'POST',
+        body: JSON.stringify({ platforms }),
+    });
+
 export const markStudyLeaveAttendance = (data) =>
     apiRequest('/study-leave/mark', {
         method: 'POST',

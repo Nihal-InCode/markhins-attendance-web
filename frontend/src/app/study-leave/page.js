@@ -9,6 +9,7 @@ import {
     getClasses,
     getStudents,
     getStudyLeaveSetting,
+    getStudyLeavePlatforms,
     getStudyLeaveStatus,
     markStudyLeaveAttendance,
     editStudyLeaveAttendance,
@@ -71,6 +72,9 @@ export default function StudyLeavePage() {
     const [sessionKey, setSessionKey] = useState("");
     const [step, setStep] = useState(1);
 
+    const [platforms, setPlatforms] = useState([]);
+    const [platformKey, setPlatformKey] = useState("");
+
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [classModalOpen, setClassModalOpen] = useState(false);
     const [classSearch, setClassSearch] = useState("");
@@ -112,6 +116,10 @@ export default function StudyLeavePage() {
                 const last = await getLastStudyLeave();
                 if (!cancelled) setLastMarking(last || null);
             } catch (_) { }
+            try {
+                const plat = await getStudyLeavePlatforms();
+                if (!cancelled) setPlatforms(Array.isArray(plat?.platforms) ? plat.platforms : []);
+            } catch (_) { }
             if (!cancelled) {
                 trackEvent('Opened study leave page');
                 setLoading(false);
@@ -122,6 +130,23 @@ export default function StudyLeavePage() {
 
     const power = Number(setting?.powers?.[sessionKey] ?? 1);
     const sessionLabel = (setting?.sessions || []).find(s => s.key === sessionKey)?.label || "";
+
+    const hasPlatforms = platforms.length > 0;
+    const allClassOptions = classes.map(classNameOf).filter(Boolean);
+    const activePlatform = platforms.find(p => p.id === platformKey) || null;
+    const classOptions = hasPlatforms && platformKey && platformKey !== "all" && activePlatform
+        ? allClassOptions.filter(c => activePlatform.classes.includes(c))
+        : allClassOptions;
+    // Steps stay faded until the one before them is done (from step 2 onward)
+    const platformLocked = !sessionKey;
+    const classesLocked = hasPlatforms ? !platformKey : !sessionKey;
+
+    const pickPlatform = (key) => {
+        setPlatformKey(key);
+        if (!key || key === "all") return;
+        const picked = platforms.find(p => p.id === key);
+        if (picked) setSelectedClasses(prev => prev.filter(c => picked.classes.includes(c)));
+    };
 
     const countsFor = (cls) => {
         const list = studentsByClass[cls] || [];
@@ -303,7 +328,6 @@ export default function StudyLeavePage() {
     if (loading) return <PencilLoader />;
 
     const sessions = setting?.sessions || [];
-    const classOptions = classes.map(classNameOf).filter(Boolean);
     const allMarked = selectedClasses.length > 0 && selectedClasses.every(cls => classStatus[cls]?.marked);
     const nothingEditable = selectedClasses.length > 0 && selectedClasses.every(cls => classStatus[cls]?.marked && !classStatus[cls]?.editable);
 
@@ -404,9 +428,35 @@ export default function StudyLeavePage() {
                             </div>
                         </div>
 
-                        {/* Step 1: class multi-select */}
-                        <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-3">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">3. Select Classes</label>
+                        {/* Platform select — narrows the class list */}
+                        {hasPlatforms && (
+                            <div className={`bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-3 transition-all ${platformLocked ? "opacity-40 pointer-events-none select-none" : ""}`}>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">3. Select Platform</label>
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    {[{ id: "all", name: "All Platforms", classes: allClassOptions }, ...platforms].map(p => {
+                                        const isSelected = platformKey === p.id;
+                                        const classCount = p.id === "all" ? allClassOptions.length : p.classes.length;
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => pickPlatform(p.id)}
+                                                className={`p-4 rounded-2xl border text-left transition-all active:scale-95 ${isSelected ? "bg-slate-700 border-slate-700 shadow-lg shadow-slate-300" : "bg-white border-gray-100 hover:border-slate-300"}`}
+                                            >
+                                                <p className={`text-xs font-black leading-tight ${isSelected ? "text-white" : "text-gray-800"}`}>{p.name}</p>
+                                                <p className={`text-[10px] font-bold mt-1 ${isSelected ? "text-slate-300" : "text-gray-400"}`}>{classCount} class{classCount === 1 ? "" : "es"}</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {platformLocked && <p className="text-[10px] font-bold text-gray-400">Select a session first</p>}
+                            </div>
+                        )}
+
+                        {/* Class multi-select */}
+                        <div className={`bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-3 transition-all ${classesLocked ? "opacity-40 pointer-events-none select-none" : ""}`}>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">{hasPlatforms ? "4. Select Classes" : "3. Select Classes"}</label>
+
+                            {classesLocked && <p className="text-[10px] font-bold text-gray-400">{hasPlatforms ? "Select a platform first" : "Select a session first"}</p>}
 
                             {selectedClasses.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
@@ -432,10 +482,16 @@ export default function StudyLeavePage() {
                         <div className="pt-2">
                             <button
                                 onClick={() => enterStep2()}
-                                disabled={!sessionKey || selectedClasses.length === 0}
-                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${!sessionKey || selectedClasses.length === 0 ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-slate-700 text-white shadow-slate-300 hover:bg-slate-800"}`}
+                                disabled={!sessionKey || (hasPlatforms && !platformKey) || selectedClasses.length === 0}
+                                className={`w-full py-5 rounded-[2rem] text-lg font-black shadow-2xl transition-all active:scale-[0.98] ${!sessionKey || (hasPlatforms && !platformKey) || selectedClasses.length === 0 ? "bg-gray-200 text-gray-400 shadow-none cursor-not-allowed" : "bg-slate-700 text-white shadow-slate-300 hover:bg-slate-800"}`}
                             >
-                                {!sessionKey ? "Select a session" : selectedClasses.length === 0 ? "Select at least one class" : `Continue — ${selectedClasses.length} class${selectedClasses.length > 1 ? "es" : ""}`}
+                                {!sessionKey
+                                    ? "Select a session"
+                                    : hasPlatforms && !platformKey
+                                        ? "Select a platform"
+                                        : selectedClasses.length === 0
+                                            ? "Select at least one class"
+                                            : `Continue — ${selectedClasses.length} class${selectedClasses.length > 1 ? "es" : ""}`}
                             </button>
                         </div>
                     </>

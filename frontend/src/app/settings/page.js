@@ -39,6 +39,9 @@ import {
     updateGuestPortalSetting,
     getStudyLeaveSetting,
     updateStudyLeaveSetting,
+    getStudyLeavePlatforms,
+    saveStudyLeavePlatforms,
+    getClasses,
     getPushSetting,
     updatePushSetting,
     sendTestPushNotification,
@@ -168,6 +171,11 @@ export default function SettingsPage() {
     const [studyLeaveEnabled, setStudyLeaveEnabled] = useState(false);
     const [studyLeavePowers, setStudyLeavePowers] = useState({ pre_breakfast: 3, after_breakfast: 4, afternoon: 2, first_dars: 2 });
     const [studyLeaveBusy, setStudyLeaveBusy] = useState(false);
+    const [platforms, setPlatforms] = useState([]);
+    const [platformNameInput, setPlatformNameInput] = useState("");
+    const [platformModalId, setPlatformModalId] = useState(null);
+    const [allClasses, setAllClasses] = useState([]);
+    const [platformBusy, setPlatformBusy] = useState(false);
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
     const [pushSubCount, setPushSubCount] = useState(0);
@@ -223,7 +231,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes, guestPortalRes, studyLeaveRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes, guestPortalRes, studyLeaveRes, platformsRes, classesRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -239,6 +247,8 @@ export default function SettingsPage() {
                 getPushSetting().catch(() => ({ enabled: true, reminder_time: "08:00", subscription_count: 0 })),
                 getGuestPortalSetting().catch(() => ({ enabled: true })),
                 getStudyLeaveSetting().catch(() => ({ enabled: false })),
+                getStudyLeavePlatforms().catch(() => ({ platforms: [] })),
+                getClasses().catch(() => []),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -259,6 +269,10 @@ export default function SettingsPage() {
                     setStudyLeavePowers(prev => ({ ...prev, ...studyLeaveRes.powers }));
                 }
             }
+            setPlatforms(Array.isArray(platformsRes?.platforms) ? platformsRes.platforms : []);
+            setAllClasses((Array.isArray(classesRes) ? classesRes : [])
+                .map(c => String(c?.name || c?.class || c?.id || c || "").trim())
+                .filter(Boolean));
             if (pushRes) {
                 setPushEnabled(pushRes.enabled !== false);
                 setPushReminderTime(pushRes.reminder_time || "08:00");
@@ -414,6 +428,63 @@ export default function SettingsPage() {
         } finally {
             setStudyLeaveBusy(false);
         }
+    }
+
+    async function persistPlatforms(nextPlatforms, successMsg) {
+        setPlatformBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const res = await saveStudyLeavePlatforms(nextPlatforms);
+            if (res?.success === false) throw new Error(res.message || "Failed to save platforms.");
+            setPlatforms(Array.isArray(res?.platforms) ? res.platforms : nextPlatforms);
+            if (successMsg) {
+                setMsg(successMsg);
+                playSound('success');
+            }
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setPlatformBusy(false);
+        }
+    }
+
+    function handleAddPlatform() {
+        const name = platformNameInput.trim();
+        if (!name) return;
+        if (platforms.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+            setError("A platform with that name already exists.");
+            return;
+        }
+        setPlatformNameInput("");
+        persistPlatforms([...platforms, { id: `p${Date.now()}`, name, classes: [] }], `Platform "${name}" added.`);
+    }
+
+    function handleRemovePlatform(platform) {
+        const ok = confirm(
+            `REMOVE PLATFORM "${platform.name}"?\n\n` +
+            "• Its classes go back to the ungrouped list.\n" +
+            "• No attendance data is changed."
+        );
+        if (!ok) return;
+        setPlatformModalId(null);
+        persistPlatforms(platforms.filter(p => p.id !== platform.id), `Platform "${platform.name}" removed.`);
+    }
+
+    function handleTogglePlatformClass(platformId, className) {
+        const target = platforms.find(p => p.id === platformId);
+        if (!target) return;
+        const hasClass = target.classes.includes(className);
+        // A class lives on exactly one platform, so picking it here clears it elsewhere.
+        const next = platforms.map(p => {
+            if (p.id === platformId) {
+                return { ...p, classes: hasClass ? p.classes.filter(c => c !== className) : [...p.classes, className] };
+            }
+            return p.classes.includes(className) ? { ...p, classes: p.classes.filter(c => c !== className) } : p;
+        });
+        setPlatforms(next);
+        persistPlatforms(next);
     }
 
     useEffect(() => {
@@ -1820,7 +1891,117 @@ export default function SettingsPage() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Platforms (floors) — drive the wizard's "Select Platform" step */}
+                            <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    Platforms — filters the class list in the study leave wizard
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={platformNameInput}
+                                        onChange={(e) => setPlatformNameInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === "Enter") handleAddPlatform(); }}
+                                        placeholder="e.g. First Floor"
+                                        disabled={platformBusy}
+                                        className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-slate-600 disabled:opacity-50"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddPlatform}
+                                        disabled={platformBusy || !platformNameInput.trim()}
+                                        className="px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    >
+                                        {platformBusy ? "Saving..." : "Add"}
+                                    </button>
+                                </div>
+
+                                {platforms.length === 0 ? (
+                                    <p className="text-[11px] text-gray-400">
+                                        No platforms yet. Once you add one, teachers get a <b>Select Platform</b> step that narrows the class list.
+                                    </p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {platforms.map((p) => (
+                                            <div key={p.id} className="rounded-xl border border-gray-200 bg-white px-3.5 py-3 flex items-center justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-black text-gray-900 truncate">{p.name}</p>
+                                                    <p className="text-[10px] font-bold text-gray-400 truncate">
+                                                        {p.classes.length
+                                                            ? `${p.classes.length} class${p.classes.length > 1 ? "es" : ""}: ${p.classes.join(", ")}`
+                                                            : "No classes assigned yet"}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPlatformModalId(p.id)}
+                                                        disabled={platformBusy}
+                                                        className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-700 border border-slate-200 active:scale-95 disabled:opacity-50"
+                                                    >
+                                                        Classes
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemovePlatform(p)}
+                                                        disabled={platformBusy}
+                                                        className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-500 border border-red-100 active:scale-95 disabled:opacity-50"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Platform class picker */}
+                        {platformModalId && (() => {
+                            const platform = platforms.find((x) => x.id === platformModalId);
+                            if (!platform) return null;
+                            return (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/40 backdrop-blur-sm">
+                                    <div className="absolute inset-0" onClick={() => setPlatformModalId(null)} />
+                                    <div className="relative bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] flex flex-col p-6 shadow-2xl overflow-hidden border border-gray-100">
+                                        <div className="flex items-center justify-between border-b border-gray-50 pb-3 mb-4">
+                                            <div>
+                                                <h4 className="text-sm font-black text-gray-900 uppercase tracking-wider">Classes in {platform.name}</h4>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">A class sits on one platform only</p>
+                                            </div>
+                                            <button onClick={() => setPlatformModalId(null)} className="text-gray-400 hover:text-gray-600 transition-colors text-xs font-bold w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center">✕</button>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                                            {allClasses.length === 0 ? (
+                                                <p className="py-8 text-center text-xs font-bold text-gray-400 uppercase">No classes found.</p>
+                                            ) : (
+                                                allClasses.map((cls) => {
+                                                    const isChecked = platform.classes.includes(cls);
+                                                    return (
+                                                        <button
+                                                            key={cls}
+                                                            type="button"
+                                                            onClick={() => handleTogglePlatformClass(platform.id, cls)}
+                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${isChecked ? "bg-slate-700 text-white" : "hover:bg-gray-50 text-gray-600"}`}
+                                                        >
+                                                            <span>{cls}</span>
+                                                            <span className={isChecked ? "text-white font-extrabold" : "text-gray-300"}>{isChecked ? "✓" : "—"}</span>
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                        <div className="border-t border-gray-50 pt-4 mt-2">
+                                            <button type="button" onClick={() => setPlatformModalId(null)} className="w-full py-3 bg-slate-700 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-slate-600/20">
+                                                Done ({platform.classes.length} assigned)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* Web Push Notifications & Attendance Reminder Control */}
                         <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm">
