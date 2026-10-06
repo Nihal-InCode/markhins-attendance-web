@@ -37,6 +37,8 @@ import {
     logoutAllGuestSessions,
     getGuestPortalSetting,
     updateGuestPortalSetting,
+    getStudyLeaveSetting,
+    updateStudyLeaveSetting,
     getPushSetting,
     updatePushSetting,
     sendTestPushNotification,
@@ -47,6 +49,12 @@ import PencilLoader from "@/components/PencilLoader";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const PERIODS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+const STUDY_SESSION_FIELDS = [
+    { key: "pre_breakfast", label: "Before Breakfast" },
+    { key: "after_breakfast", label: "After Breakfast" },
+    { key: "afternoon", label: "Afternoon" },
+    { key: "first_dars", label: "First Dars" },
+];
 const ACTIVITY_POLL_MS = 30000;
 
 function getIstDateString() {
@@ -157,6 +165,9 @@ export default function SettingsPage() {
     const [guestSearch, setGuestSearch] = useState("");
     const [guestPortalEnabled, setGuestPortalEnabled] = useState(true);
     const [guestPortalBusy, setGuestPortalBusy] = useState(false);
+    const [studyLeaveEnabled, setStudyLeaveEnabled] = useState(false);
+    const [studyLeavePowers, setStudyLeavePowers] = useState({ pre_breakfast: 3, after_breakfast: 4, afternoon: 2, first_dars: 2 });
+    const [studyLeaveBusy, setStudyLeaveBusy] = useState(false);
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
     const [pushSubCount, setPushSubCount] = useState(0);
@@ -212,7 +223,7 @@ export default function SettingsPage() {
         setError("");
         showLoaderRef.current("Loading settings...");
         try {
-            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes, guestPortalRes] = await Promise.all([
+            const [sessRes, infoRes, teacherRes, timetableRes, announcementRes, namazMonitorRes, coordRes, editorRes, singleSessRes, cutoffRes, geofenceRes, guestSessRes, pushRes, guestPortalRes, studyLeaveRes] = await Promise.all([
                 apiRequest("/admin/sessions"),
                 apiRequest("/admin/system-info"),
                 getAdminTeachers(),
@@ -227,6 +238,7 @@ export default function SettingsPage() {
                 getGuestSessions().catch(() => ({ success: false, data: [], active_online_count: 0, total_sessions: 0 })),
                 getPushSetting().catch(() => ({ enabled: true, reminder_time: "08:00", subscription_count: 0 })),
                 getGuestPortalSetting().catch(() => ({ enabled: true })),
+                getStudyLeaveSetting().catch(() => ({ enabled: false })),
             ]);
             setSessions(sessRes.sessions || []);
             setSystemInfo(infoRes || null);
@@ -240,6 +252,12 @@ export default function SettingsPage() {
             setStaffCutoffTime(cutoffRes?.cutoff_time || "13:00");
             if (guestPortalRes) {
                 setGuestPortalEnabled(guestPortalRes.enabled !== false);
+            }
+            if (studyLeaveRes) {
+                setStudyLeaveEnabled(studyLeaveRes.enabled === true);
+                if (studyLeaveRes.powers) {
+                    setStudyLeavePowers(prev => ({ ...prev, ...studyLeaveRes.powers }));
+                }
             }
             if (pushRes) {
                 setPushEnabled(pushRes.enabled !== false);
@@ -348,6 +366,55 @@ export default function SettingsPage() {
             (gs.created_at || "").toLowerCase().includes(q)
         );
     }, [guestSearch, guestSessions]);
+
+    async function handleToggleStudyLeave(enabled) {
+        if (!enabled) {
+            const ok = confirm(
+                "⚠️ HIDE STUDY LEAVE FROM EVERYONE?\n\n" +
+                "• The STUDY LEAVE card disappears from every dashboard immediately.\n" +
+                "• No one can mark study leave attendance while it is off.\n" +
+                "• You can switch it back on anytime from here."
+            );
+            if (!ok) return;
+        }
+
+        setStudyLeaveBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const res = await updateStudyLeaveSetting(enabled, studyLeavePowers);
+            setStudyLeaveEnabled(res?.enabled === true);
+            if (res?.powers) setStudyLeavePowers(prev => ({ ...prev, ...res.powers }));
+            setMsg(res?.message || (enabled ? "Study leave enabled for all teachers." : "Study leave hidden from all teachers."));
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setStudyLeaveBusy(false);
+        }
+    }
+
+    async function handleSaveStudyLeavePowers() {
+        setStudyLeaveBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            const res = await updateStudyLeaveSetting(studyLeaveEnabled, studyLeavePowers);
+            if (res?.success === false) {
+                throw new Error(res.message || "Failed to save session powers.");
+            }
+            setStudyLeaveEnabled(res?.enabled === true);
+            if (res?.powers) setStudyLeavePowers(prev => ({ ...prev, ...res.powers }));
+            setMsg("Study leave session powers updated.");
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setStudyLeaveBusy(false);
+        }
+    }
 
     useEffect(() => {
         if (activeTab === "system") {
@@ -1690,6 +1757,69 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Study Leave Feature Control */}
+                        <div className="rounded-3xl border border-violet-100 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">📚</span>
+                                        <h2 className="text-lg font-black text-gray-900">Study Leave Attendance</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        Shows the <b>STUDY LEAVE</b> card on every dashboard so teachers can mark session-based attendance
+                                        (Before Breakfast, After Breakfast, Afternoon, First Dars). Each session records its power number of attendance per student.
+                                    </p>
+                                </div>
+                                <label className="inline-flex items-center gap-3 cursor-pointer select-none self-start sm:self-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={studyLeaveEnabled}
+                                        disabled={studyLeaveBusy}
+                                        onChange={(e) => handleToggleStudyLeave(e.target.checked)}
+                                        className="h-5 w-5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                    />
+                                    <span className={`text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition-all ${studyLeaveEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                        {studyLeaveBusy ? "Saving..." : studyLeaveEnabled ? "Visible To All" : "Hidden From All"}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                    Session Power — attendance records per student per marking
+                                </label>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {STUDY_SESSION_FIELDS.map(({ key, label }) => (
+                                        <div key={key}>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="50"
+                                                value={studyLeavePowers[key] ?? 1}
+                                                onChange={(e) => setStudyLeavePowers(prev => ({ ...prev, [key]: e.target.value }))}
+                                                disabled={studyLeaveBusy}
+                                                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-violet-500 disabled:opacity-50"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+                                    <p className="text-[11px] text-gray-400">
+                                        Example: power <b>3</b> on Before Breakfast writes 3 attendance records for every student in one flow.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveStudyLeavePowers}
+                                        disabled={studyLeaveBusy}
+                                        className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    >
+                                        {studyLeaveBusy ? "Saving..." : "Save Session Powers"}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Web Push Notifications & Attendance Reminder Control */}

@@ -60,6 +60,85 @@ def _guest_portal_enabled(c):
     return (str(row[0]) if row else "1") != "0"
 
 
+# ─────────────────────────────────────────────────────────────────────
+# STUDY LEAVE
+# Study leave attendance lives in period_attendance under synthetic period
+# labels (SL1..SL4). Each session has a "power": the number of attendance
+# records written per student for a single marking flow (Before Breakfast
+# power=3 -> 3 rows per student), so totals across the app grow accordingly.
+# ─────────────────────────────────────────────────────────────────────
+STUDY_SESSIONS = [
+    {"key": "pre_breakfast", "label": "Before Breakfast", "period": "SL1", "default_power": 3},
+    {"key": "after_breakfast", "label": "After Breakfast", "period": "SL2", "default_power": 4},
+    {"key": "afternoon", "label": "Afternoon", "period": "SL3", "default_power": 2},
+    {"key": "first_dars", "label": "First Dars", "period": "SL4", "default_power": 2},
+]
+STUDY_SESSION_BY_KEY = {s["key"]: s for s in STUDY_SESSIONS}
+STUDY_SESSION_BY_PERIOD = {s["period"]: s for s in STUDY_SESSIONS}
+STUDY_LEAVE_SETTINGS_KEY = "study_leave_settings"
+STUDY_PERIOD_PREFIX = "SL"
+
+
+def _is_study_leave_period(period):
+    return str(period or "").upper().startswith(STUDY_PERIOD_PREFIX)
+
+
+def _study_session_from_ref(ref):
+    """Resolves a session from its key ('pre_breakfast'), period label
+    ('SL1') or display label ('Before Breakfast'). Returns dict or None."""
+    if ref is None:
+        return None
+    val = str(ref).strip()
+    if not val:
+        return None
+    if val in STUDY_SESSION_BY_KEY:
+        return STUDY_SESSION_BY_KEY[val]
+    upper = val.upper()
+    if upper in STUDY_SESSION_BY_PERIOD:
+        return STUDY_SESSION_BY_PERIOD[upper]
+    lowered = val.lower()
+    for s in STUDY_SESSIONS:
+        if s["label"].lower() == lowered:
+            return s
+    return None
+
+
+def _default_study_leave_settings():
+    return {
+        "enabled": False,
+        "powers": {s["key"]: s["default_power"] for s in STUDY_SESSIONS},
+    }
+
+
+def _load_study_leave_settings(c):
+    """Reads study leave settings (enabled flag + per-session power)."""
+    settings = _default_study_leave_settings()
+    try:
+        c.execute("SELECT value FROM system_settings WHERE key=?", (STUDY_LEAVE_SETTINGS_KEY,))
+        row = c.fetchone()
+        raw = row[0] if row else None
+    except sqlite3.Error:
+        return settings
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            if "enabled" in parsed:
+                settings["enabled"] = parsed.get("enabled") is True or str(parsed.get("enabled")).lower() in ("1", "true")
+            powers = parsed.get("powers")
+            if isinstance(powers, dict):
+                for s in STUDY_SESSIONS:
+                    if s["key"] in powers:
+                        try:
+                            val = int(powers.get(s["key"]))
+                        except (TypeError, ValueError):
+                            val = s["default_power"]
+                        settings["powers"][s["key"]] = min(max(val, 1), 50)
+    return settings
+
+
 # Shown on the custom 404 screen whenever someone tries the guest login while it is off.
 GUEST_PORTAL_SHUTDOWN_MESSAGE = (
     "The Guest Portal is temporarily unavailable due to administrative restrictions. "
@@ -366,6 +445,11 @@ def run_migrations():
         c.execute("SELECT 1 FROM system_settings WHERE key='guest_portal_enabled'")
         if not c.fetchone():
             c.execute("INSERT INTO system_settings (key, value) VALUES ('guest_portal_enabled', '1')")
+
+        c.execute("SELECT 1 FROM system_settings WHERE key='study_leave_settings'")
+        if not c.fetchone():
+            default_study_leave = {"enabled": False, "powers": {s["key"]: s["default_power"] for s in STUDY_SESSIONS}}
+            c.execute("INSERT INTO system_settings (key, value) VALUES ('study_leave_settings', ?)", (json.dumps(default_study_leave),))
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -1801,8 +1885,21 @@ def get_student_stats(c, student_id, student_name, student_class, roll_no, start
         date_sql += " AND date <= ?"
         date_params.append(end_date)
 
-    # 1. Compute total_classes strictly using class-level attendance marks
-    c.execute("SELECT COUNT(DISTINCT date || '-' || period) FROM period_attendance WHERE class = ?" + date_sql, [student_class] + date_params)
+    # 1. Compute total_classes strictly using class-level attendance marks.
+    # Study-leave sessions write "power" rows per student, so sessions are
+    # weighted by the max row-count any student has for that session.
+    # For regular periods every student has exactly 1 row, so this equals the
+    # old COUNT(DISTINCT date || '-' || period).
+    c.execute("""
+        SELECT IFNULL(SUM(per_session), 0) FROM (
+            SELECT date, period, MAX(cnt) AS per_session FROM (
+                SELECT date, period, student_id, COUNT(*) AS cnt
+                FROM period_attendance WHERE class = ?
+        """ + date_sql + """
+            GROUP BY date, period, student_id
+            ) GROUP BY date, period
+        )
+    """, [student_class] + date_params)
     count_period = c.fetchone()[0] or 0
 
     c.execute("SELECT COUNT(*) FROM extra_classes WHERE class = ?" + date_sql, [student_class] + date_params)
@@ -4609,6 +4706,7 @@ def handle_message(telegram_username, chat_id, text, send_whatsapp_message, trus
             JOIN students s ON pa.student_id = s.id
             WHERE pa.date = ? AND pa.class = ?
             {}
+            GROUP BY pa.student_id, pa.period
             ORDER BY s.roll_no
         """.format("AND pa.period = ?" if period else ""), (view_date, class_, period) if period else (view_date, class_))
 
@@ -6938,9 +7036,10 @@ if __name__ == "__main__":
                     teacher_id = data.get("teacher_id")
                     
                     # 1. Get the very last attendance entry created by THIS teacher
+                    # (study leave rows are excluded — they have their own flow)
                     c.execute("""
                         SELECT class, period, date, id FROM period_attendance
-                        WHERE teacher_id=?
+                        WHERE teacher_id=? AND period NOT LIKE 'SL%'
                         ORDER BY date DESC, id DESC LIMIT 1
                     """, (teacher_id,))
                     row = c.fetchone()
@@ -6990,7 +7089,7 @@ if __name__ == "__main__":
                         SELECT DISTINCT pa.period, COALESCE(t.name, 'Admin') as name
                         FROM period_attendance pa
                         LEFT JOIN teachers t ON pa.teacher_id = t.id
-                        WHERE pa.class=? AND pa.date=?
+                        WHERE pa.class=? AND pa.date=? AND pa.period NOT LIKE 'SL%'
                     """, (class_id, date))
                     rows = c.fetchall()
                     
@@ -7367,9 +7466,13 @@ if __name__ == "__main__":
                                SUM(CASE WHEN pa.status='SL' THEN 1 ELSE 0 END),
                                SUM(CASE WHEN pa.status='S' THEN 1 ELSE 0 END),
                                SUM(CASE WHEN pa.status='L' THEN 1 ELSE 0 END)
-                        FROM period_attendance pa
+                        FROM (
+                            SELECT teacher_id, class, period, student_id, MAX(status) AS status
+                            FROM period_attendance
+                            WHERE date = ?
+                            GROUP BY class, period, student_id
+                        ) pa
                         LEFT JOIN teachers t ON pa.teacher_id = t.id
-                        WHERE pa.date = ?
                         GROUP BY pa.teacher_id, pa.class, pa.period
                         ORDER BY pa.period DESC, pa.class ASC
                     """, (report_date,))
@@ -7900,6 +8003,297 @@ if __name__ == "__main__":
                     c.execute("INSERT INTO system_settings (key, value) VALUES ('geofence_radius', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (radius_meters,))
                     conn.commit()
                     result = {"success": True, "message": "Campus geofence settings updated successfully."}
+
+                # ── Study Leave Actions ──
+                elif action == "get_study_leave_setting":
+                    settings = _load_study_leave_settings(c)
+                    result = {
+                        "success": True,
+                        "enabled": settings["enabled"],
+                        "powers": settings["powers"],
+                        "sessions": [
+                            {
+                                "key": s["key"],
+                                "label": s["label"],
+                                "period": s["period"],
+                                "power": settings["powers"][s["key"]],
+                            }
+                            for s in STUDY_SESSIONS
+                        ],
+                    }
+
+                elif action == "save_study_leave_setting":
+                    settings = _load_study_leave_settings(c)
+                    if "enabled" in data:
+                        settings["enabled"] = data.get("enabled") is True or str(data.get("enabled")).lower() in ("1", "true")
+                    powers = data.get("powers")
+                    if isinstance(powers, dict):
+                        for s in STUDY_SESSIONS:
+                            if s["key"] in powers:
+                                try:
+                                    val = int(powers.get(s["key"]))
+                                except (TypeError, ValueError):
+                                    val = settings["powers"][s["key"]]
+                                settings["powers"][s["key"]] = min(max(val, 1), 50)
+                    payload = json.dumps({"enabled": settings["enabled"], "powers": settings["powers"]})
+                    c.execute("""
+                        INSERT INTO system_settings (key, value) VALUES (?, ?)
+                        ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                    """, (STUDY_LEAVE_SETTINGS_KEY, payload))
+                    conn.commit()
+                    result = {
+                        "success": True,
+                        "enabled": settings["enabled"],
+                        "powers": settings["powers"],
+                        "message": "Study leave settings updated.",
+                    }
+
+                elif action == "mark_study_leave_attendance":
+                    teacher_id = data.get("teacher_id", 1)
+                    settings = _load_study_leave_settings(c)
+                    session = _study_session_from_ref(data.get("session"))
+
+                    if not settings["enabled"]:
+                        result = {"success": False, "error": "Study leave is currently disabled by the admin."}
+                    elif not session:
+                        result = {"success": False, "error": "Invalid study leave session."}
+                    else:
+                        date_str = str(data.get("date") or "").strip()
+                        if date_str:
+                            date = date_str
+                        else:
+                            date = get_ist_now().strftime("%Y-%m-%d")
+                        try:
+                            dt.strptime(date, "%Y-%m-%d")
+                        except ValueError:
+                            date = get_ist_now().strftime("%Y-%m-%d")
+
+                        class_records = data.get("classRecords") or data.get("records") or []
+                        if isinstance(class_records, dict):
+                            class_records = [{"class": k, "students": v} for k, v in class_records.items()]
+                        if not isinstance(class_records, list):
+                            class_records = []
+
+                        power = settings["powers"][session["key"]]
+                        status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
+                        marked_classes = []
+                        already_marked = []
+
+                        for entry in class_records:
+                            if not isinstance(entry, dict):
+                                continue
+                            class_id = str(entry.get("class") or "").strip()
+                            students = entry.get("students") or {}
+                            if not class_id or not isinstance(students, dict) or not students:
+                                continue
+
+                            # Duplicate protection (same class + session + date)
+                            c.execute("""
+                                SELECT COUNT(*) FROM period_attendance
+                                WHERE class=? AND period=? AND date=?
+                            """, (class_id, session["period"], date))
+                            if c.fetchone()[0] > 0:
+                                already_marked.append(class_id)
+                                continue
+
+                            for student_id, status in students.items():
+                                requested_status = status_map.get(status, "A")
+                                # BACKEND ENFORCEMENT: auto-absent for Sick/Leave
+                                health_status = get_student_current_status(c, student_id)
+                                final_status = 'A' if health_status in ('S', 'L') else requested_status
+                                for _ in range(power):
+                                    c.execute("""
+                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id))
+                            marked_classes.append(class_id)
+
+                        conn.commit()
+
+                        if not marked_classes and already_marked:
+                            result = {
+                                "success": False,
+                                "duplicate": True,
+                                "error": f"Attendance already marked for {', '.join(already_marked)}.",
+                            }
+                        else:
+                            msg = f"Study leave attendance marked for {', '.join(marked_classes)}." if marked_classes else "Nothing to mark."
+                            if already_marked:
+                                msg += f" (Skipped already marked: {', '.join(already_marked)})"
+                            result = {
+                                "success": True,
+                                "message": msg,
+                                "marked": marked_classes,
+                                "already_marked": already_marked,
+                                "session": session["key"],
+                                "date": date,
+                                "power": power,
+                            }
+
+                elif action == "get_study_leave_status":
+                    teacher_id = data.get("teacher_id", 1)
+                    settings = _load_study_leave_settings(c)
+                    session = _study_session_from_ref(data.get("session"))
+                    date = str(data.get("date") or "").strip()
+                    classes = data.get("classes") or []
+                    if isinstance(classes, str):
+                        classes = [x.strip() for x in classes.split(",") if x.strip()]
+
+                    if not session:
+                        result = {"success": False, "error": "Invalid study leave session."}
+                    elif not date:
+                        result = {"success": False, "error": "Date is required."}
+                    else:
+                        power = settings["powers"][session["key"]]
+                        out = []
+                        for class_id in classes:
+                            class_id = str(class_id).strip()
+                            if not class_id:
+                                continue
+                            entry = {
+                                "class": class_id,
+                                "marked": False,
+                                "byMe": False,
+                                "teacherName": None,
+                                "editable": False,
+                                "records": [],
+                            }
+                            c.execute("""
+                                SELECT pa.teacher_id, COALESCE(t.name, 'Admin')
+                                FROM period_attendance pa
+                                LEFT JOIN teachers t ON pa.teacher_id = t.id
+                                WHERE pa.class=? AND pa.period=? AND pa.date=?
+                                ORDER BY pa.id DESC LIMIT 1
+                            """, (class_id, session["period"], date))
+                            owner = c.fetchone()
+                            if owner:
+                                entry["marked"] = True
+                                entry["teacherName"] = owner[1]
+                                entry["byMe"] = str(owner[0]) == str(teacher_id)
+                                # One marking per class+session+date (duplicates are
+                                # blocked), so ownership is the editability gate.
+                                entry["editable"] = entry["byMe"]
+                                c.execute("""
+                                    SELECT student_id, status FROM period_attendance
+                                    WHERE class=? AND period=? AND date=?
+                                    GROUP BY student_id
+                                    ORDER BY id
+                                """, (class_id, session["period"], date))
+                                status_label = {"P": "present", "A": "absent", "SL": "special_leave"}
+                                entry["records"] = [
+                                    {"studentId": sid, "status": status_label.get(st, "absent")}
+                                    for sid, st in c.fetchall()
+                                ]
+                            out.append(entry)
+                        result = {
+                            "success": True,
+                            "enabled": settings["enabled"],
+                            "session": session["key"],
+                            "sessionLabel": session["label"],
+                            "period": session["period"],
+                            "power": power,
+                            "date": date,
+                            "classes": out,
+                        }
+
+                elif action == "edit_study_leave_attendance":
+                    teacher_id = data.get("teacher_id", 1)
+                    settings = _load_study_leave_settings(c)
+                    session = _study_session_from_ref(data.get("session"))
+                    class_id = str(data.get("class") or "").strip()
+                    date = str(data.get("date") or "").strip()
+                    students = data.get("students") or {}
+
+                    if not settings["enabled"]:
+                        result = {"success": False, "error": "Study leave is currently disabled by the admin."}
+                    elif not session or not class_id or not date:
+                        result = {"success": False, "error": "Missing session, class or date."}
+                    elif not isinstance(students, dict) or not students:
+                        result = {"success": False, "error": "No student records to update."}
+                    else:
+                        c.execute("""
+                            SELECT teacher_id FROM period_attendance
+                            WHERE class=? AND period=? AND date=?
+                            ORDER BY id DESC LIMIT 1
+                        """, (class_id, session["period"], date))
+                        record = c.fetchone()
+                        if not record:
+                            result = {"success": False, "error": "No attendance found to edit."}
+                        elif str(record[0]) != str(teacher_id):
+                            result = {"success": False, "error": "Unauthorized: You did not mark this attendance."}
+                        else:
+                            power = settings["powers"][session["key"]]
+                            status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
+                            c.execute("DELETE FROM period_attendance WHERE class=? AND period=? AND date=?",
+                                      (class_id, session["period"], date))
+                            for student_id, status in students.items():
+                                requested_status = status_map.get(status, "A")
+                                health_status = get_student_current_status(c, student_id)
+                                final_status = 'A' if health_status in ('S', 'L') else requested_status
+                                for _ in range(power):
+                                    c.execute("""
+                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id))
+                            conn.commit()
+                            result = {"success": True, "message": "Study leave attendance updated successfully."}
+
+                elif action == "delete_study_leave_attendance":
+                    teacher_id = data.get("teacher_id", 1)
+                    session = _study_session_from_ref(data.get("session"))
+                    class_id = str(data.get("class") or "").strip()
+                    date = str(data.get("date") or "").strip()
+
+                    if not session or not class_id or not date:
+                        result = {"success": False, "error": "Missing session, class or date for deletion."}
+                    else:
+                        c.execute("""
+                            SELECT teacher_id FROM period_attendance
+                            WHERE class=? AND period=? AND date=?
+                            ORDER BY id DESC LIMIT 1
+                        """, (class_id, session["period"], date))
+                        record = c.fetchone()
+                        if not record:
+                            result = {"success": False, "error": "No attendance record found to delete."}
+                        elif str(record[0]) != str(teacher_id):
+                            result = {"success": False, "error": "Unauthorized: You did not mark this attendance record."}
+                        else:
+                            c.execute("DELETE FROM period_attendance WHERE class=? AND period=? AND date=?",
+                                      (class_id, session["period"], date))
+                            conn.commit()
+                            result = {"success": True, "message": f"Study leave attendance for {class_id} deleted successfully."}
+
+                elif action == "get_last_study_leave":
+                    teacher_id = data.get("teacher_id")
+                    c.execute("""
+                        SELECT class, period, date, id FROM period_attendance
+                        WHERE teacher_id=? AND period LIKE 'SL%'
+                        ORDER BY date DESC, id DESC LIMIT 1
+                    """, (teacher_id,))
+                    row = c.fetchone()
+                    if row:
+                        class_id, period, date, row_id = row
+                        session = _study_session_from_ref(period)
+                        # Latest = no newer study-leave record anywhere (any teacher)
+                        c.execute("""
+                            SELECT COUNT(*) FROM period_attendance
+                            WHERE period LIKE 'SL%' AND ((date > ?) OR (date = ? AND id > ?))
+                        """, (date, date, row_id))
+                        is_latest = c.fetchone()[0] == 0
+                        result = {
+                            "success": True,
+                            "data": {
+                                "classId": class_id,
+                                "className": class_id,
+                                "session": session["key"] if session else None,
+                                "sessionLabel": session["label"] if session else str(period),
+                                "period": period,
+                                "date": date,
+                                "editable": is_latest,
+                            },
+                        }
+                    else:
+                        result = {"success": True, "data": None}
 
                 # ── Teacher Attendance Actions ──
                 elif action == "mark_teacher_attendance":

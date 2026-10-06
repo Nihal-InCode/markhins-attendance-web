@@ -206,6 +206,44 @@ export const deleteLastAttendance = ({ classId, period, date } = {}) =>
 
 
 /**
+ * Study Leave Attendance
+ */
+export const getStudyLeaveSetting = () => apiRequest('/admin/study-leave-setting');
+
+export const updateStudyLeaveSetting = (enabled, powers) =>
+    apiRequest('/admin/study-leave-setting', {
+        method: 'POST',
+        body: JSON.stringify({ enabled, powers }),
+    });
+
+export const markStudyLeaveAttendance = (data) =>
+    apiRequest('/study-leave/mark', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+
+export const getStudyLeaveStatus = (session, date, classes) =>
+    apiRequest('/study-leave/status', {
+        method: 'POST',
+        body: JSON.stringify({ session, date, classes }),
+    });
+
+export const editStudyLeaveAttendance = (session, date, className, students) =>
+    apiRequest('/study-leave/edit', {
+        method: 'POST',
+        body: JSON.stringify({ session, date, class: className, students }),
+    });
+
+export const deleteStudyLeaveAttendance = (session, date, className) =>
+    apiRequest('/study-leave/delete', {
+        method: 'POST',
+        body: JSON.stringify({ session, date, class: className }),
+    });
+
+export const getLastStudyLeave = () => apiRequest('/study-leave/last');
+
+
+/**
  * Extra Class Attendance
  */
 export const getExtraSubjects = () => apiRequest('/extra-subjects');

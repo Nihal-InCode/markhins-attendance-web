@@ -1689,6 +1689,28 @@ app.post('/admin/geofence-setting', authenticateToken, async (req, res) => {
     }
 });
 
+// Study Leave Setting — GET is open to any authenticated user (the dashboard
+// needs it to decide whether to show the STUDY LEAVE card), POST is admin-only.
+app.get('/admin/study-leave-setting', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({ action: "get_study_leave_setting" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/admin/study-leave-setting', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { enabled, powers } = req.body || {};
+        const result = await callPython({ action: "save_study_leave_setting", enabled, powers });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({
@@ -2070,6 +2092,90 @@ app.post('/attendance/delete-last', authenticateToken, async (req, res) => {
             return res.status(403).json(result);
         }
 
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// ── Study Leave Attendance Endpoints ──
+app.post('/study-leave/mark', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const result = await callPython({
+            action: "mark_study_leave_attendance",
+            ...req.body,
+            teacher_id
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/study-leave/status', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const { session, date, classes } = req.body || {};
+        const result = await callPython({
+            action: "get_study_leave_status",
+            session,
+            date,
+            classes,
+            teacher_id
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/study-leave/edit', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const { session, date, class: className, students } = req.body || {};
+        const result = await callPython({
+            action: "edit_study_leave_attendance",
+            session,
+            date,
+            class: className,
+            students,
+            teacher_id: Number(teacher_id)
+        });
+        if (!result.success && result.error?.includes("Unauthorized")) {
+            return res.status(403).json(result);
+        }
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/study-leave/delete', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const { session, date, class: className } = req.body || {};
+        const result = await callPython({
+            action: "delete_study_leave_attendance",
+            session,
+            date,
+            class: className,
+            teacher_id: Number(teacher_id)
+        });
+        if (!result.success && result.error?.includes("Unauthorized")) {
+            return res.status(403).json(result);
+        }
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/study-leave/last', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const result = await callPython({ action: "get_last_study_leave", teacher_id });
         res.json(result);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

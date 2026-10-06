@@ -59,7 +59,8 @@ import {
   createStaffMember,
   updateStaffMember,
   deleteStaffMember,
-  clearAllTeacherAttendance
+  clearAllTeacherAttendance,
+  getStudyLeaveSetting
 } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
@@ -637,6 +638,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("attendance");
+  const [studyLeaveEnabled, setStudyLeaveEnabled] = useState(false);
 
   // Teacher Permanent QR Attendance State
   const [showTeacherQrScanner, setShowTeacherQrScanner] = useState(false);
@@ -2358,6 +2360,17 @@ export default function DashboardPage() {
     }
     fetchTimetableEditors();
 
+    // Study leave card visibility is admin-controlled (fail-closed: hidden on error)
+    async function fetchStudyLeaveSetting() {
+      try {
+        const res = await getStudyLeaveSetting();
+        setStudyLeaveEnabled(res?.enabled === true);
+      } catch (err) {
+        setStudyLeaveEnabled(false);
+      }
+    }
+    fetchStudyLeaveSetting();
+
     // Feature 3: Fetch last attendance from API (teacher-specific & strict ownership)
     async function fetchLastAttendance() {
       try {
@@ -4035,6 +4048,27 @@ export default function DashboardPage() {
                   </svg>
                 </div>
               </button>
+
+              {/* Study Leave — only visible when enabled in admin settings */}
+              {studyLeaveEnabled && (
+                <button
+                  onClick={() => router.push("/study-leave")}
+                  className="col-span-2 anim-float-study bg-violet-600 hover:bg-violet-700 p-6 rounded-[2.5rem] shadow-xl shadow-violet-100 flex items-center gap-4 relative overflow-hidden text-left transition-all active:scale-95 group"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
+                  <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center text-xl shrink-0">📚</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-black text-sm leading-tight">Study Leave</p>
+                    <p className="text-violet-200 text-[10px] font-bold mt-0.5">Session-based • 4 sessions</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-white/70 text-[9px] font-black uppercase tracking-widest">Tap to start</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white/60 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* ── DELETE CONFIRMATION MODAL ── */}
