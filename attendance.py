@@ -77,6 +77,9 @@ STUDY_SESSION_BY_KEY = {s["key"]: s for s in STUDY_SESSIONS}
 STUDY_SESSION_BY_PERIOD = {s["period"]: s for s in STUDY_SESSIONS}
 STUDY_LEAVE_SETTINGS_KEY = "study_leave_settings"
 STUDY_PERIOD_PREFIX = "SL"
+# Web console identities (non-teacher logins) whose markings are kept in the DB
+# but hidden from the study leave history screens.
+STUDY_LEAVE_ADMIN_MARKER_IDS = {"system-admin", "majlis-user"}
 # period_attendance stores single-letter status codes; the app talks in names.
 SL_STATUS_TO_NAME = {"P": "present", "A": "absent", "SL": "special_leave", "S": "sick", "L": "leave"}
 
@@ -8219,7 +8222,7 @@ if __name__ == "__main__":
                     day_date = str(data.get("date") or "").strip() or get_ist_now().strftime("%Y-%m-%d")
                     rows = c.execute("""
                         SELECT UPPER(pa.period) AS period, pa.class, pa.student_id, pa.status,
-                               pa.teacher_id, pa.created_at, t.name, s.name, s.roll_no
+                               pa.teacher_id, pa.created_at, t.name, s.name, s.roll_no, t.role
                         FROM period_attendance pa
                         LEFT JOIN teachers t ON t.id = pa.teacher_id
                         LEFT JOIN students s ON s.id = pa.student_id
@@ -8227,10 +8230,17 @@ if __name__ == "__main__":
                         ORDER BY pa.id DESC
                     """, (day_date,)).fetchall()
 
+                    # Admin markings stay in the DB but are hidden from this history view
+                    def _is_admin_marker(marker_id, marker_role):
+                        return str(marker_id or "").strip().lower() in STUDY_LEAVE_ADMIN_MARKER_IDS \
+                            or str(marker_role or "").strip().lower() == "admin"
+
                     # One "marking event" = same session + marker + marking time
                     events = {}
                     order = []
-                    for period, class_id, student_id, status, ev_teacher_id, created_at, teacher_name, student_name, roll_no in rows:
+                    for period, class_id, student_id, status, ev_teacher_id, created_at, teacher_name, student_name, roll_no, teacher_role in rows:
+                        if _is_admin_marker(ev_teacher_id, teacher_role):
+                            continue
                         meta = STUDY_SESSION_BY_PERIOD.get(period) or {}
                         key = (period, str(ev_teacher_id or ""), str(created_at or ""))
                         event = events.get(key)
