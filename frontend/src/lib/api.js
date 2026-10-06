@@ -256,6 +256,12 @@ export const deleteStudyLeaveAttendance = (session, date, className) =>
 
 export const getLastStudyLeave = () => apiRequest('/study-leave/last');
 
+export const getStudyLeaveDayHistory = (date) =>
+    apiRequest('/study-leave/day-history', {
+        method: 'POST',
+        body: JSON.stringify({ date }),
+    });
+
 
 /**
  * Extra Class Attendance

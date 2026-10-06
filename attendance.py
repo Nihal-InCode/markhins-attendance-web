@@ -741,6 +741,12 @@ def run_migrations():
         except sqlite3.OperationalError:
             pass
 
+        # Mark time for study leave rows (period_attendance has no timestamp otherwise)
+        try:
+            c.execute("ALTER TABLE period_attendance ADD COLUMN created_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+
         # Ensure 'category' exists in namaz_sessions
         try:
             c.execute("ALTER TABLE namaz_sessions ADD COLUMN category TEXT DEFAULT 'namaz'")
@@ -8208,6 +8214,95 @@ if __name__ == "__main__":
                         "truncated": len(order) > max_groups,
                     }
 
+                elif action == "get_study_leave_day_history":
+                    viewer_id = data.get("teacher_id")
+                    day_date = str(data.get("date") or "").strip() or get_ist_now().strftime("%Y-%m-%d")
+                    rows = c.execute("""
+                        SELECT UPPER(pa.period) AS period, pa.class, pa.student_id, pa.status,
+                               pa.teacher_id, pa.created_at, t.name, s.name, s.roll_no
+                        FROM period_attendance pa
+                        LEFT JOIN teachers t ON t.id = pa.teacher_id
+                        LEFT JOIN students s ON s.id = pa.student_id
+                        WHERE UPPER(pa.period) LIKE 'SL%' AND pa.date = ?
+                        ORDER BY pa.id DESC
+                    """, (day_date,)).fetchall()
+
+                    # One "marking event" = same session + marker + marking time
+                    events = {}
+                    order = []
+                    for period, class_id, student_id, status, ev_teacher_id, created_at, teacher_name, student_name, roll_no in rows:
+                        meta = STUDY_SESSION_BY_PERIOD.get(period) or {}
+                        key = (period, str(ev_teacher_id or ""), str(created_at or ""))
+                        event = events.get(key)
+                        if event is None:
+                            created_str = str(created_at or "")
+                            event = {
+                                "period": period,
+                                "session": meta.get("key"),
+                                "sessionLabel": meta.get("label", period),
+                                "time": created_str[11:16] if len(created_str) >= 16 else None,
+                                "teacherId": ev_teacher_id,
+                                "teacherName": teacher_name or "Admin",
+                                "classMap": {},
+                                "classOrder": [],
+                                "counts": {"present": 0, "absent": 0, "special_leave": 0, "sick": 0, "leave": 0},
+                                "isMine": str(ev_teacher_id or "") == str(viewer_id or ""),
+                            }
+                            events[key] = event
+                            order.append(key)
+
+                        class_entry = event["classMap"].get(class_id)
+                        if class_entry is None:
+                            class_entry = {
+                                "name": class_id,
+                                "counts": {"present": 0, "absent": 0, "special_leave": 0, "sick": 0, "leave": 0},
+                                "students": {},
+                            }
+                            event["classMap"][class_id] = class_entry
+                            event["classOrder"].append(class_id)
+
+                        status_name = SL_STATUS_TO_NAME.get(str(status or "").strip().upper(), "absent")
+                        student_key = str(student_id)
+                        if student_key not in class_entry["students"]:
+                            class_entry["students"][student_key] = {
+                                "studentId": student_id,
+                                "name": student_name,
+                                "rollNo": roll_no,
+                                "status": status_name,
+                            }
+                            if status_name in class_entry["counts"]:
+                                class_entry["counts"][status_name] += 1
+                            if status_name in event["counts"]:
+                                event["counts"][status_name] += 1
+
+                    day_events = []
+                    for key in order:
+                        event = events[key]
+                        class_list = []
+                        for class_id in event["classOrder"]:
+                            entry = event["classMap"][class_id]
+                            class_list.append({
+                                "name": class_id,
+                                "counts": entry["counts"],
+                                "students": list(entry["students"].values()),
+                            })
+                        day_events.append({
+                            "date": day_date,
+                            "session": event["session"],
+                            "sessionLabel": event["sessionLabel"],
+                            "period": event["period"],
+                            "time": event["time"],
+                            "teacherId": event["teacherId"],
+                            "teacherName": event["teacherName"],
+                            "isMine": event["isMine"],
+                            "classes": class_list,
+                            "classCount": len(class_list),
+                            "counts": event["counts"],
+                            "totalAbsent": event["counts"]["absent"],
+                        })
+
+                    result = {"success": True, "date": day_date, "events": day_events}
+
                 elif action == "mark_study_leave_attendance":
                     teacher_id = data.get("teacher_id", 1)
                     settings = _load_study_leave_settings(c)
@@ -8236,6 +8331,7 @@ if __name__ == "__main__":
 
                         power = settings["powers"][session["key"]]
                         status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
+                        marked_at = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                         marked_classes = []
                         already_marked = []
 
@@ -8263,9 +8359,9 @@ if __name__ == "__main__":
                                 final_status = 'A' if health_status in ('S', 'L') else requested_status
                                 for _ in range(power):
                                     c.execute("""
-                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id))
+                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id, created_at)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id, marked_at))
                             marked_classes.append(class_id)
 
                         conn.commit()
@@ -8384,6 +8480,13 @@ if __name__ == "__main__":
                         else:
                             power = settings["powers"][session["key"]]
                             status_map = {"present": "P", "absent": "A", "special_leave": "SL", "sick": "S", "leave": "L"}
+                            # Keep the original marking time so history batches stay intact
+                            c.execute("""
+                                SELECT MIN(created_at) FROM period_attendance
+                                WHERE class=? AND period=? AND date=?
+                            """, (class_id, session["period"], date))
+                            preserved_row = c.fetchone()
+                            preserved_at = preserved_row[0] if preserved_row and preserved_row[0] else get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
                             c.execute("DELETE FROM period_attendance WHERE class=? AND period=? AND date=?",
                                       (class_id, session["period"], date))
                             for student_id, status in students.items():
@@ -8392,9 +8495,9 @@ if __name__ == "__main__":
                                 final_status = 'A' if health_status in ('S', 'L') else requested_status
                                 for _ in range(power):
                                     c.execute("""
-                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
-                                        VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id))
+                                        INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id, created_at)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (date, class_id, session["period"], student_id, final_status, teacher_id, preserved_at))
                             conn.commit()
                             result = {"success": True, "message": "Study leave attendance updated successfully."}
 

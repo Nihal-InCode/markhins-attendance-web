@@ -15,6 +15,7 @@ import {
     editStudyLeaveAttendance,
     deleteStudyLeaveAttendance,
     getLastStudyLeave,
+    getStudyLeaveDayHistory,
     trackEvent,
 } from "@/lib/api";
 
@@ -43,6 +44,62 @@ const formatDisplayDate = (dateStr) => {
 };
 
 const classNameOf = (c) => String(c?.name || c?.class || c?.id || c || "").trim();
+
+// Same text layout the namaz copy button uses (WhatsApp-formatted report)
+const buildStudyLeaveReport = (snap) => {
+    const totalAbsent = snap.classes.reduce((n, c) => n + (c.counts.absent || 0), 0);
+    let text = `─── *📚 Study Leave — REPORT* ───\n\n`;
+    text += `📅 *${formatDisplayDate(snap.date)}*\n`;
+    text += `📊 *${snap.sessionLabel}* • *${totalAbsent} Absent*\n\n`;
+
+    snap.classes.forEach((cls) => {
+        const sl = cls.counts.special_leave || 0;
+        const abs = cls.counts.absent || 0;
+        text += `─── *${cls.name}* ───\n`;
+
+        if (sl > 0) {
+            text += `🟡 *${sl} Special Leave*\n`;
+            cls.students.filter(s => s.status === "special_leave").forEach(s => {
+                text += `• \`${s.rollNo ?? "-"}\` — _${s.name || "Student"}_ (Special Leave)\n`;
+            });
+            text += `\n`;
+        }
+
+        if (abs > 0) {
+            text += `🔴 *${abs} Absent*\n\n`;
+            cls.students.filter(s => s.status === "absent").forEach(s => {
+                text += `• \`${s.rollNo ?? "-"}\` — _${s.name || "Student"}_\n`;
+            });
+        } else if (sl === 0) {
+            text += `🟢 *All Present* 🎉\n`;
+        }
+        text += `\n`;
+    });
+
+    text += `━━━━━━━━━━━━━━━━━━\n\n`;
+    text += `*©️ MARKHINS CONNECT*`;
+    return text;
+};
+
+const copyTextToClipboard = async (text) => {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch (_) { }
+    try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
 
 // ─────────────────────────────────────────────
 // STATUS CONFIG (same 3-state cycle as regular attendance)
@@ -87,6 +144,21 @@ export default function StudyLeavePage() {
     const [showConfirm, setShowConfirm] = useState(false);
     const [error, setError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
+
+    // Success screen snapshot (for the Copy/Done popup after marking)
+    const [submitResult, setSubmitResult] = useState(null);
+    const [reportCopied, setReportCopied] = useState(false);
+
+    // History views: wizard | history (day) | historyEvent | historyClass
+    const [view, setView] = useState("wizard");
+    const [historyDate, setHistoryDate] = useState(getIstToday());
+    const [dayEvents, setDayEvents] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [activeEvent, setActiveEvent] = useState(null);
+    const [activeClass, setActiveClass] = useState(null);
+    const [historyEditOn, setHistoryEditOn] = useState(false);
+    const [historyDraft, setHistoryDraft] = useState({});
+    const [historySaving, setHistorySaving] = useState(false);
 
     // Access guard: same rule as the regular marking page
     useEffect(() => {
@@ -285,6 +357,10 @@ export default function StudyLeavePage() {
                 playSound('attendanceSuccess');
                 setSuccessMsg(messages.join(" "));
                 await refreshStatus();
+                const succeeded = [...unmarked, ...editableMarked];
+                setReportCopied(false);
+                setSubmitResult(buildSubmitSnapshot(succeeded));
+                setStep("success");
             } else {
                 playSound('attendanceError');
                 setError(messages.join(" "));
@@ -325,9 +401,175 @@ export default function StudyLeavePage() {
         }
     };
 
+    // ── Success popup (after a full successful submit) ──
+    const buildSubmitSnapshot = (classNames) => {
+        const classList = classNames.map(cls => {
+            const list = studentsByClass[cls] || [];
+            const att = attendanceByClass[cls] || {};
+            const students = list.map(s => {
+                const isHealth = s.healthStatus === 'S' || s.healthStatus === 'L';
+                const status = isHealth ? (s.healthStatus === 'S' ? 'sick' : 'leave') : (att[String(s.id)] || "present");
+                return { studentId: s.id, rollNo: s.rollNo, name: s.name, status };
+            });
+            const counts = { present: 0, absent: 0, special_leave: 0, sick: 0, leave: 0 };
+            students.forEach(s => { if (counts[s.status] !== undefined) counts[s.status]++; });
+            return { name: cls, students, counts };
+        });
+        return { date, session: sessionKey, sessionLabel, power, classes: classList };
+    };
+
+    const handleCopyReport = async () => {
+        if (!submitResult) return;
+        const ok = await copyTextToClipboard(buildStudyLeaveReport(submitResult));
+        if (ok) {
+            playSound('attendanceSuccess');
+            setReportCopied(true);
+            setTimeout(() => setReportCopied(false), 2500);
+        }
+    };
+
+    const handleDoneSuccess = () => {
+        setSubmitResult(null);
+        setReportCopied(false);
+        setSuccessMsg("");
+        setError("");
+        setSelectedClasses([]);
+        setStudentsByClass({});
+        setAttendanceByClass({});
+        setClassStatus({});
+        setSessionKey("");
+        setPlatformKey("");
+        setShowConfirm(false);
+        setView("wizard");
+        setStep(1);
+    };
+
+    // ── History (day → event → class) ──
+    const openHistory = () => {
+        const d = getIstToday();
+        setHistoryDate(d);
+        setView("history");
+        setActiveEvent(null);
+        setActiveClass(null);
+        loadDayHistory(d);
+    };
+
+    const loadDayHistory = async (d) => {
+        setHistoryLoading(true);
+        try {
+            const res = await getStudyLeaveDayHistory(d);
+            setDayEvents(res?.events || []);
+        } catch (_) {
+            setDayEvents([]);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const openHistoryEvent = (ev) => {
+        setActiveEvent(ev);
+        setActiveClass(null);
+        setHistoryEditOn(false);
+        setView("historyEvent");
+    };
+
+    const openHistoryClass = (cls) => {
+        setActiveClass(cls);
+        const draft = {};
+        (cls.students || []).forEach(s => { draft[String(s.studentId)] = s.status; });
+        setHistoryDraft(draft);
+        setHistoryEditOn(false);
+        setView("historyClass");
+    };
+
+    const startHistoryEdit = () => {
+        const draft = {};
+        (activeClass?.students || []).forEach(s => { draft[String(s.studentId)] = s.status; });
+        setHistoryDraft(draft);
+        setHistoryEditOn(true);
+    };
+
+    const toggleHistoryDraft = (student) => {
+        if (!historyEditOn) return;
+        const sid = String(student.studentId);
+        const health = student.status === 'sick' || student.status === 'leave';
+        if (health) return;
+        setHistoryDraft(prev => {
+            const current = prev[sid] || "present";
+            const idx = STATUS_CYCLE.indexOf(current);
+            return { ...prev, [sid]: STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length] };
+        });
+    };
+
+    const saveHistoryClass = async () => {
+        if (!activeEvent || !activeClass) return;
+        setHistorySaving(true);
+        showLoader("Updating study leave...");
+        setError("");
+        try {
+            const res = await editStudyLeaveAttendance(activeEvent.session, activeEvent.date, activeClass.name, historyDraft);
+            if (res?.success) {
+                playSound('attendanceSuccess');
+                setHistoryEditOn(false);
+                const fresh = await getStudyLeaveDayHistory(historyDate);
+                const events = fresh?.events || [];
+                setDayEvents(events);
+                const sameEvent = events.find(e => e.period === activeEvent.period && String(e.teacherId) === String(activeEvent.teacherId) && e.time === activeEvent.time)
+                    || events.find(e => e.period === activeEvent.period && String(e.teacherId) === String(activeEvent.teacherId));
+                if (sameEvent) {
+                    setActiveEvent(sameEvent);
+                    const sameClass = sameEvent.classes.find(c => c.name === activeClass.name);
+                    if (sameClass) {
+                        setActiveClass(sameClass);
+                        const draft = {};
+                        sameClass.students.forEach(s => { draft[String(s.studentId)] = s.status; });
+                        setHistoryDraft(draft);
+                    }
+                }
+            } else {
+                playSound('attendanceError');
+                setError(res?.error || "Failed to update attendance.");
+            }
+        } catch (err) {
+            playSound('attendanceError');
+            setError(err.message);
+        } finally {
+            setHistorySaving(false);
+            hideLoader();
+        }
+    };
+
+    const handleBack = () => {
+        if (view === "historyClass") { setView("historyEvent"); setHistoryEditOn(false); return; }
+        if (view === "historyEvent") { setView("history"); setActiveEvent(null); setActiveClass(null); return; }
+        if (view === "history") { setView("wizard"); return; }
+        if (step === "success") { router.push("/"); return; }
+        if (step === 2) setStep(1);
+        else router.push("/");
+    };
+
     if (loading) return <PencilLoader />;
 
     const sessions = setting?.sessions || [];
+    const headerSub = view === "history"
+        ? "History • Day Summary"
+        : view === "historyEvent"
+            ? `${activeEvent?.sessionLabel || ""}${activeEvent?.time ? ` • ${activeEvent.time}` : ""}`
+            : view === "historyClass"
+                ? `Class • ${activeClass?.name || ""}`
+                : step === "success"
+                    ? "✅ Attendance Marked"
+                    : step === 1 ? "Step 1 • Select Classes" : `Step 2 • ${sessionLabel}`;
+    const snapTotals = submitResult
+        ? submitResult.classes.reduce(
+            (acc, c) => ({
+                students: acc.students + c.students.length,
+                present: acc.present + c.counts.present,
+                absent: acc.absent + c.counts.absent,
+            }),
+            { students: 0, present: 0, absent: 0 }
+        )
+        : null;
     const allMarked = selectedClasses.length > 0 && selectedClasses.every(cls => classStatus[cls]?.marked);
     const nothingEditable = selectedClasses.length > 0 && selectedClasses.every(cls => classStatus[cls]?.marked && !classStatus[cls]?.editable);
 
@@ -336,7 +578,7 @@ export default function StudyLeavePage() {
             {/* Header */}
             <header className="bg-white border-b border-gray-100 px-6 py-6 sticky top-0 z-10 shadow-sm">
                 <div className="max-w-md mx-auto flex justify-between items-center">
-                    <button onClick={() => (step === 2 ? setStep(1) : router.push("/"))} className="text-gray-400 hover:text-gray-700 transition-all">
+                    <button onClick={handleBack} className="text-gray-400 hover:text-gray-700 transition-all">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
@@ -344,7 +586,7 @@ export default function StudyLeavePage() {
                     <div className="text-center">
                         <h1 className="text-lg font-black">📚 Study Leave</h1>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-700">
-                            {step === 1 ? "Step 1 • Select Classes" : `Step 2 • ${sessionLabel}`}
+                            {headerSub}
                         </p>
                         <div className="flex items-center justify-center gap-1.5 mt-1.5">
                             <span className="text-[10px] font-bold text-gray-400">{formatDisplayDate(date)}</span>
@@ -359,9 +601,231 @@ export default function StudyLeavePage() {
 
             <main className="max-w-md mx-auto px-4 py-6 space-y-4">
                 {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">{error}</div>}
-                {successMsg && <div className="p-4 bg-green-50 text-green-700 rounded-2xl text-sm font-bold border border-green-100">{successMsg}</div>}
+                {successMsg && step !== "success" && <div className="p-4 bg-green-50 text-green-700 rounded-2xl text-sm font-bold border border-green-100">{successMsg}</div>}
 
-                {/* Recent marking card */}
+                {step === "success" ? (
+                    /* ── Success popup: Copy absentees / Done ── */
+                    <div className="text-center pt-2 space-y-4 animate-fade-in">
+                        <div className="mx-auto h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-3xl animate-bounce text-emerald-600">✓</div>
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900">Marked!</h2>
+                            <p className="text-sm text-gray-500">
+                                Study leave attendance saved for {(submitResult?.classes?.length || 0)} class{((submitResult?.classes?.length || 0) > 1 ? "es" : "")}.
+                            </p>
+                        </div>
+                        {submitResult && snapTotals && (
+                            <div className="rounded-3xl border border-gray-100 bg-white p-5 text-left shadow-sm space-y-3">
+                                {[["Session", submitResult.sessionLabel], ["Date", formatDisplayDate(submitResult.date)], ["Classes", submitResult.classes.map(c => c.name).join(", ")]].map(([l, v]) => (
+                                    <div key={l} className="flex justify-between py-2 border-b border-gray-50 last:border-0 gap-3">
+                                        <span className="text-xs font-bold text-gray-400 uppercase shrink-0">{l}</span>
+                                        <span className="text-sm font-black text-gray-800 text-right">{v}</span>
+                                    </div>
+                                ))}
+                                <div className="grid grid-cols-3 gap-3 pt-2 text-center">
+                                    <div><p className="text-lg font-black text-gray-700">{snapTotals.students}</p><p className="text-[9px] font-bold text-gray-400 uppercase">Total</p></div>
+                                    <div><p className="text-lg font-black text-emerald-600">{snapTotals.present}</p><p className="text-[9px] font-bold text-emerald-500 uppercase">Present</p></div>
+                                    <div><p className="text-lg font-black text-red-500">{snapTotals.absent}</p><p className="text-[9px] font-bold text-red-400 uppercase">Absent</p></div>
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex gap-3 pt-1">
+                            <button
+                                onClick={handleCopyReport}
+                                className="flex-1 rounded-2xl border border-slate-200 bg-white py-4 text-sm font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all active:scale-[0.98]"
+                            >
+                                {reportCopied ? "✓ Copied!" : "📋 Copy Absentees"}
+                            </button>
+                            <button
+                                onClick={handleDoneSuccess}
+                                className="flex-1 rounded-2xl bg-slate-700 py-4 text-sm font-black uppercase tracking-wider text-white hover:bg-slate-800 transition-all active:scale-[0.98]"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                ) : view !== "wizard" ? (
+                    /* ── History: day summary → marking event → class detail ── */
+                    <>
+                        {view === "history" && (
+                            <>
+                                <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Date</label>
+                                    <input
+                                        type="date"
+                                        value={historyDate}
+                                        onChange={(e) => { const d = e.target.value || getIstToday(); setHistoryDate(d); loadDayHistory(d); }}
+                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-slate-600/10 transition-all text-gray-800"
+                                    />
+                                </div>
+
+                                {historyLoading ? (
+                                    <p className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Loading history...</p>
+                                ) : dayEvents.length === 0 ? (
+                                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 text-center">
+                                        <p className="text-2xl mb-2">🗂️</p>
+                                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">No study leave markings on this day.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {dayEvents.map((ev, i) => (
+                                            <button
+                                                key={`${ev.period}-${ev.time || ""}-${ev.teacherId || ""}-${i}`}
+                                                onClick={() => openHistoryEvent(ev)}
+                                                className="w-full bg-white rounded-[2rem] shadow-sm border border-gray-100 p-5 text-left transition-all active:scale-95"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-700">{ev.sessionLabel}</p>
+                                                        <p className="text-sm font-black text-gray-900 mt-0.5">
+                                                            {ev.time ? ev.time : "Time not recorded"} • {ev.classCount} class{ev.classCount > 1 ? "es" : ""}
+                                                        </p>
+                                                        <p className="text-[11px] font-bold text-gray-400 mt-0.5">
+                                                            Marked by {ev.teacherName}{ev.isMine ? " (you)" : ""}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <p className="text-xl font-black text-red-500 leading-none">{ev.totalAbsent}</p>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-1">Absent</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                    {ev.classes.map(c => (
+                                                        <span key={c.name} className="text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">{c.name}</span>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-300 mt-2 text-right">Tap to open ›</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {view === "historyEvent" && activeEvent && (
+                            <>
+                                <div className="bg-slate-700 rounded-[2rem] p-5 shadow-xl shadow-slate-300 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-white font-black text-sm">{activeEvent.sessionLabel}</p>
+                                        <p className="text-slate-300 text-[10px] font-bold mt-0.5">
+                                            {formatDisplayDate(activeEvent.date)}{activeEvent.time ? ` • ${activeEvent.time}` : ""} • {activeEvent.classCount} class{activeEvent.classCount > 1 ? "es" : ""}
+                                        </p>
+                                        <p className="text-slate-300 text-[10px] font-bold mt-0.5">Marked by {activeEvent.teacherName}{activeEvent.isMine ? " (you)" : ""}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-xl font-black text-white leading-none">{activeEvent.totalAbsent}</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-1">Absent</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {activeEvent.classes.map(cls => (
+                                        <button
+                                            key={cls.name}
+                                            onClick={() => openHistoryClass(cls)}
+                                            className="w-full bg-white rounded-[2rem] shadow-sm border border-gray-100 p-5 text-left flex items-center justify-between gap-3 transition-all active:scale-95"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-black text-gray-900">{cls.name}</p>
+                                                <div className="flex items-center gap-2 mt-1.5">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">P {cls.counts.present}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">A {cls.counts.absent}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">SL {cls.counts.special_leave}</span>
+                                                </div>
+                                            </div>
+                                            <span className="text-gray-300 shrink-0">›</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
+                        {view === "historyClass" && activeEvent && activeClass && (
+                            <>
+                                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="font-black text-gray-900">{activeClass.name}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">P {activeClass.counts.present}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">A {activeClass.counts.absent}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">SL {activeClass.counts.special_leave}</span>
+                                            </div>
+                                        </div>
+                                        {activeEvent.isMine ? (
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${historyEditOn ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                {historyEditOn ? "Editing" : "Editable"}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border bg-gray-50 text-gray-500 border-gray-200">Read only</span>
+                                        )}
+                                    </div>
+
+                                    <div className="divide-y divide-gray-50">
+                                        {(activeClass.students || []).map((student) => {
+                                            const isHealth = student.status === 'sick' || student.status === 'leave';
+                                            const st = isHealth ? student.status : (historyDraft[String(student.studentId)] || student.status);
+                                            const cfg = statusConfig[st] || statusConfig.present;
+                                            const disabled = isHealth || !historyEditOn;
+                                            return (
+                                                <div key={student.studentId} className={`p-4 flex items-center justify-between transition-colors ${st === "absent" ? "bg-red-50/10" : ""}`}>
+                                                    <div className="flex items-center space-x-4 min-w-0">
+                                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black shrink-0 ${cfg.bg} ${cfg.text}`}>
+                                                            {student.rollNo}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-gray-800 leading-tight truncate">{student.name || `Student #${student.studentId}`}</p>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                                                                <p className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>{cfg.label}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => toggleHistoryDraft(student)}
+                                                        disabled={disabled}
+                                                        className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border shrink-0 ${cfg.bg} ${cfg.text} ${cfg.border} ${disabled ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
+                                                    >
+                                                        {cfg.label}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {activeEvent.isMine && !historyEditOn && (
+                                    <button
+                                        onClick={startHistoryEdit}
+                                        className="w-full py-4 rounded-[2rem] text-sm font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-700 active:scale-95 hover:bg-slate-50 transition-all"
+                                    >
+                                        ✏️ Edit Attendance
+                                    </button>
+                                )}
+
+                                {historyEditOn && (
+                                    <div className="flex gap-3 pt-1">
+                                        <button
+                                            onClick={() => setHistoryEditOn(false)}
+                                            disabled={historySaving}
+                                            className="flex-1 py-4 rounded-[2rem] text-sm font-black uppercase tracking-widest bg-gray-100 text-gray-600 active:scale-95 disabled:opacity-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={saveHistoryClass}
+                                            disabled={historySaving}
+                                            className="flex-1 py-4 rounded-[2rem] text-sm font-black uppercase tracking-widest bg-slate-700 text-white hover:bg-slate-800 active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-300"
+                                        >
+                                            {historySaving ? "Saving..." : "Save Changes"}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </>
+                ) : (
+                    <>
+
                 {lastMarking && step === 1 && (
                     <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-5 space-y-3">
                         <div className="flex items-center justify-between gap-3">
@@ -393,6 +857,15 @@ export default function StudyLeavePage() {
                             </button>
                         </div>
                     </div>
+                )}
+
+                {step === 1 && (
+                    <button
+                        onClick={openHistory}
+                        className="w-full py-4 rounded-[2rem] text-sm font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-700 active:scale-95 hover:bg-slate-50 transition-all"
+                    >
+                        🗂️ History
+                    </button>
                 )}
 
                 {step === 1 ? (
@@ -606,6 +1079,8 @@ export default function StudyLeavePage() {
                                 {submitting ? "Processing..." : nothingEditable ? "Already marked by others" : allMarked ? "Update Attendance" : "Submit Attendance"}
                             </button>
                         </div>
+                    </>
+                )}
                     </>
                 )}
             </main>

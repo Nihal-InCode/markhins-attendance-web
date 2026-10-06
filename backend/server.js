@@ -2203,6 +2203,17 @@ app.post('/study-leave/delete', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/study-leave/day-history', authenticateToken, async (req, res) => {
+    try {
+        const teacher_id = req.user.id || 1;
+        const { date } = req.body || {};
+        const result = await callPython({ action: "get_study_leave_day_history", date, teacher_id });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/study-leave/last', authenticateToken, async (req, res) => {
     try {
         const teacher_id = req.user.id || 1;
