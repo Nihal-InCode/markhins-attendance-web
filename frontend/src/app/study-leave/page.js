@@ -14,7 +14,6 @@ import {
     markStudyLeaveAttendance,
     editStudyLeaveAttendance,
     deleteStudyLeaveAttendance,
-    getLastStudyLeave,
     getStudyLeaveDayHistory,
     trackEvent,
 } from "@/lib/api";
@@ -123,7 +122,6 @@ export default function StudyLeavePage() {
     const [loading, setLoading] = useState(true);
     const [setting, setSetting] = useState(null);
     const [classes, setClasses] = useState([]);
-    const [lastMarking, setLastMarking] = useState(null);
 
     const [date, setDate] = useState(getIstToday());
     const [sessionKey, setSessionKey] = useState("");
@@ -183,10 +181,6 @@ export default function StudyLeavePage() {
             try {
                 const cls = await getClasses();
                 if (!cancelled) setClasses(Array.isArray(cls) ? cls : []);
-            } catch (_) { }
-            try {
-                const last = await getLastStudyLeave();
-                if (!cancelled) setLastMarking(last || null);
             } catch (_) { }
             try {
                 const plat = await getStudyLeavePlatforms();
@@ -301,8 +295,6 @@ export default function StudyLeavePage() {
             const statusMap = {};
             (statusRes?.classes || []).forEach(entry => { statusMap[entry.class] = entry; });
             setClassStatus(prev => ({ ...prev, ...statusMap }));
-            const last = await getLastStudyLeave();
-            setLastMarking(last || null);
         } catch (_) { }
     };
 
@@ -375,19 +367,33 @@ export default function StudyLeavePage() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!lastMarking) return;
-        const ok = confirm(`Delete study leave attendance for ${lastMarking.className} (${lastMarking.sessionLabel}) on ${formatDisplayDate(lastMarking.date)}?`);
+    const handleDeleteClass = async () => {
+        if (!activeEvent || !activeClass) return;
+        const ok = confirm(`Delete study leave attendance for ${activeClass.name} (${activeEvent.sessionLabel}) on ${formatDisplayDate(activeEvent.date)}?`);
         if (!ok) return;
         showLoader("Deleting...");
         try {
-            const res = await deleteStudyLeaveAttendance(lastMarking.session, lastMarking.date, lastMarking.className);
+            const res = await deleteStudyLeaveAttendance(activeEvent.session, activeEvent.date, activeClass.name);
             if (res?.success) {
                 playSound('attendanceSuccess');
-                setLastMarking(null);
                 setSuccessMsg(res.message || "Study leave attendance deleted.");
-                if (step === 2 && selectedClasses.includes(lastMarking.className) && date === lastMarking.date && sessionKey === lastMarking.session) {
-                    await refreshStatus();
+                const fresh = await getStudyLeaveDayHistory(historyDate);
+                const events = fresh?.events || [];
+                setDayEvents(events);
+                if (events.length === 0) {
+                    setView("history");
+                    setActiveEvent(null);
+                    setActiveClass(null);
+                } else {
+                    const sameEvent = events.find(e => e.period === activeEvent.period && String(e.teacherId) === String(activeEvent.teacherId)) || events[0];
+                    setActiveEvent(sameEvent);
+                    const sameClass = sameEvent.classes.find(c => c.name === activeClass.name);
+                    if (sameClass) {
+                        openHistoryClass(sameClass);
+                    } else {
+                        setView("historyEvent");
+                        setActiveClass(null);
+                    }
                 }
             } else {
                 playSound('attendanceError');
@@ -802,6 +808,15 @@ export default function StudyLeavePage() {
                                     </button>
                                 )}
 
+                                {activeEvent.isMine && !historyEditOn && (
+                                    <button
+                                        onClick={handleDeleteClass}
+                                        className="w-full py-4 rounded-[2rem] text-sm font-black uppercase tracking-widest bg-white border border-red-200 text-red-500 active:scale-95 hover:bg-red-50 transition-all"
+                                    >
+                                        🗑 Delete Class
+                                    </button>
+                                )}
+
                                 {historyEditOn && (
                                     <div className="flex gap-3 pt-1">
                                         <button
@@ -825,39 +840,6 @@ export default function StudyLeavePage() {
                     </>
                 ) : (
                     <>
-
-                {lastMarking && step === 1 && (
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-5 space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-700">Your last study leave marking</p>
-                                <p className="text-sm font-black text-gray-900 mt-0.5">
-                                    {lastMarking.className} • {lastMarking.sessionLabel}
-                                </p>
-                                <p className="text-[11px] font-bold text-gray-400">{formatDisplayDate(lastMarking.date)}</p>
-                            </div>
-                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${lastMarking.editable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                {lastMarking.editable ? "Editable" : "Locked"}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={() => enterStep2({ date: lastMarking.date, sessionKey: lastMarking.session, classes: [lastMarking.className] })}
-                                disabled={!lastMarking.editable}
-                                className="py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 text-slate-800 border border-slate-200 active:scale-95 disabled:opacity-40"
-                            >
-                                ✏️ Edit
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                disabled={!lastMarking.editable}
-                                className="py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-red-50 text-red-500 border border-red-100 active:scale-95 disabled:opacity-40"
-                            >
-                                🗑 Delete
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 {step === 1 && (
                     <button
