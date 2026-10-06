@@ -224,6 +224,12 @@ export const saveStudyLeavePlatforms = (platforms) =>
         body: JSON.stringify({ platforms }),
     });
 
+export const getStudyLeaveHistory = (filters = {}) =>
+    apiRequest('/admin/study-leave-history', {
+        method: 'POST',
+        body: JSON.stringify(filters),
+    });
+
 export const markStudyLeaveAttendance = (data) =>
     apiRequest('/study-leave/mark', {
         method: 'POST',

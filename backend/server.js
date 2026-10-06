@@ -1731,6 +1731,17 @@ app.post('/admin/study-leave-platforms', authenticateToken, async (req, res) => 
     }
 });
 
+app.post('/admin/study-leave-history', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Access denied.' });
+        const { date, session, class: className } = req.body || {};
+        const result = await callPython({ action: "get_study_leave_history", date, session, class: className });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/announcements/:announcementKey', authenticateToken, async (req, res) => {
     try {
         const result = await callPython({

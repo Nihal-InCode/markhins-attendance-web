@@ -41,6 +41,7 @@ import {
     updateStudyLeaveSetting,
     getStudyLeavePlatforms,
     saveStudyLeavePlatforms,
+    getStudyLeaveHistory,
     getClasses,
     getPushSetting,
     updatePushSetting,
@@ -59,6 +60,20 @@ const STUDY_SESSION_FIELDS = [
     { key: "first_dars", label: "First Dars" },
 ];
 const ACTIVITY_POLL_MS = 30000;
+const HISTORY_STATUS = {
+    present: { label: "Present", cls: "bg-green-50 text-green-600 border-green-100" },
+    absent: { label: "Absent", cls: "bg-red-50 text-red-500 border-red-100" },
+    special_leave: { label: "Special Leave", cls: "bg-blue-50 text-blue-600 border-blue-100" },
+};
+
+function formatHistoryDate(dateStr) {
+    try {
+        const [y, m, d] = String(dateStr).split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (_) {
+        return dateStr;
+    }
+}
 
 function getIstDateString() {
     const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -176,6 +191,11 @@ export default function SettingsPage() {
     const [platformModalId, setPlatformModalId] = useState(null);
     const [allClasses, setAllClasses] = useState([]);
     const [platformBusy, setPlatformBusy] = useState(false);
+    const [studyHistory, setStudyHistory] = useState([]);
+    const [historyMeta, setHistoryMeta] = useState({ total: 0, truncated: false });
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyFilters, setHistoryFilters] = useState({ date: "", session: "", class: "" });
+    const [historyOpenKey, setHistoryOpenKey] = useState("");
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
     const [pushSubCount, setPushSubCount] = useState(0);
@@ -486,6 +506,37 @@ export default function SettingsPage() {
         setPlatforms(next);
         persistPlatforms(next);
     }
+
+    function updateHistoryFilter(patch) {
+        setHistoryFilters(prev => ({ ...prev, ...patch }));
+    }
+
+    // Reloads the study leave history on mount and whenever a filter changes
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setHistoryLoading(true);
+            try {
+                const res = await getStudyLeaveHistory({
+                    date: historyFilters.date || "",
+                    session: historyFilters.session || "",
+                    class: historyFilters.class || "",
+                });
+                if (cancelled) return;
+                if (res?.success === false) throw new Error(res.message || "Failed to load study leave history.");
+                setStudyHistory(Array.isArray(res?.groups) ? res.groups : []);
+                setHistoryMeta({ total: res?.total || 0, truncated: res?.truncated === true });
+            } catch (err) {
+                if (cancelled) return;
+                setStudyHistory([]);
+                setHistoryMeta({ total: 0, truncated: false });
+                setError(err.message);
+            } finally {
+                if (!cancelled) setHistoryLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [historyFilters]);
 
     useEffect(() => {
         if (activeTab === "system") {
@@ -2002,6 +2053,119 @@ export default function SettingsPage() {
                                 </div>
                             );
                         })()}
+
+                        {/* Study Leave History */}
+                        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🕘</span>
+                                        <h2 className="text-lg font-black text-gray-900">Study Leave History</h2>
+                                    </div>
+                                    <p className="text-xs text-gray-500 max-w-xl">
+                                        Every study leave marking grouped by date, class and session — tap a row to see the student list.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setHistoryFilters(prev => ({ ...prev }))}
+                                    disabled={historyLoading}
+                                    className="px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 self-start sm:self-center"
+                                >
+                                    {historyLoading ? "Loading..." : "Refresh"}
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
+                                <input
+                                    type="date"
+                                    value={historyFilters.date}
+                                    onChange={(e) => updateHistoryFilter({ date: e.target.value })}
+                                    className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-slate-600"
+                                />
+                                <select
+                                    value={historyFilters.session}
+                                    onChange={(e) => updateHistoryFilter({ session: e.target.value })}
+                                    className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-slate-600"
+                                >
+                                    <option value="">All sessions</option>
+                                    {STUDY_SESSION_FIELDS.map((s) => (
+                                        <option key={s.key} value={s.key}>{s.label}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={historyFilters.class}
+                                    onChange={(e) => updateHistoryFilter({ class: e.target.value })}
+                                    className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-slate-600"
+                                >
+                                    <option value="">All classes</option>
+                                    {allClasses.map((cls) => (
+                                        <option key={cls} value={cls}>{cls}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {historyLoading ? (
+                                <p className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Loading history...</p>
+                            ) : studyHistory.length === 0 ? (
+                                <p className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">No study leave records match.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {studyHistory.map((g) => {
+                                        const rowKey = `${g.date}|${g.class}|${g.period}`;
+                                        const isOpen = historyOpenKey === rowKey;
+                                        return (
+                                            <div key={rowKey} className="rounded-xl border border-gray-200 overflow-hidden">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setHistoryOpenKey(isOpen ? "" : rowKey)}
+                                                    className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-black text-gray-900">{g.class} • {g.sessionLabel}</p>
+                                                        <p className="text-[10px] font-bold text-gray-400 mt-0.5 truncate">
+                                                            {formatHistoryDate(g.date)} • {g.studentCount} students • {g.records} records
+                                                            {g.teachers?.length ? ` • ${g.teachers.join(", ")}` : ""}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">P {g.counts?.present ?? 0}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">A {g.counts?.absent ?? 0}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">SL {g.counts?.special_leave ?? 0}</span>
+                                                        <span className={`text-gray-300 transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
+                                                    </div>
+                                                </button>
+                                                {isOpen && (
+                                                    <div className="border-t border-gray-100 bg-gray-50/50 divide-y divide-gray-100">
+                                                        {(g.students || []).map((s) => {
+                                                            const cfg = HISTORY_STATUS[s.status] || HISTORY_STATUS.present;
+                                                            return (
+                                                                <div key={s.studentId} className="px-4 py-2 flex items-center justify-between gap-3">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <span className="text-[10px] font-black text-gray-400 w-6 shrink-0">{s.rollNo}</span>
+                                                                        <span className="text-xs font-bold text-gray-700 truncate">{s.name || `Student #${s.studentId}`}</span>
+                                                                    </div>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${cfg.cls}`}>{cfg.label}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {(g.students || []).length === 0 && (
+                                                            <p className="px-4 py-3 text-xs font-bold text-gray-400">No student details available.</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {historyMeta.truncated && (
+                                <p className="text-[10px] font-bold text-gray-400 mt-3">
+                                    Showing the 200 most recent groups ({historyMeta.total} total) — narrow it with the filters above.
+                                </p>
+                            )}
+                        </div>
 
                         {/* Web Push Notifications & Attendance Reminder Control */}
                         <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm">

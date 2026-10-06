@@ -77,6 +77,8 @@ STUDY_SESSION_BY_KEY = {s["key"]: s for s in STUDY_SESSIONS}
 STUDY_SESSION_BY_PERIOD = {s["period"]: s for s in STUDY_SESSIONS}
 STUDY_LEAVE_SETTINGS_KEY = "study_leave_settings"
 STUDY_PERIOD_PREFIX = "SL"
+# period_attendance stores single-letter status codes; the app talks in names.
+SL_STATUS_TO_NAME = {"P": "present", "A": "absent", "SL": "special_leave", "S": "sick", "L": "leave"}
 
 
 def _is_study_leave_period(period):
@@ -8116,6 +8118,94 @@ if __name__ == "__main__":
                         "success": True,
                         "platforms": platforms,
                         "message": "Platforms updated.",
+                    }
+
+                elif action == "get_study_leave_history":
+                    history_date = str(data.get("date") or "").strip()
+                    history_class = str(data.get("class") or "").strip()
+                    history_session_ref = data.get("session")
+                    history_session = _study_session_from_ref(history_session_ref) if history_session_ref else None
+
+                    clauses = ["UPPER(pa.period) LIKE 'SL%'"]
+                    params = []
+                    if history_date:
+                        clauses.append("pa.date = ?")
+                        params.append(history_date)
+                    if history_session:
+                        clauses.append("UPPER(pa.period) = ?")
+                        params.append(history_session["period"].upper())
+                    if history_class:
+                        clauses.append("pa.class = ?")
+                        params.append(history_class)
+
+                    rows = c.execute("""
+                        SELECT pa.date, pa.class, UPPER(pa.period) AS period, pa.student_id,
+                               pa.status, s.name, s.roll_no, t.name
+                        FROM period_attendance pa
+                        LEFT JOIN students s ON s.id = pa.student_id
+                        LEFT JOIN teachers t ON t.id = pa.teacher_id
+                        WHERE %s
+                        ORDER BY pa.date DESC, pa.id DESC
+                        LIMIT 40000
+                    """ % " AND ".join(clauses), params).fetchall()
+
+                    groups = {}
+                    order = []
+                    for g_date, g_class, g_period, student_id, status, student_name, roll_no, teacher_name in rows:
+                        key = (g_date, g_class, g_period)
+                        group = groups.get(key)
+                        if group is None:
+                            meta = STUDY_SESSION_BY_PERIOD.get(g_period) or {}
+                            group = {
+                                "date": g_date,
+                                "class": g_class,
+                                "period": g_period,
+                                "session": meta.get("key"),
+                                "sessionLabel": meta.get("label", g_period),
+                                "records": 0,
+                                "counts": {"present": 0, "absent": 0, "special_leave": 0, "sick": 0, "leave": 0},
+                                "teachers": [],
+                                "students": {},
+                            }
+                            groups[key] = group
+                            order.append(key)
+                        group["records"] += 1
+                        if teacher_name and teacher_name not in group["teachers"]:
+                            group["teachers"].append(teacher_name)
+                        status_key = SL_STATUS_TO_NAME.get(str(status or "").strip().upper(), "absent")
+                        if status_key in group["counts"]:
+                            group["counts"][status_key] += 1
+                        student_key = str(student_id)
+                        if student_key not in group["students"]:
+                            group["students"][student_key] = {
+                                "studentId": student_id,
+                                "name": student_name,
+                                "rollNo": roll_no,
+                                "status": status_key,
+                            }
+
+                    max_groups = 200
+                    history_groups = []
+                    for key in order[:max_groups]:
+                        group = groups[key]
+                        history_groups.append({
+                            "date": group["date"],
+                            "class": group["class"],
+                            "session": group["session"],
+                            "sessionLabel": group["sessionLabel"],
+                            "period": group["period"],
+                            "records": group["records"],
+                            "studentCount": len(group["students"]),
+                            "counts": group["counts"],
+                            "teachers": group["teachers"],
+                            "students": list(group["students"].values()),
+                        })
+
+                    result = {
+                        "success": True,
+                        "groups": history_groups,
+                        "total": len(order),
+                        "truncated": len(order) > max_groups,
                     }
 
                 elif action == "mark_study_leave_attendance":
