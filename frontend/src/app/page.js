@@ -7394,13 +7394,13 @@ export default function DashboardPage() {
                           {batchReport.map((student, idx) => (
                             <div key={idx} className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
                               <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-xs shrink-0 ${
-                                student.percent >= 80 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                student.percent >= 75 ? 'bg-blue-50 text-[#1e3a8a] border border-blue-100' :
-                                student.percent >= 70 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                student.percent >= 75 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                student.percent >= 70 ? 'bg-blue-50 text-[#1e3a8a] border border-blue-100' :
+                                student.percent >= 65 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                                 student.percent >= 60 ? 'bg-red-50 text-red-500 border border-red-100' :
                                 'bg-red-100 text-red-900 border border-red-300'
                               }`}>
-                                {student.percent < 60 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
+                                {student.percent < 70 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
                                 <span>{typeof student.percent === 'number' ? student.percent.toFixed(2) : student.percent}%</span>
                               </div>
                               <div className="flex-1 min-w-0">
