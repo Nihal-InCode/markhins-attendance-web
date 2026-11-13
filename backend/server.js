@@ -2534,6 +2534,16 @@ app.post('/admin/announcements', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/admin/announcements/revoke-all', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') return res.status(403).send('Forbidden');
+        const result = await callPython({ action: "revoke_all_admin_announcements" });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.put('/admin/announcements/:announcementId', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).send('Forbidden');

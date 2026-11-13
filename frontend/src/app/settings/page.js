@@ -11,6 +11,7 @@ import {
     deleteTeacherPhoto,
     deleteAdminTeacher,
     getAdminAnnouncements,
+    revokeAllAnnouncements,
     getAdminActivityLog,
     getNamazApiMonitor,
     getAnnouncementViewers,
@@ -840,6 +841,20 @@ export default function SettingsPage() {
         setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true, targetTeacherIds: ann.targetTeacherIds || [], type: ann.type === "blast" ? "blast" : "announcement" });
     }
 
+    async function handleRevokeAllAnnouncements() {
+        const activeCount = announcements.filter(a => a.active).length;
+        if (!activeCount) { setMsg("No active broadcasts to revoke."); return; }
+        if (!confirm(`Revoke all ${activeCount} active broadcast(s)? Teachers will stop seeing them immediately.`)) return;
+        setAnnouncementBusy(true);
+        try {
+            const res = await revokeAllAnnouncements();
+            playSound('success');
+            setMsg(res?.message || "All broadcasts revoked.");
+            await refreshAnnouncements();
+        } catch (err) { playSound('error'); setError(err.message); }
+        finally { setAnnouncementBusy(false); }
+    }
+
     async function handleDeleteAnnouncement(ann) {
         if (!confirm(`Delete "${ann.heading}"?`)) return;
         setAnnouncementBusy(true);
@@ -1484,7 +1499,16 @@ export default function SettingsPage() {
                                 </form>
                             </div>
                             <div className="space-y-3">
-                                <h3 className="text-sm font-bold text-gray-900">History</h3>
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-bold text-gray-900">History</h3>
+                                    <button
+                                        onClick={handleRevokeAllAnnouncements}
+                                        disabled={announcementBusy || !announcements.some(a => a.active)}
+                                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        ⛔ Revoke All
+                                    </button>
+                                </div>
                                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                                     {announcements.map(ann => (
                                         <div key={ann.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-md transition-all">

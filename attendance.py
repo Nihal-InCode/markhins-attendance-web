@@ -7742,6 +7742,11 @@ if __name__ == "__main__":
                         conn.commit()
                         result = {"success": c.rowcount > 0, "message": "Broadcast updated." if c.rowcount > 0 else "Broadcast not found."}
 
+                elif action == "revoke_all_admin_announcements":
+                    c.execute("UPDATE announcement_broadcasts SET active=0, updated_at=?", (get_ist_now().strftime("%Y-%m-%d %H:%M:%S"),))
+                    conn.commit()
+                    result = {"success": True, "message": f"Revoked {c.rowcount} broadcast(s). Teachers will no longer see them."}
+
                 elif action == "delete_admin_announcement":
                     announcement_id = data.get("announcement_id")
 

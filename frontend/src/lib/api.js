@@ -392,6 +392,9 @@ export const getTeachersList = (params = {}) => {
 };
 
 export const getAdminAnnouncements = () => apiRequest('/admin/announcements');
+export const revokeAllAnnouncements = () => apiRequest('/admin/announcements/revoke-all', {
+    method: 'POST',
+});
 export const createAdminAnnouncement = (data) => apiRequest('/admin/announcements', {
     method: 'POST',
     body: JSON.stringify(data),
