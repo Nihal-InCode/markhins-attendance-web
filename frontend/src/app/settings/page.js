@@ -210,6 +210,7 @@ export default function SettingsPage() {
         footer: "If anything goes wrong or does not work correctly, please inform the developer.",
         active: true,
         targetTeacherIds: [],
+        type: "announcement",
     });
     const [viewersModal, setViewersModal] = useState({ open: false, key: null, heading: "", list: [], loading: false });
     const { showLoader, hideLoader } = useLoading();
@@ -819,7 +820,7 @@ export default function SettingsPage() {
     }
 
     function resetAnnouncementForm() {
-        setAnnouncementForm({ id: null, heading: "A fresh semester begins", content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.", footer: "If anything goes wrong or does not work correctly, please inform the developer.", active: true, targetTeacherIds: [] });
+        setAnnouncementForm({ id: null, heading: "A fresh semester begins", content: "Respected {teacherName}, welcome to the new semester. Kindly review your class list, timetable and assigned periods once before taking attendance.", footer: "If anything goes wrong or does not work correctly, please inform the developer.", active: true, targetTeacherIds: [], type: "announcement" });
     }
 
     async function handleSaveAnnouncement(e) {
@@ -836,7 +837,7 @@ export default function SettingsPage() {
     }
 
     function handleEditAnnouncement(ann) {
-        setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true, targetTeacherIds: ann.targetTeacherIds || [] });
+        setAnnouncementForm({ id: ann.id, heading: ann.heading || "", content: ann.content || "", footer: ann.footer || "", active: ann.active ?? true, targetTeacherIds: ann.targetTeacherIds || [], type: ann.type === "blast" ? "blast" : "announcement" });
     }
 
     async function handleDeleteAnnouncement(ann) {
@@ -1417,6 +1418,22 @@ export default function SettingsPage() {
                                             className="w-full rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0d9488]/20" />
                                     </div>
                                     <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Type</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button type="button"
+                                                onClick={() => setAnnouncementForm(p => ({ ...p, type: "announcement" }))}
+                                                className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${announcementForm.type !== "blast" ? "border-[#0d9488] bg-[#0d9488]/10 text-[#0d9488]" : "border-gray-100 bg-gray-50/50 text-gray-500 hover:bg-gray-50"}`}>
+                                                📢 Announcement
+                                            </button>
+                                            <button type="button"
+                                                onClick={() => setAnnouncementForm(p => ({ ...p, type: "blast" }))}
+                                                className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${announcementForm.type === "blast" ? "border-orange-400 bg-orange-50 text-orange-600" : "border-gray-100 bg-gray-50/50 text-gray-500 hover:bg-gray-50"}`}>
+                                                📄 Paper Blast
+                                            </button>
+                                        </div>
+                                        <p className="mt-1 text-[9px] font-bold text-gray-400 uppercase">Paper Blast flies in as a paper sheet — shows once per teacher</p>
+                                    </div>
+                                    <div>
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Send To</label>
                                         <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 max-h-40 overflow-y-auto space-y-1.5">
                                             <label className="flex items-center gap-2.5 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-white transition-all">
@@ -1477,6 +1494,11 @@ export default function SettingsPage() {
                                                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${ann.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                                                         {ann.active ? "Active" : "Off"}
                                                     </span>
+                                                    {ann.type === "blast" && (
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-orange-50 text-orange-600">
+                                                            📄 Paper Blast
+                                                        </span>
+                                                    )}
                                                     {ann.targetTeacherIds && ann.targetTeacherIds.length > 0 ? (
                                                         <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-50 text-blue-700">
                                                             {ann.targetTeacherIds.length} teacher(s)

@@ -3924,7 +3924,68 @@ export default function DashboardPage() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      {semesterPopupOpen && activeAnnouncement && (
+      {semesterPopupOpen && activeAnnouncement && activeAnnouncement.type === "blast" && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-5 py-8">
+          {/* faint backdrop, no blur so the paper reads as flying over the page */}
+          <div className="absolute inset-0 bg-slate-950/45" onClick={dismissSemesterPopup} />
+          <div className="relative w-full max-w-sm animate-paper-blast" style={{ perspective: "1200px" }}>
+            {/* paper scraps blasting out with the sheet */}
+            {[["-70px", "-90px", "-220deg"], ["80px", "-70px", "200deg"], ["-90px", "60px", "-160deg"], ["95px", "70px", "170deg"]].map(([sx, sy, sr], i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-1/2 h-3.5 w-5 rounded-[2px] bg-amber-100 shadow-sm"
+                style={{
+                  "--sx": sx, "--sy": sy, "--sr": sr,
+                  animation: `scrapFly 0.9s ${0.15 + i * 0.06}s ease-out both`,
+                  backgroundImage: "repeating-linear-gradient(transparent, transparent 5px, rgba(59,130,246,0.25) 5px, rgba(59,130,246,0.25) 6px)",
+                }}
+              />
+            ))}
+            {/* the paper sheet */}
+            <div
+              className="relative overflow-hidden rounded-lg px-6 pb-6 pt-8 text-slate-800 shadow-[0_30px_60px_rgba(0,0,0,0.45)]"
+              style={{
+                backgroundColor: "#fdfaf2",
+                backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, rgba(148,163,184,0.35) 31px, rgba(148,163,184,0.35) 32px)",
+                transform: "rotate(-1.5deg)",
+              }}
+            >
+              {/* red margin line */}
+              <span aria-hidden className="absolute inset-y-0 left-10 w-px bg-rose-300/70" />
+              {/* tape strip */}
+              <span aria-hidden className="absolute -top-3 left-1/2 h-7 w-28 -translate-x-1/2 -rotate-2 rounded-sm bg-amber-200/70 shadow-sm backdrop-blur-[1px]" />
+              <div className="relative pl-6">
+                <p
+                  className="text-3xl font-extrabold leading-none text-amber-700"
+                  style={{ fontFamily: "'Amiri', 'Noto Naskh Arabic', 'Times New Roman', serif" }}
+                >
+                  السلام عليكم
+                </p>
+                <h2 className="mt-3 text-xl font-black leading-snug text-slate-800">
+                  {activeAnnouncement.heading}
+                </h2>
+                <p className="mt-2 whitespace-pre-line text-sm font-medium leading-relaxed text-slate-600">
+                  {activeAnnouncement.content.replaceAll("{teacherName}", user?.name || "Teacher")}
+                </p>
+                {activeAnnouncement.footer && (
+                  <p className="mt-3 border-t border-dashed border-slate-300 pt-2 text-[11px] font-semibold italic leading-snug text-slate-500">
+                    {activeAnnouncement.footer.replaceAll("{teacherName}", user?.name || "Teacher")}
+                  </p>
+                )}
+                <button
+                  onClick={dismissSemesterPopup}
+                  disabled={semesterPopupSaving}
+                  className="mt-5 w-full rounded-lg bg-slate-800 py-3 text-xs font-black uppercase tracking-widest text-amber-100 transition-all hover:bg-slate-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {semesterPopupSaving ? "Saving..." : "Got it"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {semesterPopupOpen && activeAnnouncement && activeAnnouncement.type !== "blast" && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 px-5 py-8 backdrop-blur-md perspective-1000">
           <div className="w-full max-w-md overflow-hidden rounded-[2.5rem] bg-slate-900/90 border border-slate-800/80 shadow-[0_30px_70px_rgba(0,0,0,0.75),_0_0_50px_rgba(99,102,241,0.15)] ring-1 ring-white/10 card-3d-broadcast animate-modal-in">
             {/* Header Block */}
@@ -7394,13 +7455,13 @@ export default function DashboardPage() {
                           {batchReport.map((student, idx) => (
                             <div key={idx} className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
                               <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-xs shrink-0 ${
-                                student.percent >= 75 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                student.percent >= 70 ? 'bg-blue-50 text-[#1e3a8a] border border-blue-100' :
-                                student.percent >= 65 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                student.percent >= 80 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                student.percent >= 75 ? 'bg-blue-50 text-[#1e3a8a] border border-blue-100' :
+                                student.percent >= 70 ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                                 student.percent >= 60 ? 'bg-red-50 text-red-500 border border-red-100' :
                                 'bg-red-100 text-red-900 border border-red-300'
                               }`}>
-                                {student.percent < 70 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
+                                {student.percent < 60 && <span className="text-[9px] mb-0.5" title="Warning: Low Attendance">⚠️</span>}
                                 <span>{typeof student.percent === 'number' ? student.percent.toFixed(2) : student.percent}%</span>
                               </div>
                               <div className="flex-1 min-w-0">
