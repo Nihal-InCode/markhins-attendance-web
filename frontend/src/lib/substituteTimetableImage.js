@@ -1,13 +1,13 @@
 const CLASS_ORDER = ["HS1", "HSU1", "HS2", "HSU2", "BS1", "BSU1", "BS2", "BS3", "BS4", "BS5"];
 
 const PERIOD_COLUMNS = [
-  { period: "P1", label: "5:50-6:40" },
-  { period: "P2", label: "6:40-7:30" },
-  { period: "P3", label: "9:20-10:10" },
-  { period: "P4", label: "10:10-11:00" },
-  { period: "P5", label: "11:00-11:50" },
-  { period: "P6", label: "11:50-12:40" },
-  { period: "P7", label: "12:40-1:30" },
+  { period: "P1", label: "6:00-6:50" },
+  { period: "P2", label: "6:50-7:40" },
+  { period: "P3", label: "7:40-8:30" },
+  { period: "P4", label: "9:20-10:10" },
+  { period: "P5", label: "10:10-11:00" },
+  { period: "P6", label: "11:00-11:50" },
+  { period: "P7", label: "11:50-12:40" },
 ];
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -152,9 +152,9 @@ export const generateSubstituteTimetablePng = ({ date, assignments }) => {
   ctx.fillStyle = "#111827";
   ctx.font = "900 34px Arial";
   ctx.textAlign = "center";
-  ctx.fillText("Fitness Break", width / 2, breakTop);
+  ctx.fillText("Breakfast", width / 2, breakTop);
   ctx.font = "700 28px Arial";
-  ctx.fillText("7:30 AM - 9:20 AM", width / 2, breakTop + 45);
+  ctx.fillText("8:30 AM - 9:20 AM", width / 2, breakTop + 45);
 
   return canvas.toDataURL("image/png");
 };
