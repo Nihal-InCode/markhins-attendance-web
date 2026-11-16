@@ -956,23 +956,25 @@ def run_migrations():
 # Run migrations on startup
 run_migrations()
 
-def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, not_working_classes):
+def get_teacher_conflict(c, teacher_id, date, weekday, period, leaves_config, not_working_classes):
     """
-    Unified Teacher Availability Engine
+    Unified Teacher Availability Engine (detailed variant).
+    Returns None when the teacher is free, otherwise a tuple (status, reason)
+    where status is 'on_leave' or 'busy'.
     leaves_config: dict mapping teacher_id to leave info
     """
     try:
         if int(teacher_id) in (-1, -2):
-            return True
+            return None
     except (ValueError, TypeError):
         if str(teacher_id) in ("-1", "-2"):
-            return True
+            return None
 
     # 1. Check if on Full Day Leave
     t_leave = leaves_config.get(int(teacher_id)) or leaves_config.get(str(teacher_id))
     if t_leave:
         if t_leave.get("type") == "full":
-            return False
+            return ("on_leave", "Full day leave")
         # 2. Check if on Partial Leave for this specific period
         elif t_leave.get("type") == "partial":
             p_label = str(period).strip().upper()
@@ -988,7 +990,7 @@ def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, no
                 normalized_leave_periods.append(lp_str)
             
             if p_label in normalized_leave_periods:
-                return False
+                return ("on_leave", "Partial leave")
 
     # 3. Check if teaching another scheduled class during that period in timetable (unless class is not working)
     not_working_clause = ""
@@ -1002,12 +1004,14 @@ def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, no
         p_query = f"P{p_query}"
 
     c.execute(f"""
-        SELECT COUNT(*) FROM timetable
+        SELECT class FROM timetable
         WHERE teacher_id = ? AND weekday = ? AND period_label = ?
         {not_working_clause}
+        LIMIT 1
     """, (teacher_id, weekday, p_query, *not_working_params))
-    if c.fetchone()[0] > 0:
-        return False
+    busy_row = c.fetchone()
+    if busy_row:
+        return ("busy", f"Teaching {busy_row[0]}")
 
     # 4. Check if already assigned as a substitute during that period on this date
     c.execute("""
@@ -1015,9 +1019,17 @@ def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, no
         WHERE date = ? AND period = ? AND substitute_teacher_id = ?
     """, (date, p_query, teacher_id))
     if c.fetchone()[0] > 0:
-        return False
+        return ("busy", "Already substituting")
 
-    return True
+    return None
+
+
+def is_teacher_available(c, teacher_id, date, weekday, period, leaves_config, not_working_classes):
+    """
+    Unified Teacher Availability Engine
+    leaves_config: dict mapping teacher_id to leave info
+    """
+    return get_teacher_conflict(c, teacher_id, date, weekday, period, leaves_config, not_working_classes) is None
 
 NAMAZ_SESSION_TYPES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
@@ -9575,6 +9587,26 @@ if __name__ == "__main__":
                                         "matched_subjects": ["IT Lab"]
                                     }
                                 ]
+                                # Full list for the override picker: EVERY eligible teacher (even if on
+                                # leave / busy / already substituting) with their status for this slot.
+                                slot_all_teachers = [
+                                    {
+                                        "id": -1,
+                                        "name": "LIBRARY",
+                                        "matched_subject": "Library",
+                                        "matched_subjects": ["Library"],
+                                        "status": "available",
+                                        "status_reason": ""
+                                    },
+                                    {
+                                        "id": -2,
+                                        "name": "IT LAB",
+                                        "matched_subject": "IT Lab",
+                                        "matched_subjects": ["IT Lab"],
+                                        "status": "available",
+                                        "status_reason": ""
+                                    }
+                                ]
                                 for av_id, av_name, av_role, av_is_teacher, av_user in all_teachers_raw:
                                     if av_id == r_ot_id:
                                         continue
@@ -9586,19 +9618,33 @@ if __name__ == "__main__":
                                     is_teacher_flag = av_is_teacher if av_is_teacher is not None else (0 if str(trole).lower() in ["staff", "office staff", "non-teaching staff", "other staff", "accountant", "librarian", "driver", "security", "admin", "guest"] else 1)
                                     if is_teacher_flag != 1:
                                         continue
-                                    if is_teacher_available(c, av_id, planner_date, weekday, r_period, leaves_config, not_working_classes):
-                                        c.execute("""
-                                            SELECT DISTINCT subject
-                                            FROM timetable
-                                            WHERE teacher_id = ?
-                                              AND UPPER(class) = UPPER(?)
-                                              AND subject IS NOT NULL
-                                              AND TRIM(subject) != ''
-                                            ORDER BY subject COLLATE NOCASE
-                                        """, (av_id, r_class))
-                                        subj_rows = c.fetchall()
-                                        matched_subjects = [r[0] for r in subj_rows]
 
+                                    # Subjects this teacher teaches to this class (computed for everyone
+                                    # so the override picker can offer the subject step too)
+                                    c.execute("""
+                                        SELECT DISTINCT subject
+                                        FROM timetable
+                                        WHERE teacher_id = ?
+                                          AND UPPER(class) = UPPER(?)
+                                          AND subject IS NOT NULL
+                                          AND TRIM(subject) != ''
+                                        ORDER BY subject COLLATE NOCASE
+                                    """, (av_id, r_class))
+                                    subj_rows = c.fetchall()
+                                    matched_subjects = [r[0] for r in subj_rows]
+
+                                    conflict = get_teacher_conflict(c, av_id, planner_date, weekday, r_period, leaves_config, not_working_classes)
+
+                                    slot_all_teachers.append({
+                                        "id": av_id,
+                                        "name": av_name,
+                                        "matched_subject": matched_subjects[0] if matched_subjects else "",
+                                        "matched_subjects": matched_subjects,
+                                        "status": "available" if conflict is None else conflict[0],
+                                        "status_reason": "" if conflict is None else conflict[1]
+                                    })
+
+                                    if conflict is None:
                                         avail_teachers.append({
                                             "id": av_id,
                                             "name": av_name,
@@ -9616,7 +9662,8 @@ if __name__ == "__main__":
                                     "assigned_substitute_id": existing["substitute_id"] if existing else None,
                                     "assigned_substitute_name": existing["substitute_name"] if existing else None,
                                     "assigned_subject": existing["subject"] if existing else None,
-                                    "available_teachers": avail_teachers
+                                    "available_teachers": avail_teachers,
+                                    "all_teachers": slot_all_teachers
                                 })
                                 
                         result = {

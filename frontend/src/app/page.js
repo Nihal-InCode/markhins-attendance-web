@@ -680,6 +680,15 @@ export default function DashboardPage() {
   const [plannerData, setPlannerData] = useState(null);
   const [assigningPeriod, setAssigningPeriod] = useState(null);
   const [assigningTeacher, setAssigningTeacher] = useState(null);
+  const [showAllTeacherOptions, setShowAllTeacherOptions] = useState(false);
+  const [teacherSearchQuery, setTeacherSearchQuery] = useState("");
+
+  // Reset the "Show All Teachers" override picker whenever the assign modal opens/closes
+  useEffect(() => {
+    setShowAllTeacherOptions(false);
+    setTeacherSearchQuery("");
+    setAssigningTeacher(null);
+  }, [assigningPeriod]);
   const [temporaryAssignments, setTemporaryAssignments] = useState({});
   const [subReportFilter, setSubReportFilter] = useState({
     fromDate: new Date().toISOString().split('T')[0],
@@ -8465,7 +8474,27 @@ export default function DashboardPage() {
                           {/* Step 1: Teacher Selection */}
                           {!assigningTeacher && (
                             <div className="border-t border-gray-100 pt-3">
-                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Step 1 — Select Teacher</p>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Step 1 — Select Teacher</p>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${showAllTeacherOptions ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  {showAllTeacherOptions ? '⚡ Override: All' : '✓ Free only'}
+                                </span>
+                              </div>
+
+                              {/* Free / All toggle */}
+                              <div className="flex gap-2 mb-2">
+                                <button
+                                  onClick={() => setShowAllTeacherOptions(false)}
+                                  className={`flex-1 rounded-xl border px-3 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${!showAllTeacherOptions ? 'border-[#0d9488] bg-[#0d9488] text-white shadow-md shadow-[#0d9488]/15' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                                  Free Teachers
+                                </button>
+                                <button
+                                  onClick={() => setShowAllTeacherOptions(true)}
+                                  className={`flex-1 rounded-xl border px-3 py-2 text-[9px] font-black uppercase tracking-wider transition-all ${showAllTeacherOptions ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/15' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                                  Show All Teachers
+                                </button>
+                              </div>
+
                               {(() => {
                                 const assignedTeacherIdsForThisPeriod = Object.entries(temporaryAssignments)
                                   .filter(([key, val]) => {
@@ -8474,14 +8503,125 @@ export default function DashboardPage() {
                                   })
                                   .map(([key, val]) => String(val.substitute_teacher_id));
 
+                                const isDraftAssigned = (tid) => assignedTeacherIdsForThisPeriod.includes(String(tid));
+
                                 const filteredAvailableTeachers = assigningPeriod.available_teachers.filter(teacher => {
                                   if (isNonTeacherAdmin(teacher)) return false;
                                   if (String(teacher.id) === "-1" || String(teacher.id) === "-2") return true;
-                                  return !assignedTeacherIdsForThisPeriod.includes(String(teacher.id));
+                                  return !isDraftAssigned(String(teacher.id));
                                 });
 
+                                // Override list: every teacher (on leave / busy / already assigned included)
+                                const fullTeacherList = (Array.isArray(assigningPeriod.all_teachers) && assigningPeriod.all_teachers.length > 0)
+                                  ? assigningPeriod.all_teachers
+                                  : (plannerData?.all_teachers || []);
+
+                                const searchQ = teacherSearchQuery.trim().toLowerCase();
+
+                                const overrideList = fullTeacherList.filter(teacher => {
+                                  if (isNonTeacherAdmin(teacher)) return false;
+                                  // Never allow covering your own class
+                                  if (String(teacher.id) === String(assigningPeriod.original_teacher_id)) return false;
+                                  if (searchQ && !String(teacher.name || "").toLowerCase().includes(searchQ)) return false;
+                                  return true;
+                                });
+
+                                const statusRank = (t) => {
+                                  const special = String(t.id) === "-1" || String(t.id) === "-2";
+                                  if (special) return -1;
+                                  if (!t.status) return isDraftAssigned(t.id) ? 1 : 0;
+                                  if (t.status === "available") return isDraftAssigned(t.id) ? 1 : 0;
+                                  if (t.status === "busy") return 2;
+                                  return 3; // on_leave
+                                };
+
+                                const sortedOverrideList = [...overrideList].sort((a, b) => {
+                                  const ra = statusRank(a), rb = statusRank(b);
+                                  if (ra !== rb) return ra - rb;
+                                  return String(a.name || "").localeCompare(String(b.name || ""));
+                                });
+
+                                const statusBadge = (teacher) => {
+                                  const draft = isDraftAssigned(teacher.id);
+                                  if (draft) return { label: 'Assigned', cls: 'bg-blue-100 text-blue-700' };
+                                  if (teacher.status === "on_leave") return { label: teacher.status_reason || 'On Leave', cls: 'bg-red-100 text-red-700' };
+                                  if (teacher.status === "busy") return { label: teacher.status_reason || 'Busy', cls: 'bg-amber-100 text-amber-700' };
+                                  return { label: 'Free', cls: 'bg-emerald-100 text-emerald-700' };
+                                };
+
+                                const renderTeacherButton = (teacher) => {
+                                  const subjects = teacher.matched_subjects || (teacher.matched_subject ? [teacher.matched_subject] : []);
+                                  const badge = statusBadge(teacher);
+                                  const showBadge = showAllTeacherOptions;
+
+                                  return (
+                                    <button key={teacher.id}
+                                      onClick={() => {
+                                        if (subjects.length === 1 || subjects.length === 0) {
+                                          // Only one or no subjects — assign directly
+                                          setTemporaryAssignments(prev => ({
+                                            ...prev,
+                                            [assigningPeriod.key]: {
+                                              substitute_teacher_id: teacher.id,
+                                              subject: subjects[0] || assigningPeriod.subject || "General"
+                                            }
+                                          }));
+                                          setAssigningPeriod(null);
+                                          setAssigningTeacher(null);
+                                        } else {
+                                          // Multiple subjects — show subject picker
+                                          setAssigningTeacher({ ...teacher, subjects });
+                                        }
+                                      }}
+                                      className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                          <p className="text-[9px] font-semibold text-gray-300">{(teacher.matched_subjects || []).length} subject{(teacher.matched_subjects || []).length !== 1 ? 's' : ''} available</p>
+                                          {showBadge && (
+                                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                  );
+                                };
+
+                                // ---- Override mode: ALL teachers ----
+                                if (showAllTeacherOptions) {
+                                  return (
+                                    <div>
+                                      <input
+                                        type="text"
+                                        value={teacherSearchQuery}
+                                        onChange={(e) => setTeacherSearchQuery(e.target.value)}
+                                        placeholder="🔍 Search any teacher name..."
+                                        className="w-full mb-2 rounded-xl border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs font-bold text-gray-700 placeholder-amber-400 outline-none focus:border-amber-400 transition-colors"
+                                      />
+                                      <p className="text-[8px] font-black uppercase tracking-widest text-amber-600 mb-1.5">⚡ Override — includes teachers on leave, busy or already assigned</p>
+                                      {sortedOverrideList.length === 0 ? (
+                                        <p className="py-6 text-center text-xs font-bold text-gray-400 uppercase">No teachers match &ldquo;{teacherSearchQuery}&rdquo;.</p>
+                                      ) : (
+                                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                          {sortedOverrideList.map(renderTeacherButton)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                // ---- Default mode: free teachers only ----
                                 return filteredAvailableTeachers.length === 0 ? (
-                                  <p className="py-6 text-center text-xs font-bold text-red-400 uppercase">No teachers available without conflicts.</p>
+                                  <div className="py-6 text-center">
+                                    <p className="text-xs font-bold text-red-400 uppercase">No teachers available without conflicts.</p>
+                                    <button onClick={() => setShowAllTeacherOptions(true)}
+                                      className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-amber-700 hover:bg-amber-100 transition-all">
+                                      Show All Teachers Instead →
+                                    </button>
+                                  </div>
                                 ) : (
                                   <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                                     {[...filteredAvailableTeachers].sort((a, b) => {
@@ -8493,39 +8633,7 @@ export default function DashboardPage() {
                                       const aSubjects = a.matched_subjects || (a.matched_subject ? [a.matched_subject] : []);
                                       const bSubjects = b.matched_subjects || (b.matched_subject ? [b.matched_subject] : []);
                                       return bSubjects.length - aSubjects.length;
-                                    }).map(teacher => {
-                                      const subjects = teacher.matched_subjects || (teacher.matched_subject ? [teacher.matched_subject] : []);
-
-                                      return (
-                                        <button key={teacher.id}
-                                          onClick={() => {
-                                            if (subjects.length === 1 || subjects.length === 0) {
-                                              // Only one or no subjects — assign directly
-                                              setTemporaryAssignments(prev => ({
-                                                ...prev,
-                                                [assigningPeriod.key]: {
-                                                  substitute_teacher_id: teacher.id,
-                                                  subject: subjects[0] || assigningPeriod.subject || "General"
-                                                }
-                                              }));
-                                              setAssigningPeriod(null);
-                                              setAssigningTeacher(null);
-                                            } else {
-                                              // Multiple subjects — show subject picker
-                                              setAssigningTeacher({ ...teacher, subjects });
-                                            }
-                                          }}
-                                          className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white hover:bg-emerald-50/50 hover:border-emerald-200 transition-all text-left group">
-                                          <div className="min-w-0">
-                                            <p className="text-sm font-bold text-gray-700 group-hover:text-emerald-800">{teacher.name}</p>
-                                            <p className="text-[9px] font-semibold text-gray-300 mt-0.5">{(teacher.matched_subjects || []).length} subject{(teacher.matched_subjects || []).length !== 1 ? 's' : ''} available</p>
-                                          </div>
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                                          </svg>
-                                        </button>
-                                      );
-                                    })}
+                                    }).map(renderTeacherButton)}
                                   </div>
                                 );
                               })()}
