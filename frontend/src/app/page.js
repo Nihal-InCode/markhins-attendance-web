@@ -8476,9 +8476,11 @@ export default function DashboardPage() {
                             <div className="border-t border-gray-100 pt-3">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Step 1 — Select Teacher</p>
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${showAllTeacherOptions ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                  {showAllTeacherOptions ? '⚡ Override: All' : '✓ Free only'}
-                                </span>
+                                {!showAllTeacherOptions && (
+                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                    ✓ Free only
+                                  </span>
+                                )}
                               </div>
 
                               {/* Free / All toggle */}
@@ -8601,7 +8603,6 @@ export default function DashboardPage() {
                                         placeholder="🔍 Search any teacher name..."
                                         className="w-full mb-2 rounded-xl border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs font-bold text-gray-700 placeholder-amber-400 outline-none focus:border-amber-400 transition-colors"
                                       />
-                                      <p className="text-[8px] font-black uppercase tracking-widest text-amber-600 mb-1.5">⚡ Override — includes teachers on leave, busy or already assigned</p>
                                       {sortedOverrideList.length === 0 ? (
                                         <p className="py-6 text-center text-xs font-bold text-gray-400 uppercase">No teachers match &ldquo;{teacherSearchQuery}&rdquo;.</p>
                                       ) : (
