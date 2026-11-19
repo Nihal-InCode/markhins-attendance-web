@@ -407,7 +407,15 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
   const counts = entries.reduce((result, entry) => {
     const code = String(entry.status).toUpperCase();
     const key = code === "SL" ? "special_leave" : ({ P: "present", A: "absent", S: "sick", L: "leave" }[code]);
-    if (key) result[key] = (result[key] || 0) + 1;
+    if (key) {
+      if (key === "sick" || key === "leave") {
+        result[`${key}Dates`] ||= new Set();
+        result[`${key}Dates`].add(entry.date);
+        result[key] = result[`${key}Dates`].size;
+      } else {
+        result[key] = (result[key] || 0) + 1;
+      }
+    }
     return result;
   }, {});
   const close = () => { requestIdRef.current += 1; setOpen(false); setLoading(false); };
@@ -440,12 +448,12 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
                     {[
                       { key: "present", label: "Present", color: "text-emerald-600 bg-emerald-50" },
                       { key: "absent", label: "Absent", color: "text-red-600 bg-red-50" },
-                      { key: "sick", label: "Sick", color: "text-orange-600 bg-orange-50" },
-                      { key: "leave", label: "Leave", color: "text-purple-600 bg-purple-50" },
+                      { key: "sick", label: "Sick Days", color: "text-orange-600 bg-orange-50" },
+                      { key: "leave", label: "Leave Days", color: "text-purple-600 bg-purple-50" },
                     ].map((item) => <div key={item.key} className={`rounded-xl p-3 text-center ${item.color}`}><p className="text-xl font-black">{counts[item.key] || 0}</p><p className="text-[9px] font-black uppercase tracking-wider">{item.label}</p></div>)}
                   </div>
                   {counts.special_leave > 0 && <p className="text-[10px] font-bold text-violet-600">Special leave: {counts.special_leave}</p>}
-                  <p className="text-[10px] font-medium text-gray-400">Counts are attendance session records. Dates with no attendance record are not counted.</p>
+                  <p className="text-[10px] font-medium text-gray-400">Only days on which classes were conducted are counted. Days without a class session are excluded from the count.</p>
                   <div className="divide-y divide-gray-100 rounded-xl border border-gray-100">
                     {entries.map((entry, index) => <div key={`${entry.date}-${entry.period}-${index}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[11px]"><span className="font-bold text-gray-700">{entry.date} · {entry.period}</span><span className="font-black text-gray-500">{entry.statusLabel}</span></div>)}
                     {entries.length === 0 && <p className="px-3 py-6 text-center text-xs font-bold text-gray-400">No attendance records in the last 30 days.</p>}
