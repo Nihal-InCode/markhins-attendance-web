@@ -585,3 +585,29 @@ export const sendTestPushNotification = (title, message) => apiRequest('/admin/p
     body: JSON.stringify({ title, message }),
 });
 
+// ── Library (islamic_library.db — read-only display; the desktop app pushes
+//    issue/return events to POST /api/library/sync) ──
+export const getLibraryStats = () => apiRequest('/api/library/stats');
+
+export const searchLibraryBooks = ({ q = '', status = '', category = '', page = 1, limit = 20 } = {}) => {
+    const search = new URLSearchParams();
+    if (q) search.set('q', q);
+    if (status) search.set('status', status);
+    if (category) search.set('category', category);
+    search.set('page', page);
+    search.set('limit', limit);
+    return apiRequest(`/api/library/books?${search.toString()}`);
+};
+
+export const getLibraryCategories = () => apiRequest('/api/library/categories');
+
+export const searchLibraryMembers = (q = '', limit = 30) =>
+    apiRequest(`/api/library/members?q=${encodeURIComponent(q)}&limit=${limit}`);
+
+export const getLibraryMemberHistory = (studentId) =>
+    apiRequest(`/api/library/members/${encodeURIComponent(studentId)}/history`);
+
+export const getLibraryTransactions = (limit = 25) =>
+    apiRequest(`/api/library/transactions?limit=${limit}`);
+
+

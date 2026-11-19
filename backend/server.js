@@ -42,6 +42,7 @@ function getLocalIp() {
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const NAMAZ_API_KEY = (process.env.NAMAZ_API_KEY || process.env.API_KEY || '').trim();
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
+const LIBRARY_PY_SCRIPT = path.join(__dirname, "..", "library.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
 const teacherPhotoUpload = multer({
@@ -579,14 +580,14 @@ const authenticateToken = (req, res, next) => {
 };
 
 /**
- * Bridge function to call attendance.py
+ * Bridge function to call attendance.py (or another stdin/stdout JSON script).
  */
-function callPython(data) {
+function callPython(data, scriptPath = PY_SCRIPT) {
     return new Promise((resolve, reject) => {
         let settled = false;
-        console.log(`[API -> Python] Action: ${data.action}`);
+        console.log(`[API -> Python] Action: ${data.action} (${path.basename(scriptPath)})`);
 
-        const py = spawn(PYTHON_CMD, [PY_SCRIPT], {
+        const py = spawn(PYTHON_CMD, [scriptPath], {
             cwd: path.join(__dirname, ".."),
             env: { ...process.env, PYTHONIOENCODING: "utf-8" }
         });
@@ -3144,6 +3145,127 @@ app.post('/admin/push-test', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
+// ── Library Management Endpoints ──
+// Reads islamic_library.db through library.py (same stdin/stdout JSON bridge
+// as attendance.py). The desktop library app pushes issue/return events to
+// POST /api/library/sync using the LIBRARY_API_KEY secret.
+
+const LIBRARY_API_KEY = (process.env.LIBRARY_API_KEY || "").trim();
+
+function callLibraryPython(data) {
+    return callPython(data, LIBRARY_PY_SCRIPT);
+}
+
+// Read endpoints (any logged-in user, including guests)
+app.get('/api/library/stats', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({ action: 'stats' });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/library/books', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({
+            action: 'search_books',
+            q: req.query.q || '',
+            status: req.query.status || '',
+            category: req.query.category || '',
+            page: req.query.page || 1,
+            limit: req.query.limit || 20,
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/library/categories', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({ action: 'categories' });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/library/members', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({
+            action: 'search_members',
+            q: req.query.q || '',
+            limit: req.query.limit || 30,
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/library/members/:studentId/history', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({
+            action: 'member_history',
+            student_id: req.params.studentId,
+        });
+        if (!result.success) return res.status(404).json(result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/library/transactions', authenticateToken, async (req, res) => {
+    try {
+        const result = await callLibraryPython({
+            action: 'recent_transactions',
+            limit: req.query.limit || 25,
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Desktop-app sync endpoint (API key auth, no JWT). The library desktop app
+// POSTs every issue/return here so the web app updates on the spot.
+app.post('/api/library/sync', async (req, res) => {
+    try {
+        if (!LIBRARY_API_KEY) {
+            return res.status(503).json({
+                success: false,
+                message: 'Library sync is disabled: set LIBRARY_API_KEY in backend/.env',
+            });
+        }
+        const provided = String(req.headers['x-library-api-key'] || req.body?.api_key || '');
+        if (provided !== LIBRARY_API_KEY) {
+            return res.status(401).json({ success: false, message: 'Invalid library API key.' });
+        }
+
+        const { events, snapshot } = req.body || {};
+        if (!Array.isArray(events) && !snapshot) {
+            return res.status(400).json({
+                success: false,
+                message: 'Payload must contain an "events" array and/or a "snapshot" object.',
+            });
+        }
+
+        const result = await callLibraryPython({
+            action: 'sync',
+            events: Array.isArray(events) ? events : [],
+            snapshot: snapshot || {},
+        });
+        if (!result.success) return res.status(400).json(result);
+        console.log(`[Library Sync] applied=${JSON.stringify(result.applied)}`);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

@@ -66,6 +66,7 @@ import { useLoading } from "@/context/LoadingContext";
 import PencilLoader from "@/components/PencilLoader";
 import VolumeToggle from "@/components/VolumeToggle";
 import TeacherQrScannerModal from "@/components/TeacherQrScannerModal";
+import LibraryPanel from "@/components/LibraryPanel";
 import { LiquidButton } from "@/components/ui/liquid-glass-button";
 import { playSound } from "@/lib/sound";
 import { generateSubstituteTimetablePng, getSubstituteTeacherCode } from "@/lib/substituteTimetableImage";
@@ -2190,7 +2191,7 @@ export default function DashboardPage() {
     if (user?.role === 'Majlis' || isNonTeacher) {
       setActiveTab("reports");
       const type = searchParams.get('type');
-      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att'].includes(type)) {
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att', 'library'].includes(type)) {
         setReportType(type);
       } else {
         setReportType(null);
@@ -2203,7 +2204,7 @@ export default function DashboardPage() {
     }
     if (urlTab === 'reports') {
       const type = searchParams.get('type');
-      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att'].includes(type)) {
+      if (type && ['overview', 'syllabus', 'namaz', 'events', 'extra', 'analysis', 'register', 'substitute', 'teacher_att', 'library'].includes(type)) {
         setReportType(type);
       } else {
         setReportType(null);
@@ -4815,6 +4816,7 @@ export default function DashboardPage() {
                 { id: 'events', label: 'Events History', emoji: '🏆', desc: 'Special events attendance records.' },
                 { id: 'extra', label: 'Extra Classes', emoji: '⚡', desc: 'Logged manual attendance registers.' },
                 { id: 'register', label: 'Register', emoji: '📒', desc: 'Detailed teaching session registers.' },
+                { id: 'library', label: 'Library', emoji: '📚', desc: 'Search books, stock status & student history.' },
               ];
               if (isCoordinator) {
                 rawReportTabs.push({ id: 'substitute', label: 'Substitute Planner', emoji: '📅', desc: 'Manage teacher leaves and coverage.' });
@@ -4829,34 +4831,39 @@ export default function DashboardPage() {
                       <p className="text-xs text-white/50 font-medium mt-1">Reports, permissions and syllabus tools</p>
                     </div>
 
-                    {!isGuest && (
-                      <div className="grid grid-cols-3 gap-2.5">
-                        {/* Tile 1: SCAN QR */}
-                        <button onClick={() => setShowTeacherQrScanner(true)}
-                          className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
-                          <span className="block text-xl">📷</span>
-                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
-                        </button>
+                    <div className={`grid gap-2.5 ${!isGuest ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                      {!isGuest && (
+                        <>
+                          {/* Tile 1: SCAN QR */}
+                          <button onClick={() => setShowTeacherQrScanner(true)}
+                            className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center text-indigo-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md flex flex-col items-center justify-center">
+                            <span className="block text-xl">📷</span>
+                            <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider">SCAN QR</span>
+                          </button>
 
-                        {/* Tile 2: Permission Manager */}
-                        <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                          <span className="block text-xl filter grayscale opacity-70">🪪</span>
-                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-teal-800/60 truncate w-full">Permission Manager</span>
-                          <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-teal-600/10 text-teal-700 border border-teal-600/20">
-                            Coming Soon
-                          </span>
-                        </div>
+                          {/* Tile 2: Permission Manager */}
+                          <div className="relative rounded-2xl border border-teal-100 bg-teal-50/50 p-3 text-center text-teal-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
+                            <span className="block text-xl filter grayscale opacity-70">🪪</span>
+                            <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-teal-800/60 truncate w-full">Permission Manager</span>
+                            <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-teal-600/10 text-teal-700 border border-teal-600/20">
+                              Coming Soon
+                            </span>
+                          </div>
+                        </>
+                      )}
 
-                        {/* Tile 3: AI */}
-                        <div className="relative rounded-2xl border border-purple-100 bg-purple-50/50 p-3 text-center text-purple-700/60 opacity-60 cursor-not-allowed select-none overflow-hidden flex flex-col items-center justify-center">
-                          <span className="block text-xl filter grayscale opacity-70">✨</span>
-                          <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider text-purple-800/60 truncate w-full">AI</span>
-                          <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
-                            Coming Soon
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                      {/* Tile 3: LIBRARY — open to everyone, including guests */}
+                      <button
+                        onClick={() => { setReportType('library'); router.push('/?tab=reports&type=library', { scroll: false }); setTimeout(() => trackEvent('Opened Library'), 0); }}
+                        className="rounded-2xl border border-purple-200 bg-purple-50 p-3 text-center text-purple-700 shadow-sm transition-all active:scale-[0.98] hover:shadow-md hover:bg-purple-100 flex flex-col items-center justify-center"
+                      >
+                        <span className="block text-xl">📚</span>
+                        <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider truncate w-full">Library</span>
+                        <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
+                          Live
+                        </span>
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-3">
                       <div className="h-px flex-1 bg-gray-100" />
@@ -4950,6 +4957,8 @@ export default function DashboardPage() {
                     <span>{reportError}</span>
                   </div>
                 )}
+
+                {reportType === "library" && <LibraryPanel />}
 
                 {reportType === "syllabus" && (
                   <div className="space-y-6">

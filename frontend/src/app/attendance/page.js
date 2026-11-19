@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getStudents, markAttendance, editLastAttendance, trackEvent } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
@@ -139,8 +139,60 @@ export default function AttendancePage() {
     const [error, setError] = useState("");
     const [showConfirm, setShowConfirm] = useState(false);
     const [currentLessonPage, setCurrentLessonPage] = useState("");
+    const [playingClassAudio, setPlayingClassAudio] = useState(false);
+    const [classAudioError, setClassAudioError] = useState("");
+    const classAudioRef = useRef(null);
     const { showLoader, hideLoader } = useLoading();
     const router = useRouter();
+
+    useEffect(() => {
+        const stopClassAudio = () => {
+            const audio = classAudioRef.current;
+            if (!audio) return;
+            audio.pause();
+            audio.currentTime = 0;
+            classAudioRef.current = null;
+            setPlayingClassAudio(false);
+        };
+        const stopWhenHidden = () => {
+            if (document.visibilityState === "hidden") stopClassAudio();
+        };
+        document.addEventListener("visibilitychange", stopWhenHidden);
+        window.addEventListener("pagehide", stopClassAudio);
+        return () => {
+            document.removeEventListener("visibilitychange", stopWhenHidden);
+            window.removeEventListener("pagehide", stopClassAudio);
+            stopClassAudio();
+        };
+    }, []);
+
+    const playClassAudio = async () => {
+        setClassAudioError("");
+        setPlayingClassAudio(true);
+        try {
+            if (classAudioRef.current) {
+                classAudioRef.current.pause();
+                classAudioRef.current.currentTime = 0;
+            }
+            const className = String(params?.className || "").trim();
+            const audioPath = `/sounds/${encodeURIComponent(`${className} NAMES .mp3`)}`;
+            const audio = new Audio(audioPath);
+            classAudioRef.current = audio;
+            audio.onended = () => {
+                if (classAudioRef.current === audio) classAudioRef.current = null;
+                setPlayingClassAudio(false);
+            };
+            audio.onerror = () => {
+                if (classAudioRef.current === audio) classAudioRef.current = null;
+                setPlayingClassAudio(false);
+                setClassAudioError("File not found");
+            };
+            await audio.play();
+        } catch {
+            setPlayingClassAudio(false);
+            setClassAudioError("File not found");
+        }
+    };
 
     useEffect(() => {
         if (user && user.role !== 'admin' && (user.is_teacher === 0 || user.is_teacher === false)) {
@@ -331,6 +383,18 @@ export default function AttendancePage() {
 
             <main className="max-w-md mx-auto px-4 py-6 space-y-4">
                 {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">{error}</div>}
+
+                <div className="flex flex-col items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={playClassAudio}
+                        className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 active:scale-95"
+                    >
+                        <span aria-hidden="true">🔊</span>
+                        {playingClassAudio ? "PLAYING…" : "READ ALOUD"}
+                    </button>
+                    {classAudioError && <p role="alert" className="text-center text-xs font-bold text-red-600">{classAudioError}</p>}
+                </div>
 
                 {/* Counts bar */}
                 <div className="grid grid-cols-3 gap-3">
