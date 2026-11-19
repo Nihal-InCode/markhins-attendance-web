@@ -1809,9 +1809,12 @@ app.post('/profile/update-credentials', authenticateToken, async (req, res) => {
 app.post('/mark-attendance', authenticateToken, async (req, res) => {
     try {
         const teacher_id = req.user.id || 1;
+        const role = String(req.user.role || '').trim().toLowerCase();
+        const allowHealthOverride = ['admin', 'principal', 'vice principal'].includes(role);
         const result = await callPython({
             action: "mark_attendance",
             ...req.body,
+            allowHealthOverride,
             teacher_id
         });
 
@@ -2089,6 +2092,7 @@ app.put('/attendance/edit-last', authenticateToken, async (req, res) => {
             period,
             date,
             teacher_id: Number(teacher_id),
+            allowHealthOverride: ['admin', 'principal', 'vice principal'].includes(String(req.user.role || '').trim().toLowerCase()),
             records: records,
         });
 

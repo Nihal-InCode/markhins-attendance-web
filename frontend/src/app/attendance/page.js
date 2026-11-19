@@ -141,9 +141,38 @@ export default function AttendancePage() {
     const [currentLessonPage, setCurrentLessonPage] = useState("");
     const [playingClassAudio, setPlayingClassAudio] = useState(false);
     const [classAudioError, setClassAudioError] = useState("");
+    const [healthActionStudent, setHealthActionStudent] = useState(null);
+    const [unlockedHealthStudents, setUnlockedHealthStudents] = useState({});
     const classAudioRef = useRef(null);
+    const longPressTimerRef = useRef(null);
+    const longPressTriggeredRef = useRef(false);
     const { showLoader, hideLoader } = useLoading();
     const router = useRouter();
+    const canManageHealth = ["admin", "principal", "vice principal"].includes(String(user?.role || "").trim().toLowerCase());
+
+    const startHealthLongPress = (student) => {
+        if (!canManageHealth) return;
+        longPressTriggeredRef.current = false;
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = setTimeout(() => {
+            longPressTriggeredRef.current = true;
+            setHealthActionStudent(student);
+        }, 550);
+    };
+
+    const cancelHealthLongPress = () => clearTimeout(longPressTimerRef.current);
+
+    const chooseHealthStatus = (status) => {
+        if (!healthActionStudent) return;
+        const id = healthActionStudent.id;
+        if (status === "unlock") {
+            setUnlockedHealthStudents((prev) => ({ ...prev, [id]: true }));
+            setAttendance((prev) => ({ ...prev, [id]: "present" }));
+        } else {
+            setAttendance((prev) => ({ ...prev, [id]: status }));
+        }
+        setHealthActionStudent(null);
+    };
 
     useEffect(() => {
         const stopClassAudio = () => {
@@ -264,7 +293,7 @@ export default function AttendancePage() {
     const toggleStatus = (studentId) => {
         const student = students.find(s => s.id === studentId);
         // PART 2: Disable override for Sick/Leave
-        if (student?.healthStatus === 'S' || student?.healthStatus === 'L') return;
+        if ((student?.healthStatus === 'S' || student?.healthStatus === 'L') && !unlockedHealthStudents[studentId]) return;
 
         setAttendance((prev) => {
             const current = prev[studentId];
@@ -347,8 +376,10 @@ export default function AttendancePage() {
     // Summary counts
     const counts = { present: 0, absent: 0, special_leave: 0, sick: 0, leave: 0 };
     students.forEach((s) => {
-        if (s.healthStatus === 'S') counts.sick++;
-        else if (s.healthStatus === 'L') counts.leave++;
+        if ((s.healthStatus === 'S' || s.healthStatus === 'L') && !unlockedHealthStudents[s.id]) {
+            if (s.healthStatus === 'S') counts.sick++;
+            else counts.leave++;
+        }
         else {
             const st = attendance[s.id] || "present";
             if (counts[st] !== undefined) counts[st]++;
@@ -418,8 +449,8 @@ export default function AttendancePage() {
                 {/* Student list */}
                 <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
                     {students.map((student) => {
-                        const isHealth = student.healthStatus === 'S' || student.healthStatus === 'L';
-                        const st = isHealth ? (student.healthStatus === 'S' ? 'sick' : 'leave') : (attendance[student.id] || "present");
+                        const isHealthLocked = (student.healthStatus === 'S' || student.healthStatus === 'L') && !unlockedHealthStudents[student.id];
+                        const st = isHealthLocked ? (student.healthStatus === 'S' ? 'sick' : 'leave') : (attendance[student.id] || "present");
                         const cfg = statusConfig[st] || statusConfig.present;
 
                         return (
@@ -442,16 +473,32 @@ export default function AttendancePage() {
                                     </div>
                                 </div>
 
-                                {isHealth ? (
-                                    <div className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${cfg.bg} ${cfg.text} ${cfg.border} flex items-center gap-1.5`}>
+                                {isHealthLocked ? (
+                                    <button
+                                        type="button"
+                                        onPointerDown={() => startHealthLongPress(student)}
+                                        onPointerUp={cancelHealthLongPress}
+                                        onPointerLeave={cancelHealthLongPress}
+                                        onPointerCancel={cancelHealthLongPress}
+                                        onContextMenu={(e) => { e.preventDefault(); if (canManageHealth) setHealthActionStudent(student); }}
+                                        onClick={() => { if (longPressTriggeredRef.current) { longPressTriggeredRef.current = false; return; } }}
+                                        className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${cfg.bg} ${cfg.text} ${cfg.border} flex items-center gap-1.5`}
+                                        aria-label={`${student.name}, locked. Long press for options.`}
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                                         </svg>
                                         Locked
-                                    </div>
+                                    </button>
                                 ) : (
                                     <button
-                                        onClick={() => toggleStatus(student.id)}
+                                        type="button"
+                                        onPointerDown={() => startHealthLongPress(student)}
+                                        onPointerUp={cancelHealthLongPress}
+                                        onPointerLeave={cancelHealthLongPress}
+                                        onPointerCancel={cancelHealthLongPress}
+                                        onContextMenu={(e) => { e.preventDefault(); if (canManageHealth) setHealthActionStudent(student); }}
+                                        onClick={() => { if (longPressTriggeredRef.current) { longPressTriggeredRef.current = false; return; } toggleStatus(student.id); }}
                                         className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${cfg.bg} ${cfg.text} ${cfg.border} border active:scale-95`}
                                     >
                                         {cfg.label}
@@ -461,6 +508,26 @@ export default function AttendancePage() {
                         );
                     })}
                 </div>
+
+                {healthActionStudent && canManageHealth && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-4" onClick={() => setHealthActionStudent(null)}>
+                        <div role="dialog" aria-modal="true" aria-label="Student health status options" className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                            <p className="mb-3 text-sm font-black text-gray-800">{healthActionStudent.name}</p>
+                            {(healthActionStudent.healthStatus === 'S' || healthActionStudent.healthStatus === 'L') && !unlockedHealthStudents[healthActionStudent.id] ? (
+                                <>
+                                    <button type="button" onClick={() => chooseHealthStatus("unlock")} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white">Unlock for this attendance</button>
+                                    <p className="mt-2 text-center text-[11px] text-gray-500">This does not change the student’s health record.</p>
+                                </>
+                            ) : (
+                                <div className="space-y-2">
+                                    <button type="button" onClick={() => chooseHealthStatus("sick")} className="w-full rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700">Mark sick</button>
+                                    <button type="button" onClick={() => chooseHealthStatus("leave")} className="w-full rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">Mark leave</button>
+                                </div>
+                            )}
+                            <button type="button" onClick={() => setHealthActionStudent(null)} className="mt-2 w-full rounded-xl px-4 py-2 text-xs font-bold text-gray-500">Cancel</button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Optional Syllabus tracker lesson page */}
                 {!params?.isEdit && (() => {

@@ -7018,6 +7018,7 @@ if __name__ == "__main__":
                     class_id = data.get("classId")
                     teacher_id = data.get("teacher_id", 1)
                     records = data.get("records", [])
+                    allow_health_override = data.get("allowHealthOverride") is True
                     
                     # --- Feature: Date Selection ---
                     date_str = data.get("date")
@@ -7073,7 +7074,7 @@ if __name__ == "__main__":
                             requested_status = status_map.get(rec.get("status"), "A")
                             
                             health_status = get_student_current_status(c, student_id)
-                            final_status = 'A' if health_status in ('S', 'L') else requested_status
+                            final_status = requested_status if allow_health_override or health_status not in ('S', 'L') else 'A'
 
                             c.execute("""
                                 INSERT INTO period_attendance (date, class, period, student_id, status, teacher_id)
@@ -7196,6 +7197,7 @@ if __name__ == "__main__":
                     edit_date = data.get("date")
                     teacher_id= data.get("teacher_id", 1)
                     records   = data.get("records", [])
+                    allow_health_override = data.get("allowHealthOverride") is True
 
                     # Safety & Security: 
                     # 1. Fetch the actual record to check ownership
@@ -7228,7 +7230,7 @@ if __name__ == "__main__":
                             
                             # BACKEND ENFORCEMENT: Check auto-absent for Sick/Leave
                             health_status = get_student_current_status(c, student_id)
-                            if health_status in ('S', 'L'):
+                            if health_status in ('S', 'L') and not allow_health_override:
                                 final_status = 'A'
                             else:
                                 final_status = requested_status
