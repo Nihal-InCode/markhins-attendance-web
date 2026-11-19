@@ -221,7 +221,7 @@ export default function LibraryPanel() {
     }, []);
 
     const statCards = stats ? [
-        { label: "Titles", value: stats.titles, color: "text-[#0d9488]" },
+        { label: "Books", value: stats.titles, color: "text-[#0d9488]" },
         { label: "Total Copies", value: stats.total_copies, color: "text-blue-600" },
         { label: "Available", value: stats.available_copies, color: "text-emerald-600" },
         { label: "Issued Now", value: stats.issued_now, color: "text-amber-600" },
@@ -245,7 +245,7 @@ export default function LibraryPanel() {
                     <div>
                         <h3 className="text-lg font-black">📚 Library</h3>
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mt-1">
-                            Search books, stock status &amp; student borrowing history
+                            Search books, check stock availability, and more
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
@@ -340,7 +340,7 @@ export default function LibraryPanel() {
                         <div className="px-5 py-4 border-b border-gray-50">
                             <h4 className="text-sm font-black text-gray-900">⏱️ Recent Activity</h4>
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">
-                                Latest issues &amp; returns pushed by the library computer
+                                Latest issues &amp; returns
                             </p>
                         </div>
                         <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">

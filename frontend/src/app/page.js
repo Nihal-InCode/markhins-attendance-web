@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -371,6 +372,7 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
   const requestIdRef = useRef(0);
 
   const openHistory = async (event) => {
+    event.preventDefault();
     event.stopPropagation();
     const requestId = ++requestIdRef.current;
     setOpen(true);
@@ -415,7 +417,7 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
       <button type="button" onClick={openHistory} className={className} title={`View ${name || "student"}'s last 30 days attendance`}>
         {children}
       </button>
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={close}>
           <section role="dialog" aria-modal="true" aria-label="Last 30 days attendance" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-gray-100 bg-gray-50/70 p-5">
@@ -446,7 +448,8 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -6127,9 +6130,9 @@ export default function DashboardPage() {
                                             >
                                               <div className="flex items-start justify-between mb-2">
                                                 <div className="min-w-0 flex-1">
-                                                  <span className="text-[10px] font-black text-gray-600 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1">
+                                                  <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-[10px] font-black text-gray-600 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1 hover:text-blue-600">
                                                     Roll #{student.rollNo}
-                                                  </span>
+                                                  </StudentLast30Attendance>
                                                   <p className="font-black text-gray-900 text-sm truncate" title={student.name}>
                                                     {student.name}
                                                   </p>
@@ -6893,9 +6896,9 @@ export default function DashboardPage() {
                                                     >
                                                       {student.name}
                                                     </p>
-                                                    <p className="text-[10px] font-bold text-gray-400">
+                                                    <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-left text-[10px] font-bold text-gray-400 hover:text-blue-600">
                                                       Roll No: {student.rollNo}
-                                                    </p>
+                                                    </StudentLast30Attendance>
                                                   </div>
                                                 </div>
 
