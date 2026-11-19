@@ -456,7 +456,7 @@ export default function AttendancePage() {
                         return (
                             <div
                                 key={student.id}
-                                className={`p-4 flex items-center justify-between transition-colors ${st === "absent" ? "bg-red-50/10" : isHealth ? "bg-gray-50/30" : ""}`}
+                                className={`p-4 flex items-center justify-between transition-colors ${st === "absent" ? "bg-red-50/10" : isHealthLocked ? "bg-gray-50/30" : ""}`}
                             >
                                 <div className="flex items-center space-x-4">
                                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black ${cfg.bg} ${cfg.text}`}>
@@ -465,7 +465,7 @@ export default function AttendancePage() {
                                     <div>
                                         <p className="font-bold text-gray-800 leading-tight">{student.name}</p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${isHealth ? 'animate-pulse' : ''}`} />
+                                            <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${isHealthLocked ? 'animate-pulse' : ''}`} />
                                             <p className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>
                                                 {cfg.label}
                                             </p>
