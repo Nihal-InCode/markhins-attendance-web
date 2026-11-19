@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getStudents, markAttendance, editLastAttendance, trackEvent } from "@/lib/api";
+import { getStudents, markAttendance, editLastAttendance, markHealthStatus, trackEvent } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
@@ -142,7 +142,8 @@ export default function AttendancePage() {
     const [playingClassAudio, setPlayingClassAudio] = useState(false);
     const [classAudioError, setClassAudioError] = useState("");
     const [healthActionStudent, setHealthActionStudent] = useState(null);
-    const [unlockedHealthStudents, setUnlockedHealthStudents] = useState({});
+    const [healthStatusOverrides, setHealthStatusOverrides] = useState({});
+    const [healthActionBusy, setHealthActionBusy] = useState(false);
     const classAudioRef = useRef(null);
     const longPressTimerRef = useRef(null);
     const longPressTriggeredRef = useRef(false);
@@ -162,16 +163,32 @@ export default function AttendancePage() {
 
     const cancelHealthLongPress = () => clearTimeout(longPressTimerRef.current);
 
-    const chooseHealthStatus = (status) => {
+    const chooseHealthStatus = async (status) => {
         if (!healthActionStudent) return;
-        const id = healthActionStudent.id;
-        if (status === "unlock") {
-            setUnlockedHealthStudents((prev) => ({ ...prev, [id]: true }));
-            setAttendance((prev) => ({ ...prev, [id]: "present" }));
-        } else {
-            setAttendance((prev) => ({ ...prev, [id]: status }));
+        const student = healthActionStudent;
+        const id = student.id;
+        const currentHealthStatus = Object.prototype.hasOwnProperty.call(healthStatusOverrides, id)
+            ? healthStatusOverrides[id]
+            : student.healthStatus;
+        const action = status === "unlock"
+            ? (currentHealthStatus === "S" ? "cure" : "return")
+            : status;
+
+        setHealthActionBusy(true);
+        setError("");
+        try {
+            const result = await markHealthStatus(action, [student.rollNo], params?.className || params?.classId);
+            if (!result?.success) throw new Error(result?.error || result?.message || "Could not update the student’s health status.");
+
+            const nextHealthStatus = status === "unlock" ? null : (status === "sick" ? "S" : "L");
+            setHealthStatusOverrides((prev) => ({ ...prev, [id]: nextHealthStatus }));
+            setAttendance((prev) => ({ ...prev, [id]: status === "unlock" ? "present" : "absent" }));
+            setHealthActionStudent(null);
+        } catch (err) {
+            setError(err.message || "Could not update the student’s health status.");
+        } finally {
+            setHealthActionBusy(false);
         }
-        setHealthActionStudent(null);
     };
 
     useEffect(() => {
@@ -292,8 +309,11 @@ export default function AttendancePage() {
 
     const toggleStatus = (studentId) => {
         const student = students.find(s => s.id === studentId);
+        const healthStatus = Object.prototype.hasOwnProperty.call(healthStatusOverrides, studentId)
+            ? healthStatusOverrides[studentId]
+            : student?.healthStatus;
         // PART 2: Disable override for Sick/Leave
-        if ((student?.healthStatus === 'S' || student?.healthStatus === 'L') && !unlockedHealthStudents[studentId]) return;
+        if (healthStatus === 'S' || healthStatus === 'L') return;
 
         setAttendance((prev) => {
             const current = prev[studentId];
@@ -376,8 +396,11 @@ export default function AttendancePage() {
     // Summary counts
     const counts = { present: 0, absent: 0, special_leave: 0, sick: 0, leave: 0 };
     students.forEach((s) => {
-        if ((s.healthStatus === 'S' || s.healthStatus === 'L') && !unlockedHealthStudents[s.id]) {
-            if (s.healthStatus === 'S') counts.sick++;
+        const healthStatus = Object.prototype.hasOwnProperty.call(healthStatusOverrides, s.id)
+            ? healthStatusOverrides[s.id]
+            : s.healthStatus;
+        if (healthStatus === 'S' || healthStatus === 'L') {
+            if (healthStatus === 'S') counts.sick++;
             else counts.leave++;
         }
         else {
@@ -449,8 +472,11 @@ export default function AttendancePage() {
                 {/* Student list */}
                 <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
                     {students.map((student) => {
-                        const isHealthLocked = (student.healthStatus === 'S' || student.healthStatus === 'L') && !unlockedHealthStudents[student.id];
-                        const st = isHealthLocked ? (student.healthStatus === 'S' ? 'sick' : 'leave') : (attendance[student.id] || "present");
+                        const healthStatus = Object.prototype.hasOwnProperty.call(healthStatusOverrides, student.id)
+                            ? healthStatusOverrides[student.id]
+                            : student.healthStatus;
+                        const isHealthLocked = healthStatus === 'S' || healthStatus === 'L';
+                        const st = isHealthLocked ? (healthStatus === 'S' ? 'sick' : 'leave') : (attendance[student.id] || "present");
                         const cfg = statusConfig[st] || statusConfig.present;
 
                         return (
@@ -513,18 +539,21 @@ export default function AttendancePage() {
                     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-4" onClick={() => setHealthActionStudent(null)}>
                         <div role="dialog" aria-modal="true" aria-label="Student health status options" className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
                             <p className="mb-3 text-sm font-black text-gray-800">{healthActionStudent.name}</p>
-                            {(healthActionStudent.healthStatus === 'S' || healthActionStudent.healthStatus === 'L') && !unlockedHealthStudents[healthActionStudent.id] ? (
+                            {(Object.prototype.hasOwnProperty.call(healthStatusOverrides, healthActionStudent.id)
+                                ? healthStatusOverrides[healthActionStudent.id]
+                                : healthActionStudent.healthStatus) === 'S' || (Object.prototype.hasOwnProperty.call(healthStatusOverrides, healthActionStudent.id)
+                                ? healthStatusOverrides[healthActionStudent.id]
+                                : healthActionStudent.healthStatus) === 'L' ? (
                                 <>
-                                    <button type="button" onClick={() => chooseHealthStatus("unlock")} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white">Unlock for this attendance</button>
-                                    <p className="mt-2 text-center text-[11px] text-gray-500">This does not change the student’s health record.</p>
+                                    <button type="button" disabled={healthActionBusy} onClick={() => chooseHealthStatus("unlock")} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60">{healthActionBusy ? "Updating…" : "Unlock"}</button>
                                 </>
                             ) : (
                                 <div className="space-y-2">
-                                    <button type="button" onClick={() => chooseHealthStatus("sick")} className="w-full rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700">Mark sick</button>
-                                    <button type="button" onClick={() => chooseHealthStatus("leave")} className="w-full rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">Mark leave</button>
+                                    <button type="button" disabled={healthActionBusy} onClick={() => chooseHealthStatus("sick")} className="w-full rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 disabled:opacity-60">Mark sick</button>
+                                    <button type="button" disabled={healthActionBusy} onClick={() => chooseHealthStatus("leave")} className="w-full rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 disabled:opacity-60">Mark leave</button>
                                 </div>
                             )}
-                            <button type="button" onClick={() => setHealthActionStudent(null)} className="mt-2 w-full rounded-xl px-4 py-2 text-xs font-bold text-gray-500">Cancel</button>
+                            <button type="button" disabled={healthActionBusy} onClick={() => setHealthActionStudent(null)} className="mt-2 w-full rounded-xl px-4 py-2 text-xs font-bold text-gray-500 disabled:opacity-60">Cancel</button>
                         </div>
                     </div>
                 )}

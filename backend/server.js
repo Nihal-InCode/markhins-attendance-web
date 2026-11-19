@@ -2266,7 +2266,7 @@ app.post('/health/:type', authenticateToken, async (req, res) => {
     console.log(`[Health Action Request] User: ${req.user.name}, Role: ${user_role}, Action: ${type}, Class: ${classId}`);
 
     // Permission Check: Class Teacher restriction
-    const isPrincipal = user_role === 'Principal' || user_role === 'Vice Principal';
+    const isPrincipal = ['principal', 'vice principal', 'admin'].includes(String(user_role).trim().toLowerCase());
     const isScopedUrduPrincipal = isUrduPrincipal(req.user);
     if (isScopedUrduPrincipal && !isPrincipal && !isUrduClass(classId)) {
         return res.status(403).json({
@@ -2302,11 +2302,16 @@ app.post('/health/:type', authenticateToken, async (req, res) => {
 
     try {
         const rollStr = rollNos.join(' ');
+        // The bot health workflow uses the principal identity for elevated
+        // authorization. System Administrator has no teacher-table row.
+        const healthActorId = String(user_role).trim().toLowerCase() === 'admin'
+            ? 3
+            : (Number.isFinite(Number(teacher_id)) ? Number(teacher_id) : 3);
         const result = await callPython({
             action: "health_action",
             type,
             roll_no: rollStr,
-            teacher_id: Number(teacher_id)
+            teacher_id: healthActorId
         });
 
         console.log(`[Health Action Result] Success: ${result.success}, Reply: ${result.reply?.substring(0, 50)}...`);

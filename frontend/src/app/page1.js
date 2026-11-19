@@ -4615,7 +4615,7 @@ export default function DashboardPage() {
                         <span className="block text-xl">📚</span>
                         <span className="mt-1 block text-[9.5px] font-black uppercase tracking-wider truncate w-full">Library</span>
                         <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600/10 text-purple-700 border border-purple-600/20">
-                          Live
+                          Beta
                         </span>
                       </button>
                     </div>
