@@ -250,7 +250,7 @@ export default function LibraryPanel() {
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
                         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/20">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Live
+                            Beta
                         </span>
                         <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70">
                             Sync: {fmtTime(lastSync) || "never"}

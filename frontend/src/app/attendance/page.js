@@ -202,6 +202,9 @@ export default function AttendancePage() {
     }, [user, router]);
 
     useEffect(() => {
+        // Start each new attendance visit at the top; don't interfere with
+        // scrolling after the teacher begins taking attendance.
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
         const stored = sessionStorage.getItem("attendance_params");
         if (!stored) { router.push("/"); return; }
         const parsed = JSON.parse(stored);
