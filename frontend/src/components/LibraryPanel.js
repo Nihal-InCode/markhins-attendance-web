@@ -97,6 +97,7 @@ export default function LibraryPanel() {
     const [bookPage, setBookPage] = useState(1);
     const [bookPages, setBookPages] = useState(1);
     const [booksLoading, setBooksLoading] = useState(false);
+    const [expandedBookId, setExpandedBookId] = useState(null);
     const [appliedBookQuery, setAppliedBookQuery] = useState(""); // query that produced current results
     const bookSearchRef = useRef(null);
 
@@ -410,14 +411,17 @@ export default function LibraryPanel() {
                     </div>
 
                     <div className="space-y-2.5">
-                        {books.map((b) => (
+                        {books.map((b) => {
+                            const currentIssues = (stats?.issued_now_list || []).filter((issue) => String(issue.book_id) === String(b.id));
+                            const isExpanded = expandedBookId === b.id;
+                            return (
                             <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                                 <div className="flex items-start gap-3">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-black text-gray-900 truncate">
+                                            <button type="button" onClick={() => setExpandedBookId(isExpanded ? null : b.id)} aria-expanded={isExpanded} className="text-left text-sm font-black text-gray-900 truncate hover:text-[#0d9488] focus:outline-none focus:underline">
                                                 <Highlight text={b.title} query={appliedBookQuery} />
-                                            </p>
+                                            </button>
                                             <StatusPill status={b.status} overdue={b.overdue} />
                                         </div>
                                         <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">
@@ -428,11 +432,6 @@ export default function LibraryPanel() {
                                         <p className="text-[10px] text-gray-400 font-medium mt-0.5">
                                             {b.category || "—"} · Shelf {b.shelf || "—"}/Row {b.book_row || "—"}/Area {b.area || "—"}
                                         </p>
-                                        {b.holders?.length > 0 && (
-                                            <p className="text-[10px] font-bold text-amber-600 mt-1">
-                                                With: {b.holders.map((h) => `${h.name} (due ${h.due_date ? fmtTime(h.due_date) : "—"})`).join(", ")}
-                                            </p>
-                                        )}
                                     </div>
                                     <div className="text-right shrink-0">
                                         <p className={`text-lg font-black ${(b.available_copies || 0) > 0 ? "text-emerald-600" : "text-amber-600"}`}>
@@ -441,8 +440,27 @@ export default function LibraryPanel() {
                                         <p className="text-[9px] font-bold text-gray-400 uppercase">/ {b.total_copies} free</p>
                                     </div>
                                 </div>
+                                {isExpanded && (
+                                    <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                                        {b.status === "issued" || currentIssues.length > 0 ? (
+                                            currentIssues.length > 0 ? currentIssues.map((issue) => (
+                                                <div key={issue.id} className="rounded-xl bg-amber-50/70 px-3 py-2.5 text-[11px] text-gray-700 space-y-1">
+                                                    <p><span className="font-bold">Student:</span> {issue.member_name || "Name not provided"}{issue.member_id ? ` · ID ${issue.member_id}` : ""}</p>
+                                                    <p><span className="font-bold">Librarian:</span> {issue.librarian || "Not provided by the Library API"}</p>
+                                                    <p className="text-gray-500">Issued {fmtTime(issue.issue_date)} · Due {issue.due_date ? fmtTime(issue.due_date) : "—"}</p>
+                                                </div>
+                                            )) : (
+                                                <div className="rounded-xl bg-amber-50/70 px-3 py-2.5 text-[11px] text-gray-600">
+                                                    Current borrower and librarian details are not included in the available Library API response.
+                                                </div>
+                                            )
+                                        ) : (
+                                            <p className="text-[11px] text-gray-500">This book is not currently issued.</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        ))}
+                        )})}
                         {!booksLoading && books.length === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
                                 <p className="text-xs font-bold text-gray-400">No books match your search 🔍</p>

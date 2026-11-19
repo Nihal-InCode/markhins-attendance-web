@@ -3247,7 +3247,7 @@ app.get('/api/library/stats', authenticateToken, async (req, res) => {
             issued_now_list: listField(d.currently_issued_list, 'currently_issued_list').map(row => ({
                 id: row.transaction_id, book_id: row.book_id, title: row.book_title,
                 member_id: row.member_id, member_name: row.member_name, issue_date: row.issue_date,
-                due_date: row.due_date, overdue: Boolean(row.overdue),
+                due_date: row.due_date, overdue: Boolean(row.overdue), librarian: row.librarian ?? null,
             })),
             last_sync: d.last_updated ?? null,
         };
