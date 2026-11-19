@@ -198,7 +198,7 @@ export default function LibraryPanel() {
                         setAppliedMemberQuery(memberQuery.trim());
                     }
                 })
-                .catch(() => { })
+                .catch((err) => { if (!cancelled) setPanelError(err.message || "Member search failed"); })
                 .finally(() => { if (!cancelled) setMembersLoading(false); });
             return () => { cancelled = true; };
         }, 300);
@@ -512,7 +512,7 @@ export default function LibraryPanel() {
                                     </div>
                                     <div className="text-right shrink-0">
                                         <p className={`text-sm font-black ${m.books_in_hand > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                                            {m.books_in_hand}
+                                            {m.books_in_hand ?? "—"}
                                         </p>
                                         <p className="text-[9px] font-bold text-gray-400 uppercase">in hand</p>
                                     </div>

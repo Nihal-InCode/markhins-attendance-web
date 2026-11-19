@@ -47,3 +47,14 @@ The API will be available at `http://localhost:8080`.
 - `GET /subjects` - Get subjects
 - `GET /students` - Get students
 - `POST /mark-attendance` - Submit records
+
+### External Library API
+
+The Library read-only routes proxy to the separate Library Railway service. Set these variables on the Attendance backend service (never in frontend `NEXT_PUBLIC_*` variables):
+
+```ini
+LIBRARY_RAILWAY_BASE_URL=https://web-production-96242.up.railway.app
+LIBRARY_RAILWAY_API_KEY=<same secret configured as LIBRARY_API_KEY on the Library service>
+```
+
+The API key is private to the backend. Library statistics are cached for 30 seconds. The old `/api/library/sync` endpoint is retired because it wrote to the Attendance project's local Library database.

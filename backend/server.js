@@ -42,7 +42,6 @@ function getLocalIp() {
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const NAMAZ_API_KEY = (process.env.NAMAZ_API_KEY || process.env.API_KEY || '').trim();
 const PY_SCRIPT = path.join(__dirname, "..", "attendance.py");
-const LIBRARY_PY_SCRIPT = path.join(__dirname, "..", "library.py");
 const PYTHON_CMD = process.platform === "win32" ? "python" : "python3";
 const upload = multer({ dest: 'uploads/' });
 const teacherPhotoUpload = multer({
@@ -3158,125 +3157,159 @@ app.post('/admin/push-test', authenticateToken, async (req, res) => {
 });
 
 
-// ── Library Management Endpoints ──
-// Reads islamic_library.db through library.py (same stdin/stdout JSON bridge
-// as attendance.py). The desktop library app pushes issue/return events to
-// POST /api/library/sync using the LIBRARY_API_KEY secret.
+// ── Library read proxy ──
+// Browser requests remain protected by Attendance JWT authentication. The
+// private Railway key is only sent from this backend to the Library service.
+const LIBRARY_RAILWAY_BASE_URL = (process.env.LIBRARY_RAILWAY_BASE_URL || '').trim().replace(/\/+$/, '');
+const LIBRARY_RAILWAY_API_KEY = (process.env.LIBRARY_RAILWAY_API_KEY || '').trim();
+const LIBRARY_STATS_CACHE_MS = 30_000;
+let libraryStatsCache = null;
 
-const LIBRARY_API_KEY = (process.env.LIBRARY_API_KEY || "").trim();
-
-function callLibraryPython(data) {
-    return callPython(data, LIBRARY_PY_SCRIPT);
+class LibraryUpstreamError extends Error {
+    constructor(message, status = 502) { super(message); this.status = status; }
 }
 
-// Read endpoints (any logged-in user, including guests)
+async function libraryApiGet(endpoint, query = {}) {
+    if (!LIBRARY_RAILWAY_BASE_URL || !LIBRARY_RAILWAY_API_KEY) {
+        throw new LibraryUpstreamError('Library service is not configured. Set LIBRARY_RAILWAY_BASE_URL and LIBRARY_RAILWAY_API_KEY in the backend environment.', 503);
+    }
+    let base;
+    try { base = new URL(LIBRARY_RAILWAY_BASE_URL); }
+    catch { throw new LibraryUpstreamError('Library service URL is invalid.', 503); }
+    if (!['http:', 'https:'].includes(base.protocol)) throw new LibraryUpstreamError('Library service URL must use HTTP or HTTPS.', 503);
+    const url = new URL(endpoint, `${base.href.replace(/\/$/, '')}/`);
+    for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
+
+    let response;
+    try {
+        response = await fetch(url, {
+            method: 'GET',
+            headers: { 'X-API-Key': LIBRARY_RAILWAY_API_KEY, Accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000),
+        });
+    } catch (error) {
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new LibraryUpstreamError('Library service request timed out. Please try again.', 504);
+        throw new LibraryUpstreamError('Library service is unavailable. Please try again later.', 502);
+    }
+    let payload;
+    try { payload = await response.json(); }
+    catch { throw new LibraryUpstreamError('Library service returned an invalid response.', 502); }
+    if (response.status === 401) throw new LibraryUpstreamError('Library service rejected its API credentials. Check the backend configuration.', 502);
+    if (!response.ok) {
+        if (response.status === 503) throw new LibraryUpstreamError('Library service is not configured or is temporarily unavailable.', 503);
+        if (response.status === 404) throw new LibraryUpstreamError('Library API endpoint or record was not found. Verify the configured Railway service and endpoint.', 404);
+        if (response.status === 400) throw new LibraryUpstreamError(payload?.message || 'Library service rejected the request.', 400);
+        throw new LibraryUpstreamError('Library service could not complete the request.', 502);
+    }
+    if (!payload || payload.status !== 'ok' || !payload.data || typeof payload.data !== 'object') {
+        throw new LibraryUpstreamError(payload?.message || 'Library service returned incomplete data.', 502);
+    }
+    return payload.data;
+}
+
+function sendLibraryError(res, error) {
+    res.status(error.status || 502).json({ success: false, message: error.message || 'Library service request failed.' });
+}
+function finiteNumber(value, field) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) throw new LibraryUpstreamError(`Library service response is missing ${field}.`, 502);
+    return n;
+}
+function listField(value, field) {
+    if (!Array.isArray(value)) throw new LibraryUpstreamError(`Library service response is missing ${field}.`, 502);
+    return value;
+}
+function mapLibraryTransaction(row) {
+    return {
+        id: row.transaction_id,
+        status: row.event === 'return' ? 'returned' : 'issued',
+        activity_time: row.activity_date,
+        title: row.book?.title,
+        book_id: row.book?.id,
+        member_name: row.member?.name,
+        member_id: row.member?.student_id,
+    };
+}
+
 app.get('/api/library/stats', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({ action: 'stats' });
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        if (libraryStatsCache && Date.now() - libraryStatsCache.at < LIBRARY_STATS_CACHE_MS) return res.json({ data: libraryStatsCache.value });
+        const d = await libraryApiGet('/api/external/library/stats');
+        const value = {
+            titles: finiteNumber(d.total_titles, 'total_titles'),
+            total_copies: finiteNumber(d.total_copies, 'total_copies'),
+            available_copies: finiteNumber(d.available_copies, 'available_copies'),
+            issued_now: finiteNumber(d.currently_issued, 'currently_issued'),
+            overdue: finiteNumber(d.overdue_books, 'overdue_books'),
+            members: finiteNumber(d.registered_members, 'registered_members'),
+            issued_today: finiteNumber(d.issues_today, 'issues_today'),
+            returned_today: finiteNumber(d.returns_today, 'returns_today'),
+            issued_now_list: listField(d.currently_issued_list, 'currently_issued_list').map(row => ({
+                id: row.transaction_id, book_id: row.book_id, title: row.book_title,
+                member_id: row.member_id, member_name: row.member_name, issue_date: row.issue_date,
+                due_date: row.due_date, overdue: Boolean(row.overdue),
+            })),
+            last_sync: d.last_updated ?? null,
+        };
+        libraryStatsCache = { at: Date.now(), value };
+        res.json({ data: value });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
 app.get('/api/library/books', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({
-            action: 'search_books',
-            q: req.query.q || '',
-            status: req.query.status || '',
-            category: req.query.category || '',
-            page: req.query.page || 1,
-            limit: req.query.limit || 20,
+        const d = await libraryApiGet('/api/external/library/books', {
+            q: req.query.q || '', status: req.query.status || '', category: req.query.category || '',
+            page: req.query.page || 1, page_size: req.query.limit || 20,
         });
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        res.json({ data: {
+            books: listField(d.books, 'books').map(book => ({ ...book, id: book.id, book_id: book.id })),
+            total: finiteNumber(d.total_count, 'total_count'), pages: finiteNumber(d.total_pages, 'total_pages'),
+            page: finiteNumber(d.current_page, 'current_page'),
+        } });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
 app.get('/api/library/categories', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({ action: 'categories' });
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        const d = await libraryApiGet('/api/external/library/books/categories');
+        res.json({ data: listField(d.categories, 'categories').map(item => item.category) });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
 app.get('/api/library/members', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({
-            action: 'search_members',
-            q: req.query.q || '',
-            limit: req.query.limit || 30,
-        });
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        const d = await libraryApiGet('/api/external/library/members/search', { q: req.query.q || '', limit: req.query.limit || 30 });
+        res.json({ data: listField(d.members, 'members').map(member => ({ ...member, books_in_hand: null })) });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
 app.get('/api/library/members/:studentId/history', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({
-            action: 'member_history',
-            student_id: req.params.studentId,
-        });
-        if (!result.success) return res.status(404).json(result);
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        const d = await libraryApiGet(`/api/external/library/members/${encodeURIComponent(req.params.studentId)}/history`);
+        const summary = d.summary;
+        if (!summary || !Array.isArray(d.history)) throw new LibraryUpstreamError('Library service returned incomplete member history.', 502);
+        res.json({ data: {
+            student_id: d.student_id, name: d.name,
+            summary: { total_borrowed: finiteNumber(summary.borrowed_count, 'borrowed_count'), in_hand: finiteNumber(summary.currently_held_count, 'currently_held_count'), returned: finiteNumber(summary.returned_count, 'returned_count'), overdue: finiteNumber(summary.overdue_count, 'overdue_count') },
+            transactions: d.history.map(row => ({ id: row.transaction_id, book_id: row.book_id, title: row.book_title, issue_date: row.issue_date, due_date: row.due_date, return_date: row.return_date, status: row.state || row.status, overdue: Boolean(row.is_overdue) })),
+        } });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
 app.get('/api/library/transactions', authenticateToken, async (req, res) => {
     try {
-        const result = await callLibraryPython({
-            action: 'recent_transactions',
-            limit: req.query.limit || 25,
-        });
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        const d = await libraryApiGet('/api/external/library/transactions/recent', { limit: req.query.limit || 25 });
+        res.json({ data: listField(d.items, 'items').map(mapLibraryTransaction) });
+    } catch (error) { sendLibraryError(res, error); }
 });
 
-// Desktop-app sync endpoint (API key auth, no JWT). The library desktop app
-// POSTs every issue/return here so the web app updates on the spot.
-app.post('/api/library/sync', async (req, res) => {
-    try {
-        if (!LIBRARY_API_KEY) {
-            return res.status(503).json({
-                success: false,
-                message: 'Library sync is disabled: set LIBRARY_API_KEY in backend/.env',
-            });
-        }
-        const provided = String(req.headers['x-library-api-key'] || req.body?.api_key || '');
-        if (provided !== LIBRARY_API_KEY) {
-            return res.status(401).json({ success: false, message: 'Invalid library API key.' });
-        }
-
-        const { events, snapshot } = req.body || {};
-        if (!Array.isArray(events) && !snapshot) {
-            return res.status(400).json({
-                success: false,
-                message: 'Payload must contain an "events" array and/or a "snapshot" object.',
-            });
-        }
-
-        const result = await callLibraryPython({
-            action: 'sync',
-            events: Array.isArray(events) ? events : [],
-            snapshot: snapshot || {},
-        });
-        if (!result.success) return res.status(400).json(result);
-        console.log(`[Library Sync] applied=${JSON.stringify(result.applied)}`);
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
+// This legacy write endpoint previously populated the Attendance project's
+// local Library database. Writes now belong in the external Library service.
+app.post('/api/library/sync', async (req, res) => res.status(410).json({
+    success: false,
+    message: 'Library sync to the Attendance database is retired. Send library updates to the Library service.',
+}));
 
 
 // --- Server Startup ---
