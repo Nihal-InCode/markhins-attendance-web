@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { getStudents, markAttendance, editLastAttendance, markHealthStatus, trackEvent } from "@/lib/api";
+import { getStudents, getStudentHistory, markAttendance, editLastAttendance, markHealthStatus, trackEvent } from "@/lib/api";
 import { useLoading } from "@/context/LoadingContext";
 import { playSound } from '@/lib/sound';
 import PencilLoader from "@/components/PencilLoader";
@@ -128,6 +129,70 @@ function ConfirmationModal({ params, students, attendance, onGoHome }) {
 // MAIN ATTENDANCE PAGE
 // ─────────────────────────────────────────────
 import { useAuth } from "@/context/AuthContext";
+function StudentLast30Attendance({ student }) {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [entries, setEntries] = useState([]);
+    const requestIdRef = useRef(0);
+
+    const openHistory = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(true);
+        setLoading(true);
+        setError("");
+        setEntries([]);
+        const requestId = ++requestIdRef.current;
+        try {
+            const history = await getStudentHistory(student.rollNo);
+            if (history?.success === false) throw new Error(history.message || "Student attendance history was not found.");
+            if (!Array.isArray(history?.log)) throw new Error("Student attendance history is incomplete.");
+            const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
+            const parts = formatter.formatToParts(new Date());
+            const today = `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}-${parts.find((part) => part.type === "day")?.value}`;
+            const fromDate = new Date(`${today}T00:00:00Z`);
+            fromDate.setUTCDate(fromDate.getUTCDate() - 29);
+            const start = fromDate.toISOString().slice(0, 10);
+            const labels = { P: "Present", A: "Absent", S: "Sick", L: "Leave", SL: "Special Leave" };
+            setEntries(history.log
+                .filter((entry) => entry.date >= start && entry.date <= today && labels[String(entry.status).toUpperCase()])
+                .map((entry) => ({ ...entry, statusLabel: labels[String(entry.status).toUpperCase()] }))
+                .sort((a, b) => String(b.date).localeCompare(String(a.date))));
+        } catch (err) {
+            setError(err.message || "Could not load attendance history.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const counts = entries.reduce((result, entry) => {
+        const code = String(entry.status).toUpperCase();
+        const key = code === "SL" ? "special_leave" : ({ P: "present", A: "absent", S: "sick", L: "leave" }[code]);
+        if (key) result[key] = (result[key] || 0) + 1;
+        return result;
+    }, {});
+    const close = () => { requestIdRef.current += 1; setOpen(false); setLoading(false); };
+
+    return <>
+        <button type="button" onClick={openHistory} onContextMenu={(event) => event.preventDefault()} title={`View ${student.name}'s last 30 days attendance`} aria-label={`View ${student.name}'s last 30 days attendance`} className="relative z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black cursor-pointer select-none touch-manipulation hover:ring-2 hover:ring-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+            {student.rollNo}
+        </button>
+        {open && typeof document !== "undefined" && createPortal(
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={close}>
+                <section role="dialog" aria-modal="true" aria-label="Last 30 days attendance" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-start justify-between border-b border-gray-100 bg-gray-50/70 p-5"><div><h3 className="text-base font-black text-gray-900">{student.name}</h3><p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Roll {student.rollNo} · Last 30 days</p></div><button type="button" onClick={close} aria-label="Close attendance history" className="flex h-8 w-8 items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-black text-gray-500 hover:bg-gray-100">×</button></div>
+                    <div className="space-y-4 overflow-y-auto p-5">{loading ? <p className="py-8 text-center text-xs font-bold text-gray-400">Loading attendance history…</p> : error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600">{error}</p> : <>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ key: "present", label: "Present", color: "text-emerald-600 bg-emerald-50" }, { key: "absent", label: "Absent", color: "text-red-600 bg-red-50" }, { key: "sick", label: "Sick", color: "text-orange-600 bg-orange-50" }, { key: "leave", label: "Leave", color: "text-purple-600 bg-purple-50" }].map((item) => <div key={item.key} className={`rounded-xl p-3 text-center ${item.color}`}><p className="text-xl font-black">{counts[item.key] || 0}</p><p className="text-[9px] font-black uppercase tracking-wider">{item.label}</p></div>)}</div>
+                        {counts.special_leave > 0 && <p className="text-[10px] font-bold text-violet-600">Special leave: {counts.special_leave}</p>}
+                        <p className="text-[10px] font-medium text-gray-400">Counts are attendance session records. Dates with no attendance record are not counted.</p>
+                        <div className="divide-y divide-gray-100 rounded-xl border border-gray-100">{entries.map((entry, index) => <div key={`${entry.date}-${entry.period}-${index}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[11px]"><span className="font-bold text-gray-700">{entry.date} · {entry.period}</span><span className="font-black text-gray-500">{entry.statusLabel}</span></div>)}{entries.length === 0 && <p className="px-3 py-6 text-center text-xs font-bold text-gray-400">No attendance records in the last 30 days.</p>}</div>
+                    </>}</div>
+                </section>
+            </div>, document.body
+        )}
+    </>;
+}
 
 export default function AttendancePage() {
     const { user } = useAuth();
@@ -485,9 +550,7 @@ export default function AttendancePage() {
                                 className={`p-4 flex items-center justify-between transition-colors ${st === "absent" ? "bg-red-50/10" : isHealthLocked ? "bg-gray-50/30" : ""}`}
                             >
                                 <div className="flex items-center space-x-4">
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black ${cfg.bg} ${cfg.text}`}>
-                                        {student.rollNo}
-                                    </div>
+                                    <StudentLast30Attendance student={student} />
                                     <div>
                                         <p className="font-bold text-gray-800 leading-tight">{student.name}</p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
