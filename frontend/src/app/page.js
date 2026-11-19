@@ -414,7 +414,13 @@ function StudentLast30Attendance({ rollNo, name, className, children }) {
 
   return (
     <>
-      <button type="button" onClick={openHistory} className={className} title={`View ${name || "student"}'s last 30 days attendance`}>
+      <button
+        type="button"
+        onClick={openHistory}
+        onContextMenu={(event) => event.preventDefault()}
+        className={`${className || ""} cursor-pointer select-none touch-manipulation`}
+        title={`View ${name || "student"}'s last 30 days attendance`}
+      >
         {children}
       </button>
       {open && typeof document !== "undefined" && createPortal(
