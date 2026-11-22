@@ -563,14 +563,7 @@ export default function AttendancePage() {
                                         <p className="font-bold text-gray-800 leading-tight">{student.name}</p>
                                         {registerNumber ? (
                                             <p className="mt-0.5 text-[10px] font-semibold leading-tight tracking-wide text-gray-400">{registerNumber}</p>
-                                        ) : (
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${isHealthLocked ? 'animate-pulse' : ''}`} />
-                                                <p className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>
-                                                    {cfg.label}
-                                                </p>
-                                            </div>
-                                        )}
+                                        ) : <div className="mt-0.5 h-3" />}
                                     </div>
                                 </div>
 
