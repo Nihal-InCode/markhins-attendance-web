@@ -293,12 +293,24 @@ def run_migrations():
             CREATE TABLE IF NOT EXISTS students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 roll_no TEXT UNIQUE,
+                register_no TEXT,
                 name TEXT,
                 class TEXT,
                 parent_name TEXT,
                 parent_phone TEXT,
                 class_teacher INTEGER DEFAULT 0
             )
+        """)
+
+        # Keep register numbers on the student record so they follow the unique roll number.
+        try:
+            c.execute("ALTER TABLE students ADD COLUMN register_no TEXT")
+        except sqlite3.OperationalError:
+            pass
+        c.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_students_register_no
+            ON students(register_no)
+            WHERE register_no IS NOT NULL AND TRIM(register_no) != ''
         """)
 
         c.execute("""
@@ -5254,13 +5266,13 @@ def handle_get_permission_students(c, data):
         params.append(class_teacher_of)
 
     c.execute(f"""
-        SELECT id, roll_no, name, class
+        SELECT id, roll_no, name, class, register_no
         FROM students
         {where}
         ORDER BY class, CAST(roll_no AS INTEGER), roll_no, name
     """, params)
     students = [
-        {"id": r[0], "rollNo": r[1], "name": r[2], "class": r[3]}
+        {"id": r[0], "rollNo": r[1], "name": r[2], "class": r[3], "registerNo": r[4]}
         for r in c.fetchall()
     ]
     return {"success": True, "data": students}
@@ -5981,12 +5993,12 @@ if __name__ == "__main__":
                 elif action == "get_students":
                     class_id = data.get("classId")
                     date = data.get("date")
-                    c.execute("SELECT id, roll_no, name FROM students WHERE class=? ORDER BY roll_no", (class_id,))
+                    c.execute("SELECT id, roll_no, name, register_no FROM students WHERE class=? ORDER BY roll_no", (class_id,))
                     student_rows = c.fetchall()
                     
                     students = []
                     for r in student_rows:
-                        sid, roll, name = r
+                        sid, roll, name, register_no = r
                         
                         # Get status at specific date if provided
                         if date:
@@ -6003,6 +6015,7 @@ if __name__ == "__main__":
                         students.append({
                             "id": sid, 
                             "rollNo": roll, 
+                            "registerNo": register_no,
                             "name": name, 
                             "healthStatus": health_status, 
                             "health_status": health_status 
@@ -6015,14 +6028,14 @@ if __name__ == "__main__":
                         result = {"success": True, "data": []}
                     else:
                         c.execute(
-                            "SELECT id, name, class, roll_no FROM students WHERE name LIKE ? ORDER BY name LIMIT 3",
+                            "SELECT id, name, class, roll_no, register_no FROM students WHERE name LIKE ? ORDER BY name LIMIT 3",
                             (f"%{query}%",)
                         )
                         rows = c.fetchall()
                         result = {
                             "success": True,
                             "data": [
-                                {"id": r[0], "name": r[1], "class": r[2], "rollNo": r[3]}
+                                {"id": r[0], "name": r[1], "class": r[2], "rollNo": r[3], "registerNo": r[4]}
                                 for r in rows
                             ]
                         }

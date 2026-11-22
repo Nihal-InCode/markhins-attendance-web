@@ -45,7 +45,6 @@ const statusConfig = {
     leave: { label: "On Leave", color: "bg-amber-500", text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", dot: "bg-amber-500" },
 };
 
-
 // ─────────────────────────────────────────────
 // CONFIRMATION MODAL
 // ─────────────────────────────────────────────
@@ -518,7 +517,7 @@ export default function AttendancePage() {
                     <button
                         type="button"
                         onClick={playClassAudio}
-                        className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 active:scale-95"
+                        className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 active:scale-95"
                     >
                         <span aria-hidden="true">🔊</span>
                         {playingClassAudio ? "PLAYING…" : "READ ALOUD"}
@@ -545,6 +544,7 @@ export default function AttendancePage() {
                 {/* Student list */}
                 <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
                     {students.map((student) => {
+                        const registerNumber = student.registerNo;
                         const healthStatus = Object.prototype.hasOwnProperty.call(healthStatusOverrides, student.id)
                             ? healthStatusOverrides[student.id]
                             : student.healthStatus;
@@ -561,12 +561,16 @@ export default function AttendancePage() {
                                     <StudentLast30Attendance student={student} />
                                     <div>
                                         <p className="font-bold text-gray-800 leading-tight">{student.name}</p>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${isHealthLocked ? 'animate-pulse' : ''}`} />
-                                            <p className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>
-                                                {cfg.label}
-                                            </p>
-                                        </div>
+                                        {registerNumber ? (
+                                            <p className="mt-0.5 text-[10px] font-semibold leading-tight tracking-wide text-gray-400">{registerNumber}</p>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${isHealthLocked ? 'animate-pulse' : ''}`} />
+                                                <p className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>
+                                                    {cfg.label}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

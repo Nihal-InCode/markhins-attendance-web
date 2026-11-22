@@ -364,111 +364,6 @@ const getDashboardRoleBadge = (user) => {
   };
 };
 
-function StudentLast30Attendance({ rollNo, name, className, children }) {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [entries, setEntries] = useState([]);
-  const requestIdRef = useRef(0);
-
-  const openHistory = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const requestId = ++requestIdRef.current;
-    setOpen(true);
-    setLoading(true);
-    setError("");
-    setEntries([]);
-    try {
-      const history = await getStudentHistory(rollNo);
-      if (history?.success === false) throw new Error(history.message || "Student attendance history was not found.");
-      if (!Array.isArray(history?.log)) throw new Error("Student attendance history is incomplete.");
-      const formatter = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
-      });
-      const dateParts = formatter.formatToParts(new Date());
-      const today = `${dateParts.find((part) => part.type === "year")?.value}-${dateParts.find((part) => part.type === "month")?.value}-${dateParts.find((part) => part.type === "day")?.value}`;
-      const fromDate = new Date(`${today}T00:00:00Z`);
-      fromDate.setUTCDate(fromDate.getUTCDate() - 29);
-      const start = fromDate.toISOString().slice(0, 10);
-      const statusLabels = { P: "Present", A: "Absent", S: "Sick", L: "Leave", SL: "Special Leave" };
-      const recent = (Array.isArray(history?.log) ? history.log : [])
-        .filter((entry) => entry.date >= start && entry.date <= today && statusLabels[String(entry.status).toUpperCase()])
-        .map((entry) => ({ ...entry, statusLabel: statusLabels[String(entry.status).toUpperCase()] }))
-        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-      if (requestId === requestIdRef.current) setEntries(recent);
-    } catch (err) {
-      if (requestId === requestIdRef.current) setError(err.message || "Could not load attendance history.");
-    } finally {
-      if (requestId === requestIdRef.current) setLoading(false);
-    }
-  };
-
-  const counts = entries.reduce((result, entry) => {
-    const code = String(entry.status).toUpperCase();
-    const key = code === "SL" ? "special_leave" : ({ P: "present", A: "absent", S: "sick", L: "leave" }[code]);
-    if (key) {
-      if (key === "sick" || key === "leave") {
-        result[`${key}Dates`] ||= new Set();
-        result[`${key}Dates`].add(entry.date);
-        result[key] = result[`${key}Dates`].size;
-      } else {
-        result[key] = (result[key] || 0) + 1;
-      }
-    }
-    return result;
-  }, {});
-  const close = () => { requestIdRef.current += 1; setOpen(false); setLoading(false); };
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={openHistory}
-        onContextMenu={(event) => event.preventDefault()}
-        className={`${className || ""} cursor-pointer select-none touch-manipulation`}
-        title={`View ${name || "student"}'s last 30 days attendance`}
-      >
-        {children}
-      </button>
-      {open && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={close}>
-          <section role="dialog" aria-modal="true" aria-label="Last 30 days attendance" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-start justify-between border-b border-gray-100 bg-gray-50/70 p-5">
-              <div>
-                <h3 className="text-base font-black text-gray-900">{name || "Student attendance"}</h3>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Roll {rollNo} · Last 30 days</p>
-              </div>
-              <button type="button" onClick={close} className="flex h-8 w-8 items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-black text-gray-500 hover:bg-gray-100" aria-label="Close attendance history">×</button>
-            </div>
-            <div className="space-y-4 overflow-y-auto p-5">
-              {loading ? <p className="py-8 text-center text-xs font-bold text-gray-400">Loading attendance history…</p> : error ? <p className="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600">{error}</p> : (
-                <>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {[
-                      { key: "present", label: "Present", color: "text-emerald-600 bg-emerald-50" },
-                      { key: "absent", label: "Absent", color: "text-red-600 bg-red-50" },
-                      { key: "sick", label: "Sick Days", color: "text-orange-600 bg-orange-50" },
-                      { key: "leave", label: "Leave Days", color: "text-purple-600 bg-purple-50" },
-                    ].map((item) => <div key={item.key} className={`rounded-xl p-3 text-center ${item.color}`}><p className="text-xl font-black">{counts[item.key] || 0}</p><p className="text-[9px] font-black uppercase tracking-wider">{item.label}</p></div>)}
-                  </div>
-                  {counts.special_leave > 0 && <p className="text-[10px] font-bold text-violet-600">Special leave: {counts.special_leave}</p>}
-                  <p className="text-[10px] font-medium text-gray-400">Only days on which classes were conducted are counted. Days without a class session are excluded from the count.</p>
-                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-100">
-                    {entries.map((entry, index) => <div key={`${entry.date}-${entry.period}-${index}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[11px]"><span className="font-bold text-gray-700">{entry.date} · {entry.period}</span><span className="font-black text-gray-500">{entry.statusLabel}</span></div>)}
-                    {entries.length === 0 && <p className="px-3 py-6 text-center text-xs font-bold text-gray-400">No attendance records in the last 30 days.</p>}
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
-
 function EventOccurrenceRow({ occurrence }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeListTab, setActiveListTab] = useState("present");
@@ -570,7 +465,7 @@ function EventOccurrenceRow({ occurrence }) {
                       <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
                         {student.name}
                       </p>
-                      <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-[8px] font-bold text-gray-400 hover:text-blue-600">Roll {student.rollNo}</StudentLast30Attendance>
+                      <span className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</span>
                     </div>
                     <span className="text-xs text-emerald-500 font-bold">✓</span>
                   </div>
@@ -591,7 +486,7 @@ function EventOccurrenceRow({ occurrence }) {
                       <p className="font-bold text-gray-800 text-xs truncate" title={student.name}>
                         {student.name}
                       </p>
-                      <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-[8px] font-bold text-gray-400 hover:text-blue-600">Roll {student.rollNo}</StudentLast30Attendance>
+                      <span className="text-[8px] font-bold text-gray-400">Roll {student.rollNo}</span>
                     </div>
                     <span className="text-xs text-red-500 font-bold">✗</span>
                   </div>
@@ -6144,9 +6039,9 @@ export default function DashboardPage() {
                                             >
                                               <div className="flex items-start justify-between mb-2">
                                                 <div className="min-w-0 flex-1">
-                                                  <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-[10px] font-black text-gray-600 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1 hover:text-blue-600">
+                                                  <span onClick={(event) => event.stopPropagation()} className="text-[10px] font-black text-gray-600 bg-white/90 border border-gray-200 px-2 py-0.5 rounded-lg inline-block mb-1">
                                                     Roll #{student.rollNo}
-                                                  </StudentLast30Attendance>
+                                                  </span>
                                                   <p className="font-black text-gray-900 text-sm truncate" title={student.name}>
                                                     {student.name}
                                                   </p>
@@ -6885,10 +6780,8 @@ export default function DashboardPage() {
                                                 }`}
                                               >
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                  <StudentLast30Attendance
-                                                    rollNo={student.rollNo}
-                                                    name={student.name}
-                                                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 hover:ring-2 hover:ring-blue-300 ${
+                                                  <span
+                                                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                                                       isAbsent
                                                         ? "bg-red-100 text-red-700"
                                                         : isSpecialLeave
@@ -6897,7 +6790,7 @@ export default function DashboardPage() {
                                                     }`}
                                                   >
                                                     #{student.rollNo}
-                                                  </StudentLast30Attendance>
+                                                  </span>
                                                   <div className="min-w-0 flex-1">
                                                     <p
                                                       className={`text-sm leading-tight truncate ${
@@ -6910,9 +6803,9 @@ export default function DashboardPage() {
                                                     >
                                                       {student.name}
                                                     </p>
-                                                    <StudentLast30Attendance rollNo={student.rollNo} name={student.name} className="text-left text-[10px] font-bold text-gray-400 hover:text-blue-600">
+                                                    <span className="text-left text-[10px] font-bold text-gray-400">
                                                       Roll No: {student.rollNo}
-                                                    </StudentLast30Attendance>
+                                                    </span>
                                                   </div>
                                                 </div>
 
