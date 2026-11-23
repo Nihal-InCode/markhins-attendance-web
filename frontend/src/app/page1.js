@@ -4449,7 +4449,7 @@ export default function DashboardPage() {
                             {periods.map(p => (
                               <Fragment key={p}>
                                 <th style={{ padding: thPadding, minWidth: minWidthPeriod }} className="text-[8px] font-black text-gray-400 uppercase tracking-[0.15em] text-center">Period {p}</th>
-                                {p === 'P2' && <th rowSpan={fullTimetable.length + 1} style={{ width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="relative border border-teal-100 bg-teal-50 p-0 text-center align-middle text-[10px] font-black tracking-[0.18em] text-teal-800"><span className="absolute inset-0 flex items-center justify-center [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
+                                {p === 'P2' && <th style={{ width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="border border-teal-100 bg-teal-50 p-0" />}
                               </Fragment>
                             ))}
                           </tr>
@@ -4537,7 +4537,7 @@ export default function DashboardPage() {
                                       </div>
                                     )}
                                   </td>
-                                  {p === 'P2' && <td className="border border-teal-100 bg-teal-50/70" />}
+                                  {p === 'P2' && idx === 0 && <td rowSpan={fullTimetable.length} style={{ width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="border border-teal-100 bg-teal-50/70 p-0 text-center align-middle text-[10px] font-black tracking-[0.18em] text-teal-800"><span className="inline-block [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></td>}
                                   </Fragment>
                                 );
                               })}
@@ -10130,13 +10130,13 @@ export default function DashboardPage() {
                           <th className="border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">
                             PERIOD {period.replace("P", "")}
                           </th>
-                          {period === "P2" && <th rowSpan={fullTimetable.length + 1} className="relative w-[6%] border border-teal-200 bg-teal-50 p-0 text-[6px] font-black tracking-wider text-teal-800"><span className="absolute inset-0 flex items-center justify-center [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
+                          {period === "P2" && <th className="w-[6%] border border-teal-200 bg-teal-50 p-0" />}
                         </Fragment>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {fullTimetable.map((row) => (
+                    {fullTimetable.map((row, rowIdx) => (
                       <tr key={row.class}>
                         <th className="border border-slate-300 bg-cyan-50 px-1 py-2 text-[8px] font-black text-slate-900">{row.class}</th>
                         {periods.map((period) => {
@@ -10175,7 +10175,7 @@ export default function DashboardPage() {
                                 <span className="text-slate-200">—</span>
                               )}
                             </td>
-                            {period === "P2" && <td className="border border-teal-100 bg-teal-50/70" />}
+                            {period === "P2" && rowIdx === 0 && <td rowSpan={fullTimetable.length} className="w-[6%] border border-teal-100 bg-teal-50/70 p-0 text-center align-middle text-[6px] font-black tracking-wider text-teal-800"><span className="inline-block [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></td>}
                             </Fragment>
                           );
                         })}
