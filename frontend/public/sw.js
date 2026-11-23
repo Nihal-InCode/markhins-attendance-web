@@ -67,7 +67,6 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/icon-192.png',
     badge: data.badge || '/icon-192.png',
-    sound: data.sound || '/sounds/notification.mp3',
     vibrate: [200, 100, 200, 100, 300],
     data: data.data || { url: '/teachers' },
     actions: [
@@ -76,9 +75,13 @@ self.addEventListener('push', (event) => {
     ]
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil((async () => {
+    if (data.data?.bell) {
+      const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      if (windows.some((client) => client.visibilityState === 'visible')) return;
+    }
+    await self.registration.showNotification(data.title, options);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

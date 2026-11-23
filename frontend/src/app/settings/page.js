@@ -1658,7 +1658,7 @@ export default function SettingsPage() {
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <h3 className="text-sm font-black text-gray-900">School Bell Schedule</h3>
-                                        <p className="mt-1 text-[11px] text-gray-500">Add as many daily bell times as needed. Bells ring on signed-in devices while the app is open.</p>
+                                        <p className="mt-1 text-[11px] text-gray-500">Add multiple daily bell times. Bell notifications can reach push-enabled devices when the app is closed; device notification settings control their sound.</p>
                                     </div>
                                     <button type="button" onClick={previewBell} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100">🔔 Test Bell</button>
                                 </div>

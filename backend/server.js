@@ -3049,6 +3049,75 @@ setInterval(async () => {
     }
 }, 60000);
 
+// Send bell alerts from the server so subscribed devices can receive them while
+// the app page is closed. The bell schedule is stored in Asia/Kolkata time.
+const sentBellAlerts = new Set();
+const getIstDateParts = (date) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(date);
+const addDateDays = (dateString, days) => {
+    const date = new Date(`${dateString}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+};
+
+setInterval(async () => {
+    try {
+        const settings = await callPython({ action: 'get_push_setting' });
+        if (!settings.enabled || !Array.isArray(settings.bell_schedule) || settings.bell_schedule.length === 0) return;
+        if (!vapidKeysLoaded) await initVapidKeys();
+        if (!vapidKeysLoaded) return;
+
+        const now = new Date();
+        const parts = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+        }).formatToParts(now);
+        const part = (type) => Number(parts.find((item) => item.type === type)?.value || 0);
+        const currentSeconds = part('hour') * 3600 + part('minute') * 60 + part('second');
+        const currentDate = getIstDateParts(now);
+        const dueEntries = settings.bell_schedule.filter((entry) => {
+            if (entry?.enabled === false || !/^\d{2}:\d{2}$/.test(entry?.time || '')) return false;
+            const [hours, minutes] = entry.time.split(':').map(Number);
+            const bellTimeSeconds = hours * 3600 + minutes * 60;
+            const triggerSeconds = (bellTimeSeconds - 10 + 86400) % 86400;
+            const scheduledDate = bellTimeSeconds < 10 ? addDateDays(currentDate, 1) : currentDate;
+            return currentSeconds >= triggerSeconds && currentSeconds < triggerSeconds + 6
+                ? { ...entry, scheduledDate }
+                : false;
+        }).filter(Boolean);
+
+        for (const entry of dueEntries) {
+            const key = `${entry.scheduledDate}-${entry.id || entry.time}`;
+            if (sentBellAlerts.has(key)) continue;
+            sentBellAlerts.add(key);
+            const subscriptions = await callPython({ action: 'get_all_push_subscriptions' });
+            const payload = JSON.stringify({
+                title: '🔔 School Bell',
+                body: entry.message || 'ITS TIME',
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                vibrate: [400, 200, 400, 200, 700],
+                data: { url: '/', bell: true }
+            });
+            for (const item of subscriptions.subscriptions || []) {
+                if (!item.subscription) continue;
+                try {
+                    await webPush.sendNotification(item.subscription, payload);
+                } catch (err) {
+                    console.error(`[Bell Push Error] Device ${item.endpoint || ''}:`, err.statusCode || err.message);
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                        await callPython({ action: 'delete_push_subscription', endpoint: item.endpoint });
+                    }
+                }
+            }
+            console.log(`[Bell Scheduler] Sent bell push for ${entry.time} to ${subscriptions.subscriptions?.length || 0} subscribed devices.`);
+        }
+        if (sentBellAlerts.size > 500) sentBellAlerts.clear();
+    } catch (err) {
+        console.error('[Bell Scheduler Error]:', err.message);
+    }
+}, 5000);
+
 // GET Public Key
 app.get('/api/push/public-key', async (req, res) => {
     try {
