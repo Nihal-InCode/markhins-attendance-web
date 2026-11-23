@@ -67,6 +67,7 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/icon-192.png',
     badge: data.badge || '/icon-192.png',
+    silent: false,
     vibrate: [200, 100, 200, 100, 300],
     data: data.data || { url: '/teachers' },
     actions: [
