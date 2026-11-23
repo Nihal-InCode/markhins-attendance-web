@@ -576,6 +576,7 @@ export const savePushSubscription = (subscription, phone = '') => apiRequest('/a
     body: JSON.stringify({ subscription, phone, userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '' }),
 });
 export const getPushSetting = () => apiRequest('/admin/push-setting');
+export const getBellSchedule = () => apiRequest('/api/bell-schedule');
 export const updatePushSetting = (data) => apiRequest('/admin/push-setting', {
     method: 'POST',
     body: JSON.stringify(data),

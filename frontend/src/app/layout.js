@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { LoadingProvider } from "@/context/LoadingContext";
 import PushNotificationManager from "@/components/PushNotificationManager";
+import BellScheduler from "@/components/BellScheduler";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <LoadingProvider>
             <PushNotificationManager />
+            <BellScheduler />
             <main className="min-h-screen w-full">
               {children}
             </main>

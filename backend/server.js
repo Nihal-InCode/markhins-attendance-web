@@ -3100,9 +3100,19 @@ app.get('/admin/push-setting', authenticateToken, async (req, res) => {
 app.post('/admin/push-setting', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required' });
-        const { enabled, reminder_time } = req.body;
-        const result = await callPython({ action: 'save_push_setting', enabled, reminder_time });
+        const { enabled, reminder_time, bell_schedule } = req.body;
+        const result = await callPython({ action: 'save_push_setting', enabled, reminder_time, bell_schedule });
         res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// Bell schedules are readable by signed-in devices so the client can ring locally.
+app.get('/api/bell-schedule', authenticateToken, async (req, res) => {
+    try {
+        const result = await callPython({ action: 'get_push_setting' });
+        res.json({ enabled: result.enabled !== false, bell_schedule: result.bell_schedule || [] });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

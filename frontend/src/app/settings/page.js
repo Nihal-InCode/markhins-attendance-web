@@ -199,6 +199,8 @@ export default function SettingsPage() {
     const [historyOpenKey, setHistoryOpenKey] = useState("");
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
+    const [bellSchedule, setBellSchedule] = useState([]);
+    const [newBellTime, setNewBellTime] = useState("09:00");
     const [pushSubCount, setPushSubCount] = useState(0);
     const [pushBusy, setPushBusy] = useState(false);
     const [pushTestTitle, setPushTestTitle] = useState("MARKHINS HUB Test Notification");
@@ -298,6 +300,7 @@ export default function SettingsPage() {
             if (pushRes) {
                 setPushEnabled(pushRes.enabled !== false);
                 setPushReminderTime(pushRes.reminder_time || "08:00");
+                setBellSchedule(Array.isArray(pushRes.bell_schedule) ? pushRes.bell_schedule : []);
                 setPushSubCount(pushRes.subscription_count || 0);
             }
             if (geofenceRes) {
@@ -643,7 +646,7 @@ export default function SettingsPage() {
         setMsg("");
         setError("");
         try {
-            const res = await updatePushSetting({ enabled: enabledVal, reminder_time: timeVal });
+            const res = await updatePushSetting({ enabled: enabledVal, reminder_time: timeVal, bell_schedule });
             setPushEnabled(enabledVal);
             setPushReminderTime(timeVal);
             setMsg("Web push notification settings updated successfully.");
@@ -654,6 +657,29 @@ export default function SettingsPage() {
         } finally {
             setPushBusy(false);
         }
+    }
+
+    async function handleSaveBellSchedule(nextSchedule = bellSchedule) {
+        setPushBusy(true);
+        setMsg("");
+        setError("");
+        try {
+            await updatePushSetting({ enabled: pushEnabled, reminder_time: pushReminderTime, bell_schedule: nextSchedule });
+            setBellSchedule(nextSchedule);
+            setMsg("Bell schedule saved. Bells play on signed-in devices while the app is open.");
+            playSound('success');
+        } catch (err) {
+            playSound('error');
+            setError(err.message);
+        } finally {
+            setPushBusy(false);
+        }
+    }
+
+    function previewBell() {
+        if (typeof window === "undefined") return;
+        const audio = new Audio("/sounds/bell.mp3");
+        audio.play().catch((err) => setError(`Could not play /sounds/bell.mp3: ${err.message}`));
     }
 
     async function handleSendTestPush() {
@@ -1625,6 +1651,36 @@ export default function SettingsPage() {
                                         </div>
                                         <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2.5 py-1 rounded-lg">Active</span>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-900">School Bell Schedule</h3>
+                                        <p className="mt-1 text-[11px] text-gray-500">Add as many daily bell times as needed. Bells ring on signed-in devices while the app is open.</p>
+                                    </div>
+                                    <button type="button" onClick={previewBell} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100">🔔 Test Bell</button>
+                                </div>
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                    <input type="time" value={newBellTime} onChange={(e) => setNewBellTime(e.target.value)} className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold" />
+                                    <button type="button" disabled={pushBusy || bellSchedule.some((entry) => entry.time === newBellTime)} onClick={() => handleSaveBellSchedule([...bellSchedule, { id: `${Date.now()}`, time: newBellTime, enabled: true, message: "" }].sort((a, b) => a.time.localeCompare(b.time)))} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-white hover:bg-amber-600 disabled:opacity-50">Add Bell Time</button>
+                                    <button type="button" disabled={pushBusy} onClick={() => handleSaveBellSchedule()} className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-black disabled:opacity-50">{pushBusy ? "Saving..." : "Save Bell Schedule"}</button>
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                    {bellSchedule.length === 0 ? <p className="rounded-xl border border-dashed border-amber-200 bg-white/70 px-3 py-4 text-center text-xs text-gray-400">No bell times added yet.</p> : bellSchedule.map((entry) => (
+                                        <div key={entry.id || entry.time} className="rounded-xl border border-gray-100 bg-white px-3 py-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <label className="flex items-center gap-3 text-sm font-bold text-gray-800">
+                                                    <input type="checkbox" checked={entry.enabled !== false} onChange={(e) => setBellSchedule((current) => current.map((item) => item === entry ? { ...item, enabled: e.target.checked } : item))} className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
+                                                    <span>{entry.time}</span>
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{entry.enabled === false ? "Disabled" : "Daily"}</span>
+                                                </label>
+                                                <button type="button" disabled={pushBusy} onClick={() => handleSaveBellSchedule(bellSchedule.filter((item) => item !== entry))} className="rounded-lg px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50">Remove</button>
+                                            </div>
+                                            <input type="text" maxLength={200} value={entry.message || ""} onChange={(e) => setBellSchedule((current) => current.map((item) => item === entry ? { ...item, message: e.target.value } : item))} placeholder="Message to show on screen (optional)" aria-label={`Message for ${entry.time} bell`} className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold text-gray-800 outline-none focus:border-amber-400" />
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 

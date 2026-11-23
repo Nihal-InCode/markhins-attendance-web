@@ -10007,6 +10007,13 @@ if __name__ == "__main__":
                     c.execute("SELECT value FROM system_settings WHERE key='push_reminder_time'")
                     row_t = c.fetchone()
                     reminder_val = row_t[0] if row_t else "08:00"
+
+                    c.execute("SELECT value FROM system_settings WHERE key='bell_schedule'")
+                    row_bell = c.fetchone()
+                    try:
+                        bell_schedule = json.loads(row_bell[0]) if row_bell and row_bell[0] else []
+                    except (TypeError, ValueError):
+                        bell_schedule = []
                     
                     c.execute("SELECT value FROM system_settings WHERE key='vapid_public_key'")
                     row_pub = c.fetchone()
@@ -10023,6 +10030,7 @@ if __name__ == "__main__":
                         "success": True,
                         "enabled": str(enabled_val) in ["1", "true", "True"],
                         "reminder_time": reminder_val,
+                        "bell_schedule": bell_schedule if isinstance(bell_schedule, list) else [],
                         "vapid_public_key": pub_key,
                         "vapid_private_key": priv_key,
                         "subscription_count": sub_count
@@ -10031,11 +10039,22 @@ if __name__ == "__main__":
                 elif action == "save_push_setting":
                     enabled = "1" if (data.get("enabled") is True or str(data.get("enabled")) in ["1", "true", "True"]) else "0"
                     reminder_time = data.get("reminder_time", "08:00")
+                    bell_schedule = data.get("bell_schedule")
                     vapid_public = data.get("vapid_public_key")
                     vapid_private = data.get("vapid_private_key")
                     
                     c.execute("INSERT INTO system_settings (key, value) VALUES ('push_notifications_enabled', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (enabled,))
                     c.execute("INSERT INTO system_settings (key, value) VALUES ('push_reminder_time', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (reminder_time,))
+                    if bell_schedule is not None:
+                        clean_schedule = []
+                        if isinstance(bell_schedule, list):
+                            for entry in bell_schedule:
+                                if not isinstance(entry, dict):
+                                    continue
+                                time_value = str(entry.get("time", ""))
+                                if len(time_value) == 5 and time_value[2] == ":" and time_value[:2].isdigit() and time_value[3:].isdigit() and int(time_value[:2]) < 24 and int(time_value[3:]) < 60:
+                                    clean_schedule.append({"id": str(entry.get("id") or time_value), "time": time_value, "enabled": entry.get("enabled") is not False, "message": str(entry.get("message") or "")[:200]})
+                        c.execute("INSERT INTO system_settings (key, value) VALUES ('bell_schedule', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(clean_schedule),))
                     if vapid_public is not None:
                         c.execute("INSERT INTO system_settings (key, value) VALUES ('vapid_public_key', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(vapid_public),))
                     if vapid_private is not None:
