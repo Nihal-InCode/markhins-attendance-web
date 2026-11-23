@@ -10014,6 +10014,13 @@ if __name__ == "__main__":
                         bell_schedule = json.loads(row_bell[0]) if row_bell and row_bell[0] else []
                     except (TypeError, ValueError):
                         bell_schedule = []
+
+                    c.execute("SELECT value FROM system_settings WHERE key='bell_delivery_log'")
+                    row_bell_log = c.fetchone()
+                    try:
+                        bell_delivery_log = json.loads(row_bell_log[0]) if row_bell_log and row_bell_log[0] else []
+                    except (TypeError, ValueError):
+                        bell_delivery_log = []
                     
                     c.execute("SELECT value FROM system_settings WHERE key='vapid_public_key'")
                     row_pub = c.fetchone()
@@ -10031,6 +10038,7 @@ if __name__ == "__main__":
                         "enabled": str(enabled_val) in ["1", "true", "True"],
                         "reminder_time": reminder_val,
                         "bell_schedule": bell_schedule if isinstance(bell_schedule, list) else [],
+                        "bell_delivery_log": bell_delivery_log if isinstance(bell_delivery_log, list) else [],
                         "vapid_public_key": pub_key,
                         "vapid_private_key": priv_key,
                         "subscription_count": sub_count
@@ -10062,6 +10070,26 @@ if __name__ == "__main__":
                         
                     conn.commit()
                     result = {"success": True, "message": "Push notification settings saved successfully"}
+
+                elif action == "save_bell_delivery_log":
+                    record = data.get("record")
+                    if not isinstance(record, dict) or not record.get("key"):
+                        result = {"success": False, "message": "Invalid bell delivery record"}
+                    else:
+                        c.execute("SELECT value FROM system_settings WHERE key='bell_delivery_log'")
+                        row_log = c.fetchone()
+                        try:
+                            records = json.loads(row_log[0]) if row_log and row_log[0] else []
+                        except (TypeError, ValueError):
+                            records = []
+                        if not isinstance(records, list):
+                            records = []
+                        records = [item for item in records if isinstance(item, dict) and item.get("key") != record["key"]]
+                        records.append(record)
+                        records = records[-100:]
+                        c.execute("INSERT INTO system_settings (key, value) VALUES ('bell_delivery_log', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(records, ensure_ascii=False),))
+                        conn.commit()
+                        result = {"success": True, "message": "Bell delivery record saved"}
 
                 elif action == "get_pending_scans_for_push":
                     today_date = get_ist_now().strftime("%Y-%m-%d")

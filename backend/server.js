@@ -3097,20 +3097,41 @@ setInterval(async () => {
                 icon: '/icon-192.png',
                 badge: '/icon-192.png',
                 vibrate: [400, 200, 400, 200, 700],
-                data: { url: '/', bell: true }
+                data: { url: '/', bell: true, bellId: String(entry.id || entry.time), scheduledDate: entry.scheduledDate }
             });
-            for (const item of subscriptions.subscriptions || []) {
+            const allSubscriptions = subscriptions.subscriptions || [];
+            const teacherNames = new Map(allSubscriptions.filter((item) => item.teacher_id).map((item) => [String(item.teacher_id), item.teacher_name || 'Faculty']));
+            const deliveredTeachers = new Map();
+            let failedCount = 0;
+            for (const item of allSubscriptions) {
                 if (!item.subscription) continue;
                 try {
                     await webPush.sendNotification(item.subscription, payload);
+                    if (item.teacher_id) deliveredTeachers.set(String(item.teacher_id), item.teacher_name || 'Faculty');
                 } catch (err) {
+                    failedCount++;
                     console.error(`[Bell Push Error] Device ${item.endpoint || ''}:`, err.statusCode || err.message);
                     if (err.statusCode === 410 || err.statusCode === 404) {
                         await callPython({ action: 'delete_push_subscription', endpoint: item.endpoint });
                     }
                 }
             }
-            console.log(`[Bell Scheduler] Sent bell push for ${entry.time} to ${subscriptions.subscriptions?.length || 0} subscribed devices.`);
+            const deliveredNames = [...deliveredTeachers.values()];
+            await callPython({
+                action: 'save_bell_delivery_log',
+                record: {
+                    key,
+                    date: entry.scheduledDate,
+                    time: entry.time,
+                    message: entry.message || 'ITS TIME',
+                    total_teacher_count: teacherNames.size,
+                    delivered_teacher_count: deliveredTeachers.size,
+                    delivered_teacher_names: deliveredNames,
+                    failed_count: failedCount,
+                    logged_at: new Date().toISOString()
+                }
+            });
+            console.log(`[Bell Scheduler] Sent bell push for ${entry.time} to ${deliveredTeachers.size}/${teacherNames.size} subscribed teachers.`);
         }
         if (sentBellAlerts.size > 500) sentBellAlerts.clear();
     } catch (err) {

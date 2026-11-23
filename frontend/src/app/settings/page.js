@@ -200,6 +200,7 @@ export default function SettingsPage() {
     const [pushEnabled, setPushEnabled] = useState(true);
     const [pushReminderTime, setPushReminderTime] = useState("08:00");
     const [bellSchedule, setBellSchedule] = useState([]);
+    const [bellDeliveryLog, setBellDeliveryLog] = useState([]);
     const [newBellTime, setNewBellTime] = useState("09:00");
     const [pushSubCount, setPushSubCount] = useState(0);
     const [pushBusy, setPushBusy] = useState(false);
@@ -301,6 +302,7 @@ export default function SettingsPage() {
                 setPushEnabled(pushRes.enabled !== false);
                 setPushReminderTime(pushRes.reminder_time || "08:00");
                 setBellSchedule(Array.isArray(pushRes.bell_schedule) ? pushRes.bell_schedule : []);
+                setBellDeliveryLog(Array.isArray(pushRes.bell_delivery_log) ? pushRes.bell_delivery_log : []);
                 setPushSubCount(pushRes.subscription_count || 0);
             }
             if (geofenceRes) {
@@ -702,6 +704,20 @@ export default function SettingsPage() {
         if (!user || user.role !== 'admin') { router.push("/"); return; }
         fetchData();
     }, [fetchData, router, user]);
+
+    useEffect(() => {
+        if (activeTab !== "notifications") return;
+        const refreshBellDeliveryLog = async () => {
+            try {
+                const pushRes = await getPushSetting();
+                setBellDeliveryLog(Array.isArray(pushRes?.bell_delivery_log) ? pushRes.bell_delivery_log : []);
+                setPushSubCount(pushRes?.subscription_count || 0);
+            } catch (_) {}
+        };
+        refreshBellDeliveryLog();
+        const interval = window.setInterval(refreshBellDeliveryLog, 15000);
+        return () => window.clearInterval(interval);
+    }, [activeTab]);
 
     async function refreshTeachers() {
         const res = await getAdminTeachers();
@@ -1679,6 +1695,17 @@ export default function SettingsPage() {
                                                 <button type="button" disabled={pushBusy} onClick={() => handleSaveBellSchedule(bellSchedule.filter((item) => item !== entry))} className="rounded-lg px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50">Remove</button>
                                             </div>
                                             <input type="text" maxLength={200} value={entry.message || ""} onChange={(e) => setBellSchedule((current) => current.map((item) => item === entry ? { ...item, message: e.target.value } : item))} placeholder="Message to show on screen (optional)" aria-label={`Message for ${entry.time} bell`} className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-semibold text-gray-800 outline-none focus:border-amber-400" />
+                                            {(() => {
+                                                const latestDelivery = bellDeliveryLog.filter((record) => record.time === entry.time).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))[0];
+                                                return latestDelivery ? (
+                                                    <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+                                                        <span className="font-black">Push accepted for {latestDelivery.delivered_teacher_count || 0} of {latestDelivery.total_teacher_count || 0} subscribed teachers</span>
+                                                        <span className="ml-1 text-emerald-700">({latestDelivery.date})</span>
+                                                        <p className="mt-1 text-[10px] text-emerald-700">{(latestDelivery.delivered_teacher_names || []).join(", ") || "No subscribed teachers received the push."}</p>
+                                                        <p className="mt-1 text-[9px] text-emerald-700/80">This counts push sends accepted for teachers’ devices. Android does not report whether notification sound was audible.</p>
+                                                    </div>
+                                                ) : <p className="mt-2 text-[10px] text-gray-400">No delivery record yet. The count updates after this bell’s scheduled push.</p>;
+                                            })()}
                                         </div>
                                     ))}
                                 </div>
