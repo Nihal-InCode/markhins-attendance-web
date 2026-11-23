@@ -43,13 +43,8 @@ export default function BellScheduler() {
           const remaining = Math.max(0, 10 - Math.floor((Date.now() - startedAt) / 1000));
           setCountdown(remaining);
           if (remaining <= 0) {
-            audio.pause();
-            audio.currentTime = 0;
             window.clearInterval(countdownInterval);
             countdownInterval = null;
-            audioRef.current = null;
-            setCountdown(null);
-            setBellMessage("");
           }
         }, 200);
       } catch (error) {
