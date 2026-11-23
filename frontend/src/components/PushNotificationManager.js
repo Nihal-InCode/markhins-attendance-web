@@ -16,7 +16,7 @@ function urlBase64ToUint8Array(base64String) {
 
 export default function PushNotificationManager() {
   const { user } = useAuth();
-  const [subscriptionReady, setSubscriptionReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const subscribeUser = useCallback(async () => {
@@ -39,12 +39,10 @@ export default function PushNotificationManager() {
       if (subscription && user) {
         const result = await savePushSubscription(subscription, user.phone || user.username || '');
         if (result?.success === false) throw new Error(result.message || "Could not register this device.");
-        setSubscriptionReady(true);
         console.log('[PushNotificationManager] Web Push Subscription saved.');
       }
       return true;
     } catch (err) {
-      setSubscriptionReady(false);
       console.warn('[PushNotificationManager Error]:', err.message);
       return false;
     }
@@ -61,7 +59,7 @@ export default function PushNotificationManager() {
     setBusy(true);
     try {
       const result = await Notification.requestPermission();
-      if (result === 'granted') await subscribeUser();
+      if (result === 'granted' && await subscribeUser()) setDismissed(true);
     } catch (err) {
       console.warn('[PushNotificationManager Error]:', err.message);
     } finally {
@@ -69,7 +67,7 @@ export default function PushNotificationManager() {
     }
   };
 
-  if (!user || typeof window === 'undefined' || !('Notification' in window) || subscriptionReady) return null;
+  if (!user || typeof window === 'undefined' || !('Notification' in window) || dismissed) return null;
 
   return (
     <div className="fixed bottom-4 left-3 right-3 z-[10000] mx-auto flex max-w-lg justify-center sm:left-auto sm:right-5">
