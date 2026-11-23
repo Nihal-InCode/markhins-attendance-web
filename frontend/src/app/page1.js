@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -4447,10 +4447,10 @@ export default function DashboardPage() {
                           <tr className="bg-blue-50/30 border-b border-gray-100">
                             <th style={{ padding: thPadding, minWidth: minWidthClass }} className="text-[10px] font-black text-[#0d9488] uppercase tracking-[0.2em] sticky left-0 bg-white z-10 border-r border-gray-100">Class</th>
                             {periods.map(p => (
-                              <React.Fragment key={p}>
+                              <Fragment key={p}>
                                 <th style={{ padding: thPadding, minWidth: minWidthPeriod }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Period {p}</th>
                                 {p === 'P2' && <th rowSpan={fullTimetable.length + 1} style={{ padding: `${0.75 * zoomScale}rem ${0.5 * zoomScale}rem`, width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="border border-teal-100 bg-teal-50 text-center align-middle text-[10px] font-black tracking-[0.18em] text-teal-800"><span className="[writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
-                              </React.Fragment>
+                              </Fragment>
                             ))}
                           </tr>
                         </thead>
@@ -4479,7 +4479,7 @@ export default function DashboardPage() {
                                   cellBg = 'bg-emerald-50/80 border-emerald-250 text-emerald-950 shadow-sm font-extrabold ring-2 ring-emerald-500/20';
                                 }
                                 return (
-                                  <React.Fragment key={p}>
+                                  <Fragment key={p}>
                                   <td style={{ padding: tdPadding, minWidth: minWidthPeriod }} className={`text-center transition-all border ${cellBg ? cellBg : 'border-gray-50'} ${timetableEditMode && canEditTimetable ? 'cursor-pointer hover:ring-2 hover:ring-[#0d9488]/30' : ''}`}
                                     onClick={timetableEditMode && canEditTimetable ? () => openTimetableEditCell(row.class, p, item) : undefined}>
                                     {item ? (
@@ -4538,7 +4538,7 @@ export default function DashboardPage() {
                                     )}
                                   </td>
                                   {p === 'P2' && <td className="border border-teal-100 bg-teal-50/70" />}
-                                  </React.Fragment>
+                                  </Fragment>
                                 );
                               })}
                             </tr>
@@ -10126,12 +10126,12 @@ export default function DashboardPage() {
                     <tr>
                       <th className="w-[8%] border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">CLASS</th>
                       {periods.map((period) => (
-                        <React.Fragment key={period}>
+                        <Fragment key={period}>
                           <th className="border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">
                             PERIOD {period.replace("P", "")}
                           </th>
                           {period === "P2" && <th rowSpan={fullTimetable.length + 1} className="w-[6%] border border-teal-200 bg-teal-50 px-1 py-2 text-[6px] font-black tracking-wider text-teal-800"><span className="[writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
-                        </React.Fragment>
+                        </Fragment>
                       ))}
                     </tr>
                   </thead>
@@ -10150,7 +10150,7 @@ export default function DashboardPage() {
                             ? (isMySubstitution || isOwnSubstitute ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50")
                             : (isMyPeriod ? "border-emerald-300 bg-emerald-50" : "border-slate-300 bg-white");
                           return (
-                            <React.Fragment key={period}>
+                            <Fragment key={period}>
                             <td className={`border px-1 py-2 text-center ${cellColor}`}>
                               {item ? (
                                 <>
@@ -10176,7 +10176,7 @@ export default function DashboardPage() {
                               )}
                             </td>
                             {period === "P2" && <td className="border border-teal-100 bg-teal-50/70" />}
-                            </React.Fragment>
+                            </Fragment>
                           );
                         })}
                       </tr>
