@@ -4448,8 +4448,8 @@ export default function DashboardPage() {
                             <th style={{ padding: thPadding, minWidth: minWidthClass }} className="text-[10px] font-black text-[#0d9488] uppercase tracking-[0.2em] sticky left-0 bg-white z-10 border-r border-gray-100">Class</th>
                             {periods.map(p => (
                               <Fragment key={p}>
-                                <th style={{ padding: thPadding, minWidth: minWidthPeriod }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Period {p}</th>
-                                {p === 'P2' && <th rowSpan={fullTimetable.length + 1} style={{ padding: `${0.75 * zoomScale}rem ${0.5 * zoomScale}rem`, width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="border border-teal-100 bg-teal-50 text-center align-middle text-[10px] font-black tracking-[0.18em] text-teal-800"><span className="[writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
+                                <th style={{ padding: thPadding, minWidth: minWidthPeriod }} className="text-[8px] font-black text-gray-400 uppercase tracking-[0.15em] text-center">Period {p}</th>
+                                {p === 'P2' && <th rowSpan={fullTimetable.length + 1} style={{ width: `${64 * zoomScale}px`, minWidth: `${64 * zoomScale}px` }} className="relative border border-teal-100 bg-teal-50 p-0 text-center align-middle text-[10px] font-black tracking-[0.18em] text-teal-800"><span className="absolute inset-0 flex items-center justify-center [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
                               </Fragment>
                             ))}
                           </tr>
@@ -10130,7 +10130,7 @@ export default function DashboardPage() {
                           <th className="border border-slate-300 bg-[#073b4c] px-1 py-2 text-[7px] font-black tracking-wider text-white">
                             PERIOD {period.replace("P", "")}
                           </th>
-                          {period === "P2" && <th rowSpan={fullTimetable.length + 1} className="w-[6%] border border-teal-200 bg-teal-50 px-1 py-2 text-[6px] font-black tracking-wider text-teal-800"><span className="[writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
+                          {period === "P2" && <th rowSpan={fullTimetable.length + 1} className="relative w-[6%] border border-teal-200 bg-teal-50 p-0 text-[6px] font-black tracking-wider text-teal-800"><span className="absolute inset-0 flex items-center justify-center [writing-mode:vertical-rl] [text-orientation:mixed] rotate-180 whitespace-nowrap">HEALTH &amp; FITNESS</span></th>}
                         </Fragment>
                       ))}
                     </tr>
