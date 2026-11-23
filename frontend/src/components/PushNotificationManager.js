@@ -16,7 +16,7 @@ function urlBase64ToUint8Array(base64String) {
 
 export default function PushNotificationManager() {
   const { user } = useAuth();
-  const [dismissed, setDismissed] = useState(false);
+  const [promptVisible, setPromptVisible] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const subscribeUser = useCallback(async () => {
@@ -51,7 +51,20 @@ export default function PushNotificationManager() {
   useEffect(() => {
     if (!user) return;
     if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'granted') subscribeUser();
+    const userKey = user.id || user.username || user.phone || "user";
+    const promptKey = `markhins-notification-prompt-seen:${userKey}`;
+    if (Notification.permission === 'granted') {
+      window.localStorage.setItem(promptKey, "1");
+      setPromptVisible(false);
+      subscribeUser();
+      return;
+    }
+    if (window.localStorage.getItem(promptKey)) {
+      setPromptVisible(false);
+      return;
+    }
+    window.localStorage.setItem(promptKey, "1");
+    setPromptVisible(true);
   }, [user, subscribeUser]);
 
   const requestPushPermission = async () => {
@@ -59,7 +72,7 @@ export default function PushNotificationManager() {
     setBusy(true);
     try {
       const result = await Notification.requestPermission();
-      if (result === 'granted' && await subscribeUser()) setDismissed(true);
+      if (result === 'granted' && await subscribeUser()) setPromptVisible(false);
     } catch (err) {
       console.warn('[PushNotificationManager Error]:', err.message);
     } finally {
@@ -67,7 +80,7 @@ export default function PushNotificationManager() {
     }
   };
 
-  if (!user || typeof window === 'undefined' || !('Notification' in window) || dismissed) return null;
+  if (!user || typeof window === 'undefined' || !('Notification' in window) || !promptVisible) return null;
 
   return (
     <div className="fixed bottom-4 left-3 right-3 z-[10000] mx-auto flex max-w-lg justify-center sm:left-auto sm:right-5">
